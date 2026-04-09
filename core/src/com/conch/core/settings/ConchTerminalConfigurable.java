@@ -64,11 +64,11 @@ public final class ConchTerminalConfigurable implements Configurable {
         addLabeledRow(gbc, row++, "Font size:", fontSizeSpinner, null);
 
         // Line Spacing
-        lineSpacingSpinner = new JSpinner(new SpinnerNumberModel(1.0, 0.8, 2.0, 0.05));
+        lineSpacingSpinner = new JSpinner(new SpinnerNumberModel(1.0, 0.5, 3.0, 0.05));
         addLabeledRow(gbc, row++, "Line spacing:", lineSpacingSpinner, "(1.0 = normal)");
 
         // Character Spacing
-        charSpacingSpinner = new JSpinner(new SpinnerNumberModel(0.0, -0.1, 0.5, 0.01));
+        charSpacingSpinner = new JSpinner(new SpinnerNumberModel(0.0, -0.5, 1.0, 0.01));
         addLabeledRow(gbc, row++, "Character spacing:", charSpacingSpinner, "(0.0 = normal)");
 
         // === Cursor Section ===
