@@ -1,18 +1,30 @@
 load("@rules_java//java:defs.bzl", "java_binary")
-load("@rules_jvm//:jvm.bzl", "jvm_library")
-load("@rules_jvm//:jvm.bzl", "resourcegroup")
 
 # Run Conch from the command line.
-# Uses the full IDEA :main as runtime base (all platform modules),
-# plus Conch-specific modules. The -Didea.platform.prefix=Conch
-# flag controls which product configuration and plugins load.
+# Depends on the platform monolith (no product plugins) plus only
+# the specific modules and plugins Conch needs. No Java, VCS, Gradle,
+# AI, or other IDE plugins are included.
 java_binary(
     name = "conch_run",
     runtime_deps = [
-        "//:main",              # Full platform runtime
-        "//conch/customization", # Conch branding
-        "//conch/core",          # Conch terminal plugin
-        "//conch/sdk",           # Conch SDK
+        # Platform core runtime (no product plugins)
+        "//platform/main/intellij.platform.monolith.main:monolith-main",
+        "//platform/boot",
+        "//platform/bootstrap",
+        "//platform/starter",
+
+        # Conch modules
+        "//conch/customization",
+        "//conch/core",
+        "//conch/sdk",
+
+        # Bundled plugins — ONLY these exist in Conch
+        "//plugins/sh/plugin",
+        "//plugins/textmate",
+        "//plugins/yaml",
+        "//plugins/toml",
+        "//json",
+        "//plugins/search-everywhere-ml",
     ],
     main_class = "com.intellij.idea.Main",
     jvm_flags = [
@@ -83,11 +95,7 @@ java_binary(
         "-Didea.jre.check=true",
         "-Didea.is.internal=true",
         "-Didea.debug.mode=true",
-        # Conch-specific
-        # Use "Idea" prefix during dev so the platform loads all standard modules.
-        # The Conch product stripping happens at distribution build time via ConchProperties.kt.
-        # TODO: Switch to "Conch" once product-dsl generator is run for Conch product.
-        "-Didea.platform.prefix=Idea",
+        "-Didea.platform.prefix=Conch",
         "-Didea.config.path=$${BUILD_WORKSPACE_DIRECTORY}/config/conch",
         "-Didea.system.path=$${BUILD_WORKSPACE_DIRECTORY}/system/conch",
         "-Didea.trust.all.projects=true",

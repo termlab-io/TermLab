@@ -3,6 +3,7 @@
 
   <xi:include href="/META-INF/PlatformLangPlugin.xml"/>
 
-  <content namespace="conch">
-  </content>
+  <!-- Include the essential.minimal module set — provides all platform
+       content modules (settings, editor, search, credentials, etc.) -->
+  <xi:include href="/META-INF/intellij.moduleSets.essential.minimal.xml"/>
 </idea-plugin>
