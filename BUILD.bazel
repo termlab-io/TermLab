@@ -103,5 +103,7 @@ java_binary(
         "-Dnosplash=true",
         "-Dide.no.tips.dialog=true",
         "-Dfus.internal.test.mode=true",
+        # Use Classic UI by default (disable new UI)
+        "-Dide.experimental.ui=false",
     ],
 )
