@@ -1,6 +1,5 @@
 package com.conch.core.settings;
 
-import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.options.Configurable;
 import com.intellij.openapi.options.ConfigurationException;
 import com.intellij.ui.ColorPanel;
@@ -165,7 +164,6 @@ public final class ConchTerminalConfigurable implements Configurable {
     @Override
     public boolean isModified() {
         ConchTerminalConfig.State state = ConchTerminalConfig.getInstance().getState();
-        if (state == null) return false;
 
         return !getSelectedFont().equals(state.fontFamily)
             || (int) fontSizeSpinner.getValue() != state.fontSize
@@ -185,13 +183,7 @@ public final class ConchTerminalConfigurable implements Configurable {
     @Override
     public void apply() throws ConfigurationException {
         ConchTerminalConfig config = ConchTerminalConfig.getInstance();
-        if (config == null) return;
-
         ConchTerminalConfig.State state = config.getState();
-        if (state == null) {
-            state = new ConchTerminalConfig.State();
-            config.loadState(state);
-        }
 
         state.fontFamily = getSelectedFont();
         state.fontSize = (int) fontSizeSpinner.getValue();
@@ -207,14 +199,13 @@ public final class ConchTerminalConfigurable implements Configurable {
         state.audibleBell = audibleBellCheck.isSelected();
         state.enableMouseReporting = mouseReportingCheck.isSelected();
 
-        // Flush to disk immediately — don't rely on shutdown saving
-        ApplicationManager.getApplication().saveSettings();
+        // Save to disk immediately
+        config.save();
     }
 
     @Override
     public void reset() {
         ConchTerminalConfig.State state = ConchTerminalConfig.getInstance().getState();
-        if (state == null) state = new ConchTerminalConfig.State();
 
         fontFamilyCombo.setSelectedItem(state.fontFamily);
         fontSizeSpinner.setValue(state.fontSize);

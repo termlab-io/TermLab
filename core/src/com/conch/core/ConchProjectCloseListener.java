@@ -11,16 +11,15 @@ import org.jetbrains.annotations.NotNull;
 public final class ConchProjectCloseListener implements ProjectManagerListener {
     @Override
     public void projectClosing(@NotNull Project project) {
-        // Save terminal workspace
         WorkspaceManager.getInstance(project).save();
 
-        // Save Project View visibility state in our own config
-        // (platform state persistence is unreliable with our setup)
+        // Save Project View visibility and flush config to disk
         ToolWindowManager twm = ToolWindowManager.getInstance(project);
         ToolWindow projectView = twm.getToolWindow("Project");
         ConchTerminalConfig config = ConchTerminalConfig.getInstance();
-        if (config != null && config.getState() != null && projectView != null) {
+        if (projectView != null) {
             config.getState().projectViewVisible = projectView.isVisible();
         }
+        config.save();
     }
 }
