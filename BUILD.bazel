@@ -12,7 +12,6 @@ java_binary(
         "//platform/boot",
         "//platform/bootstrap",
         "//platform/starter",
-        "//platform/testRunner",       # Referenced by essentialMinimal module set
 
         # Conch modules
         "//conch/customization",
