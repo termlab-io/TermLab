@@ -1,0 +1,109 @@
+<idea-plugin>
+    <id>com.conch.core</id>
+    <name>Conch Core</name>
+    <version>0.1.0</version>
+    <vendor>Conch</vendor>
+    <description>Terminal-driven workstation built on IntelliJ Platform</description>
+
+    <depends>com.intellij.modules.platform</depends>
+
+    <!-- Conch-defined extension points for plugins to implement -->
+    <extensionPoints>
+        <extensionPoint name="terminalSessionProvider"
+                        interface="com.conch.sdk.TerminalSessionProvider"
+                        dynamic="true"/>
+        <extensionPoint name="commandPaletteContributor"
+                        interface="com.conch.sdk.CommandPaletteContributor"
+                        dynamic="true"/>
+        <extensionPoint name="credentialProvider"
+                        interface="com.conch.sdk.CredentialProvider"
+                        dynamic="true"/>
+    </extensionPoints>
+
+    <extensions defaultExtensionNs="com.intellij">
+        <fileEditorProvider
+            implementation="com.conch.core.terminal.ConchTerminalEditorProvider"/>
+
+        <postStartupActivity
+            implementation="com.conch.core.ConchStartupActivity"/>
+
+        <projectService
+            serviceImplementation="com.conch.core.workspace.WorkspaceManager"/>
+
+        <projectService
+            serviceImplementation="com.conch.core.explorer.CwdSyncManager"/>
+
+        <searchEverywhereContributor
+            implementation="com.conch.core.palette.TerminalPaletteContributor$Factory"/>
+    </extensions>
+
+    <applicationListeners>
+        <listener class="com.conch.core.ConchProjectCloseListener"
+                  topic="com.intellij.openapi.project.ProjectManagerListener"/>
+    </applicationListeners>
+
+    <actions>
+        <action id="Conch.CommandPalette"
+                class="com.intellij.ide.actions.SearchEverywhereAction"
+                text="Command Palette"
+                description="Open the Conch command palette">
+            <keyboard-shortcut keymap="$default" first-keystroke="meta shift P"/>
+        </action>
+
+        <group id="Conch.TerminalActions" text="Terminal" popup="true">
+            <add-to-group group-id="MainMenu" anchor="before" relative-to-action="HelpMenu"/>
+
+            <action id="Conch.NewTerminalTab"
+                    class="com.conch.core.actions.NewTerminalTabAction"
+                    text="New Terminal Tab"
+                    description="Open a new local terminal tab">
+                <keyboard-shortcut keymap="$default" first-keystroke="meta T"/>
+            </action>
+
+            <action id="Conch.CloseTerminalTab"
+                    class="com.conch.core.actions.CloseTerminalTabAction"
+                    text="Close Terminal Tab"
+                    description="Close the active terminal tab">
+                <keyboard-shortcut keymap="$default" first-keystroke="meta W"/>
+            </action>
+
+            <action id="Conch.SplitHorizontal"
+                    class="com.conch.core.actions.SplitTerminalHorizontalAction"
+                    text="Split Terminal Right"
+                    description="Split and open a new terminal to the right">
+                <keyboard-shortcut keymap="$default" first-keystroke="meta D"/>
+            </action>
+
+            <action id="Conch.SplitVertical"
+                    class="com.conch.core.actions.SplitTerminalVerticalAction"
+                    text="Split Terminal Down"
+                    description="Split and open a new terminal below">
+                <keyboard-shortcut keymap="$default" first-keystroke="meta shift D"/>
+            </action>
+
+            <separator/>
+
+            <action id="Conch.OpenMiniWindow"
+                    class="com.conch.core.actions.OpenMiniWindowAction"
+                    text="Quick Terminal"
+                    description="Open a lightweight terminal window">
+                <keyboard-shortcut keymap="$default" first-keystroke="meta shift N"/>
+            </action>
+
+            <separator/>
+
+            <action id="Conch.SaveWorkspace"
+                    class="com.conch.core.actions.SaveWorkspaceAction"
+                    text="Save Workspace As..."
+                    description="Save the current workspace layout">
+                <keyboard-shortcut keymap="$default" first-keystroke="meta shift S"/>
+            </action>
+
+            <action id="Conch.LoadWorkspace"
+                    class="com.conch.core.actions.LoadWorkspaceAction"
+                    text="Load Workspace"
+                    description="Load a saved workspace">
+            </action>
+        </group>
+    </actions>
+</idea-plugin>
