@@ -72,11 +72,26 @@ public final class ConchTerminalSettings extends DefaultSettingsProvider {
         );
     }
 
+    // Font with cascading fallback
+    private static final String[] FONT_CANDIDATES = {
+        "JetBrains Mono", "Menlo", "Monaco", "Courier New", "Courier"
+    };
+
     @Override public @NotNull Font getTerminalFont() {
-        return new Font("JetBrains Mono", Font.PLAIN, 14);
+        java.awt.GraphicsEnvironment ge = java.awt.GraphicsEnvironment.getLocalGraphicsEnvironment();
+        java.util.Set<String> available = java.util.Set.of(ge.getAvailableFontFamilyNames());
+        for (String name : FONT_CANDIDATES) {
+            if (available.contains(name)) {
+                return new Font(name, Font.PLAIN, 14);
+            }
+        }
+        return new Font(Font.MONOSPACED, Font.PLAIN, 14);
     }
+
     @Override public float getTerminalFontSize() { return 14.0f; }
+    @Override public boolean useAntialiasing() { return true; }
     @Override public boolean audibleBell() { return false; }
+    @Override public boolean copyOnSelect() { return false; }
     @Override public boolean enableMouseReporting() { return true; }
     @Override public int getBufferMaxLinesCount() { return 10000; }
     @Override public boolean scrollToBottomOnTyping() { return true; }

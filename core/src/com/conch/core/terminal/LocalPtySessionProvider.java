@@ -34,15 +34,14 @@ public final class LocalPtySessionProvider implements TerminalSessionProvider {
             Map<String, String> env = new HashMap<>(System.getenv());
             env.put("TERM", "xterm-256color");
             env.put("COLORTERM", "truecolor");
-
-            String[] command = new String[]{shell, "-l"};
+            env.put("TERM_PROGRAM", "Conch");
 
             PtyProcess process = new PtyProcessBuilder()
-                .setCommand(command)
+                .setCommand(new String[]{shell, "-l"})
                 .setDirectory(workDir)
                 .setEnvironment(env)
-                .setInitialColumns(120)
-                .setInitialRows(40)
+                .setInitialColumns(220)
+                .setInitialRows(50)
                 .start();
 
             return new ProcessTtyConnector(process, StandardCharsets.UTF_8) {
