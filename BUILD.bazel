@@ -2,38 +2,18 @@ load("@rules_java//java:defs.bzl", "java_binary")
 load("@rules_jvm//:jvm.bzl", "jvm_library")
 load("@rules_jvm//:jvm.bzl", "resourcegroup")
 
-# Conch main module — aggregates all runtime dependencies
-jvm_library(
-    name = "main",
-    module_name = "intellij.conch.main",
-    visibility = ["//visibility:public"],
-    srcs = glob([], allow_empty = True),
-    runtime_deps = [
-        # Platform core
-        "//platform/main/intellij.platform.monolith.main:monolith-main",
-        "//platform/boot",
-        "//platform/bootstrap",
-        "//platform/starter",
-
-        # Conch modules
-        "//conch/customization",
-        "//conch/core",
-        "//conch/sdk",
-
-        # Bundled plugins (only these — nothing else)
-        "//plugins/sh/plugin",
-        "//plugins/textmate",
-        "//plugins/search-everywhere-ml",
-        "//plugins/yaml",
-        "//plugins/toml",
-        "//json",
-    ],
-)
-
-# Run Conch from the command line
+# Run Conch from the command line.
+# Uses the full IDEA :main as runtime base (all platform modules),
+# plus Conch-specific modules. The -Didea.platform.prefix=Conch
+# flag controls which product configuration and plugins load.
 java_binary(
     name = "conch_run",
-    runtime_deps = [":main"],
+    runtime_deps = [
+        "//:main",              # Full platform runtime
+        "//conch/customization", # Conch branding
+        "//conch/core",          # Conch terminal plugin
+        "//conch/sdk",           # Conch SDK
+    ],
     main_class = "com.intellij.idea.Main",
     jvm_flags = [
         "--add-opens=java.base/java.io=ALL-UNNAMED",
@@ -50,6 +30,7 @@ java_binary(
         "--add-opens=java.base/java.util.concurrent.atomic=ALL-UNNAMED",
         "--add-opens=java.base/java.util.concurrent.locks=ALL-UNNAMED",
         "--add-opens=java.base/jdk.internal.vm=ALL-UNNAMED",
+        "--add-opens=java.base/jdk.internal.ref=ALL-UNNAMED",
         "--add-opens=java.base/sun.net.dns=ALL-UNNAMED",
         "--add-opens=java.base/sun.nio.ch=ALL-UNNAMED",
         "--add-opens=java.base/sun.nio.fs=ALL-UNNAMED",
@@ -103,7 +84,10 @@ java_binary(
         "-Didea.is.internal=true",
         "-Didea.debug.mode=true",
         # Conch-specific
-        "-Didea.platform.prefix=Conch",
+        # Use "Idea" prefix during dev so the platform loads all standard modules.
+        # The Conch product stripping happens at distribution build time via ConchProperties.kt.
+        # TODO: Switch to "Conch" once product-dsl generator is run for Conch product.
+        "-Didea.platform.prefix=Idea",
         "-Didea.config.path=$${BUILD_WORKSPACE_DIRECTORY}/config/conch",
         "-Didea.system.path=$${BUILD_WORKSPACE_DIRECTORY}/system/conch",
         "-Didea.trust.all.projects=true",
