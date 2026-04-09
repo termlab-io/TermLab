@@ -10,6 +10,7 @@
     <orderEntry type="module" module-name="intellij.conch.customization" />
     <orderEntry type="module" module-name="intellij.conch.core" />
     <orderEntry type="module" module-name="intellij.conch.sdk" scope="RUNTIME" />
+    <orderEntry type="module" module-name="intellij.classic.ui" scope="RUNTIME" />
     <orderEntry type="module" module-name="intellij.sh.plugin.main" scope="RUNTIME" />
     <orderEntry type="module" module-name="intellij.textmate.plugin" scope="RUNTIME" />
     <orderEntry type="module" module-name="intellij.searchEverywhereMl" scope="RUNTIME" />

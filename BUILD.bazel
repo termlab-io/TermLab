@@ -19,6 +19,7 @@ java_binary(
         "//conch/sdk",
 
         # Bundled plugins — ONLY these exist in Conch
+        "//plugins/classic-ui",
         "//plugins/sh/plugin",
         "//plugins/textmate",
         "//plugins/yaml",
