@@ -3,7 +3,8 @@ package com.conch.core.terminal;
 import com.jediterm.terminal.TtyConnector;
 import org.jetbrains.annotations.NotNull;
 
-import java.awt.*;
+import com.jediterm.core.util.TermSize;
+
 import java.io.IOException;
 import java.util.function.Consumer;
 import java.util.regex.Matcher;
@@ -59,6 +60,5 @@ public final class OscTrackingTtyConnector implements TtyConnector {
     @Override public boolean ready() throws IOException { return delegate.ready(); }
     @Override public String getName() { return delegate.getName(); }
     @Override public void close() { delegate.close(); }
-    @Override public void resize(Dimension termWinSize) { delegate.resize(termWinSize); }
-    @Override public void resize(Dimension termWinSize, Dimension pixelSize) { delegate.resize(termWinSize, pixelSize); }
+    @Override public void resize(TermSize termSize) { delegate.resize(termSize); }
 }
