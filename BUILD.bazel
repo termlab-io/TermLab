@@ -90,6 +90,7 @@ java_binary(
         "-Dsun.awt.disablegrab=true",
         "-Dsun.java2d.metal=true",
         "-Dapple.laf.useScreenMenuBar=true",
+        "-Dapple.awt.application.icon=$${BUILD_WORKSPACE_DIRECTORY}/conch/customization/resources/conch.icns",
         "-Djdk.attach.allowAttachSelf",
         "-Djdk.module.illegalAccess.silent=true",
         "-DjbScreenMenuBar.enabled=true",
