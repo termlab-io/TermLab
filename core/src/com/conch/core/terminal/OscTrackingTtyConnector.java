@@ -16,14 +16,15 @@ import java.util.regex.Pattern;
  * - OSC 0/2 (window title): text set by shell/programs
  */
 public final class OscTrackingTtyConnector implements TtyConnector {
-    // OSC 7: \033]7;file://hostname/path followed by BEL or ST
+    // ESC = \x1b, BEL = \x07, ST = ESC + backslash
+    // OSC 7: ESC]7;file://hostname/path followed by BEL or ST
     private static final Pattern OSC7_PATTERN = Pattern.compile(
-        "\\033\\]7;file://[^/]*(/.+?)(?:\\033\\\\|\\007)"
+        "\\x1b\\]7;file://[^/]*(/.+?)(?:\\x1b\\\\|\\x07)"
     );
 
-    // OSC 0 or OSC 2: \033]0;title or \033]2;title followed by BEL or ST
+    // OSC 0 or OSC 2: ESC]0;title or ESC]2;title followed by BEL or ST
     private static final Pattern OSC_TITLE_PATTERN = Pattern.compile(
-        "\\033\\][02];(.+?)(?:\\033\\\\|\\007)"
+        "\\x1b\\][02];(.+?)(?:\\x1b\\\\|\\x07)"
     );
 
     private final TtyConnector delegate;
