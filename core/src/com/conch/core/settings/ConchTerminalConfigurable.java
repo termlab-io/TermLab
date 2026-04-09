@@ -1,5 +1,6 @@
 package com.conch.core.settings;
 
+import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.options.Configurable;
 import com.intellij.openapi.options.ConfigurationException;
 import com.intellij.ui.ColorPanel;
@@ -183,8 +184,14 @@ public final class ConchTerminalConfigurable implements Configurable {
 
     @Override
     public void apply() throws ConfigurationException {
-        ConchTerminalConfig.State state = ConchTerminalConfig.getInstance().getState();
-        if (state == null) state = new ConchTerminalConfig.State();
+        ConchTerminalConfig config = ConchTerminalConfig.getInstance();
+        if (config == null) return;
+
+        ConchTerminalConfig.State state = config.getState();
+        if (state == null) {
+            state = new ConchTerminalConfig.State();
+            config.loadState(state);
+        }
 
         state.fontFamily = getSelectedFont();
         state.fontSize = (int) fontSizeSpinner.getValue();
@@ -199,6 +206,9 @@ public final class ConchTerminalConfigurable implements Configurable {
         state.copyOnSelect = copyOnSelectCheck.isSelected();
         state.audibleBell = audibleBellCheck.isSelected();
         state.enableMouseReporting = mouseReportingCheck.isSelected();
+
+        // Flush to disk immediately — don't rely on shutdown saving
+        ApplicationManager.getApplication().saveSettings();
     }
 
     @Override
