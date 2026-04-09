@@ -35,6 +35,13 @@
 
         <searchEverywhereContributor
             implementation="com.conch.core.palette.TerminalPaletteContributor$Factory"/>
+
+        <!-- Override the platform's TabsCustomizationStrategy to only show
+             Actions and Terminals tabs in Search Everywhere -->
+        <applicationService
+            serviceInterface="com.intellij.ide.actions.searcheverywhere.TabsCustomizationStrategy"
+            serviceImplementation="com.conch.core.palette.ConchTabsCustomizationStrategy"
+            overrides="true"/>
     </extensions>
 
     <applicationListeners>
@@ -58,6 +65,8 @@
                     text="New Terminal Tab"
                     description="Open a new local terminal tab">
                 <keyboard-shortcut keymap="$default" first-keystroke="meta T"/>
+                <keyboard-shortcut keymap="Mac OS X 10.5+" first-keystroke="meta T" replace-all="true"/>
+                <keyboard-shortcut keymap="Mac OS X" first-keystroke="meta T" replace-all="true"/>
             </action>
 
             <action id="Conch.CloseTerminalTab"

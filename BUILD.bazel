@@ -105,5 +105,7 @@ java_binary(
         "-Dfus.internal.test.mode=true",
         # Use Classic UI by default (disable new UI)
         "-Dide.experimental.ui=false",
+        # Default to Darcula (dark) theme for new installations
+        "-Dlaf.name.for.new.installation=Darcula",
     ],
 )

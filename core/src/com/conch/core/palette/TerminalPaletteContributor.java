@@ -27,6 +27,7 @@ public final class TerminalPaletteContributor implements SearchEverywhereContrib
     @Override public @NotNull String getGroupName() { return "Terminals"; }
     @Override public int getSortWeight() { return 100; }
     @Override public boolean showInFindResults() { return false; }
+    @Override public boolean isShownInSeparateTab() { return true; }
 
     @Override
     public boolean isEmptyPatternSupported() { return true; }

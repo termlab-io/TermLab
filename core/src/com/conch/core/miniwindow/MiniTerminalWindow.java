@@ -24,6 +24,13 @@ public final class MiniTerminalWindow {
         frame.setSize(800, 500);
         frame.setLocationRelativeTo(null);
 
+        // Apply IntelliJ's current Look and Feel so the mini-window follows the main theme
+        frame.getRootPane().putClientProperty("JRootPane.titleBarBackground",
+            javax.swing.UIManager.getColor("Panel.background"));
+        frame.getRootPane().putClientProperty("JRootPane.titleBarForeground",
+            javax.swing.UIManager.getColor("Panel.foreground"));
+        frame.getContentPane().setBackground(javax.swing.UIManager.getColor("Panel.background"));
+
         terminalWidget = new JediTermWidget(new ConchTerminalSettings());
 
         LocalPtySessionProvider ptyProvider = new LocalPtySessionProvider();
