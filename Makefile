@@ -3,22 +3,27 @@
 # Usage:
 #   make conch       — build and run Conch
 #   make conch-build — build only (no run)
-#   make conch-clean — clean Conch build artifacts
+#   make conch-clean — clean build artifacts
 #   make idea        — build and run IntelliJ IDEA CE (for reference)
 
 BAZEL := bash bazel.cmd
+CONCH_WORKSPACE := $(HOME)/.config/conch
 
 .PHONY: conch conch-build conch-clean idea
 
-# Build and run Conch
-conch:
-	$(BAZEL) run //conch:conch_run --
+# Build and run Conch — opens ~/.config/conch as the project to skip welcome screen
+conch: $(CONCH_WORKSPACE)
+	$(BAZEL) run //conch:conch_run -- $(CONCH_WORKSPACE)
+
+# Ensure the workspace directory exists
+$(CONCH_WORKSPACE):
+	mkdir -p $(CONCH_WORKSPACE)
 
 # Build Conch without running
 conch-build:
 	$(BAZEL) build //conch:conch_run
 
-# Clean Conch build artifacts
+# Clean build artifacts
 conch-clean:
 	$(BAZEL) clean
 
