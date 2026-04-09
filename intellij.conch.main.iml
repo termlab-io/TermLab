@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<module type="JAVA_MODULE" version="4">
+  <component name="NewModuleRootManager" inherit-compiler-output="true">
+    <exclude-output />
+    <orderEntry type="inheritedJdk" />
+    <orderEntry type="sourceFolder" forTests="false" />
+    <orderEntry type="module" module-name="intellij.platform.monolith.main" scope="RUNTIME" />
+    <orderEntry type="module" module-name="intellij.platform.bootstrap" scope="RUNTIME" />
+    <orderEntry type="module" module-name="intellij.platform.starter" />
+    <orderEntry type="module" module-name="intellij.conch.customization" />
+    <orderEntry type="module" module-name="intellij.conch.core" />
+    <orderEntry type="module" module-name="intellij.conch.sdk" scope="RUNTIME" />
+    <orderEntry type="module" module-name="intellij.sh.plugin.main" scope="RUNTIME" />
+    <orderEntry type="module" module-name="intellij.textmate.plugin" scope="RUNTIME" />
+    <orderEntry type="module" module-name="intellij.searchEverywhereMl" scope="RUNTIME" />
+  </component>
+</module>
