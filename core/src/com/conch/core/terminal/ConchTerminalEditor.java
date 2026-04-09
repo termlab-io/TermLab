@@ -54,6 +54,22 @@ public final class ConchTerminalEditor extends UserDataHolderBase implements Fil
             terminalWidget.createTerminalSession(connector);
             terminalWidget.start();
 
+            // Update tab title when the terminal title changes (OSC 0/2)
+            terminalWidget.getTerminal().addApplicationTitleListener(title -> {
+                if (title != null && !title.isBlank()) {
+                    // Rename the virtual file — this updates the editor tab title
+                    try {
+                        file.rename(this, title);
+                    } catch (Exception ignored) {}
+                    // Force tab UI refresh on EDT
+                    ApplicationManager.getApplication().invokeLater(() -> {
+                        if (!project.isDisposed()) {
+                            FileEditorManager.getInstance(project).updateFilePresentation(file);
+                        }
+                    });
+                }
+            });
+
             // Watch for shell exit and close the tab automatically
             startExitWatcher();
         }
