@@ -23,14 +23,14 @@ import java.beans.PropertyChangeListener;
 public final class ConchTerminalEditor extends UserDataHolderBase implements FileEditor {
     private final Project project;
     private final ConchTerminalVirtualFile file;
-    private final JediTermWidget terminalWidget;
+    private final ConchTerminalWidget terminalWidget;
     private TtyConnector connector;
 
     public ConchTerminalEditor(@NotNull Project project,
                                 @NotNull ConchTerminalVirtualFile file) {
         this.project = project;
         this.file = file;
-        this.terminalWidget = new JediTermWidget(new ConchTerminalSettings());
+        this.terminalWidget = new ConchTerminalWidget(new ConchTerminalSettings());
         applyCursorShape();
         initTerminalSession();
     }

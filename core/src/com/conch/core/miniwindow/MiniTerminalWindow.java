@@ -2,6 +2,7 @@ package com.conch.core.miniwindow;
 
 import com.conch.core.settings.ConchTerminalConfig;
 import com.conch.core.terminal.ConchTerminalSettings;
+import com.conch.core.terminal.ConchTerminalWidget;
 import com.conch.core.terminal.LocalPtySessionProvider;
 import com.conch.sdk.TerminalSessionProvider;
 import com.jediterm.terminal.CursorShape;
@@ -17,7 +18,7 @@ import java.awt.event.WindowEvent;
 
 public final class MiniTerminalWindow {
     private final JFrame frame;
-    private final JediTermWidget terminalWidget;
+    private final ConchTerminalWidget terminalWidget;
     private TtyConnector connector;
 
     public MiniTerminalWindow() {
@@ -33,7 +34,7 @@ public final class MiniTerminalWindow {
             javax.swing.UIManager.getColor("Panel.foreground"));
         frame.getContentPane().setBackground(javax.swing.UIManager.getColor("Panel.background"));
 
-        terminalWidget = new JediTermWidget(new ConchTerminalSettings());
+        terminalWidget = new ConchTerminalWidget(new ConchTerminalSettings());
 
         // Apply cursor shape from settings
         ConchTerminalConfig config = ConchTerminalConfig.getInstance();
