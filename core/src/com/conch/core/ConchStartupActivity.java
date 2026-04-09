@@ -19,6 +19,7 @@ public final class ConchStartupActivity implements ProjectActivity {
     private static final String[] UNWANTED_TOOL_WINDOWS = {
         "Problems View",
         "Structure",
+        "Bookmarks",
     };
 
     @Override
@@ -29,13 +30,21 @@ public final class ConchStartupActivity implements ProjectActivity {
         // Bug 6: Do not show the welcome screen when the last project window is closed
         GeneralSettings.getInstance().setShowWelcomeScreen(false);
 
-        // Bug 4: Remove unwanted tool windows (e.g. Problems, Structure)
+        // Remove unwanted tool windows and hide Project View by default
         ApplicationManager.getApplication().invokeLater(() -> {
             ToolWindowManager twm = ToolWindowManager.getInstance(project);
+
+            // Unregister tool windows that shouldn't exist in Conch
             for (String id : UNWANTED_TOOL_WINDOWS) {
                 if (twm.getToolWindow(id) != null) {
                     twm.unregisterToolWindow(id);
                 }
+            }
+
+            // Hide the Project View by default — user can toggle with Cmd+1
+            var projectView = twm.getToolWindow("Project");
+            if (projectView != null && projectView.isVisible()) {
+                projectView.hide();
             }
         });
 
