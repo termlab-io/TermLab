@@ -21,6 +21,15 @@
     </extensionPoints>
 
     <extensions defaultExtensionNs="com.intellij">
+        <applicationService
+            serviceImplementation="com.conch.core.settings.ConchTerminalConfig"/>
+
+        <applicationConfigurable
+            parentId="root"
+            instance="com.conch.core.settings.ConchTerminalConfigurable"
+            id="conch.terminal.settings"
+            displayName="Conch Terminal"/>
+
         <fileEditorProvider
             implementation="com.conch.core.terminal.ConchTerminalEditorProvider"/>
 

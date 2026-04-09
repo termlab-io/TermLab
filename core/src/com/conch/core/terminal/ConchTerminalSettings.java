@@ -1,5 +1,6 @@
 package com.conch.core.terminal;
 
+import com.conch.core.settings.ConchTerminalConfig;
 import com.jediterm.core.Color;
 import com.jediterm.terminal.TerminalColor;
 import com.jediterm.terminal.TextStyle;
@@ -11,13 +12,9 @@ import java.awt.*;
 
 /**
  * Terminal settings with dark color scheme matching Darcula theme.
+ * Delegates to {@link ConchTerminalConfig} for user-configurable values.
  */
 public final class ConchTerminalSettings extends DefaultSettingsProvider {
-
-    private static final Color BG = new Color(43, 43, 43);       // Darcula background
-    private static final Color FG = new Color(187, 187, 187);    // Darcula foreground
-    private static final Color SEL_BG = new Color(33, 66, 131);  // Selection blue
-    private static final Color SEL_FG = new Color(255, 255, 255);
 
     // Dark ANSI palette matching Darcula
     private static final Color[] DARK_COLORS = {
@@ -53,9 +50,12 @@ public final class ConchTerminalSettings extends DefaultSettingsProvider {
 
     @Override
     public @NotNull TextStyle getDefaultStyle() {
+        ConchTerminalConfig.State s = getConfigState();
+        Color fg = parseColor(s.foreground, new Color(187, 187, 187));
+        Color bg = parseColor(s.background, new Color(43, 43, 43));
         return new TextStyle(
-            new TerminalColor(FG),
-            new TerminalColor(BG)
+            new TerminalColor(fg),
+            new TerminalColor(bg)
         );
     }
 
@@ -66,9 +66,12 @@ public final class ConchTerminalSettings extends DefaultSettingsProvider {
 
     @Override
     public TextStyle getSelectionColor() {
+        ConchTerminalConfig.State s = getConfigState();
+        Color selFg = parseColor(s.selectionForeground, new Color(255, 255, 255));
+        Color selBg = parseColor(s.selectionBackground, new Color(33, 66, 131));
         return new TextStyle(
-            new TerminalColor(SEL_FG),
-            new TerminalColor(SEL_BG)
+            new TerminalColor(selFg),
+            new TerminalColor(selBg)
         );
     }
 
@@ -77,22 +80,65 @@ public final class ConchTerminalSettings extends DefaultSettingsProvider {
         "JetBrains Mono", "Menlo", "Monaco", "Courier New", "Courier"
     };
 
-    @Override public @NotNull Font getTerminalFont() {
+    @Override
+    public @NotNull Font getTerminalFont() {
+        ConchTerminalConfig.State s = getConfigState();
+        String family = !s.fontFamily.isEmpty() ? s.fontFamily : bestMonospace();
+        return new Font(family, Font.PLAIN, s.fontSize);
+    }
+
+    @Override
+    public float getTerminalFontSize() {
+        return getConfigState().fontSize;
+    }
+
+    @Override public boolean useAntialiasing() { return true; }
+
+    @Override
+    public boolean audibleBell() {
+        return getConfigState().audibleBell;
+    }
+
+    @Override
+    public boolean copyOnSelect() {
+        return getConfigState().copyOnSelect;
+    }
+
+    @Override
+    public boolean enableMouseReporting() {
+        return getConfigState().enableMouseReporting;
+    }
+
+    @Override
+    public int getBufferMaxLinesCount() {
+        return getConfigState().scrollbackLines;
+    }
+
+    @Override public boolean scrollToBottomOnTyping() { return true; }
+
+    private static ConchTerminalConfig.State getConfigState() {
+        ConchTerminalConfig config = ConchTerminalConfig.getInstance();
+        ConchTerminalConfig.State state = config != null ? config.getState() : null;
+        return state != null ? state : new ConchTerminalConfig.State();
+    }
+
+    private static String bestMonospace() {
         java.awt.GraphicsEnvironment ge = java.awt.GraphicsEnvironment.getLocalGraphicsEnvironment();
         java.util.Set<String> available = java.util.Set.of(ge.getAvailableFontFamilyNames());
         for (String name : FONT_CANDIDATES) {
             if (available.contains(name)) {
-                return new Font(name, Font.PLAIN, 14);
+                return name;
             }
         }
-        return new Font(Font.MONOSPACED, Font.PLAIN, 14);
+        return Font.MONOSPACED;
     }
 
-    @Override public float getTerminalFontSize() { return 14.0f; }
-    @Override public boolean useAntialiasing() { return true; }
-    @Override public boolean audibleBell() { return false; }
-    @Override public boolean copyOnSelect() { return false; }
-    @Override public boolean enableMouseReporting() { return true; }
-    @Override public int getBufferMaxLinesCount() { return 10000; }
-    @Override public boolean scrollToBottomOnTyping() { return true; }
+    private static Color parseColor(String hex, Color fallback) {
+        try {
+            java.awt.Color c = java.awt.Color.decode(hex);
+            return new Color(c.getRed(), c.getGreen(), c.getBlue());
+        } catch (Exception e) {
+            return fallback;
+        }
+    }
 }
