@@ -21,6 +21,11 @@
     </extensionPoints>
 
     <extensions defaultExtensionNs="com.intellij">
+        <applicationService
+            serviceInterface="com.intellij.openapi.fileEditor.impl.EditorEmptyTextPainter"
+            serviceImplementation="com.conch.core.ConchEmptyTextPainter"
+            overrides="true"/>
+
         <applicationConfigurable
             parentId="root"
             instance="com.conch.core.settings.ConchTerminalConfigurable"
