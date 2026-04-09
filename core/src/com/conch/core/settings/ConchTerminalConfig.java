@@ -30,6 +30,9 @@ public final class ConchTerminalConfig implements PersistentStateComponent<Conch
         // Cursor
         public String cursorShape = "BLOCK";  // BLOCK, UNDERLINE, VERTICAL_BAR
 
+        // Layout
+        public boolean projectViewVisible = false;  // hidden by default for terminal workstation
+
         // Behavior
         public int scrollbackLines = 10000;
         public boolean copyOnSelect = false;
