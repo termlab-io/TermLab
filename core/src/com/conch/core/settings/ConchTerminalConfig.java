@@ -4,11 +4,13 @@ import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.components.PersistentStateComponent;
 import com.intellij.openapi.components.State;
 import com.intellij.openapi.components.Storage;
+import com.intellij.openapi.diagnostic.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 @State(name = "ConchTerminalConfig", storages = @Storage("conch-terminal.xml"))
 public final class ConchTerminalConfig implements PersistentStateComponent<ConchTerminalConfig.State> {
+    private static final Logger LOG = Logger.getInstance(ConchTerminalConfig.class);
 
     public static ConchTerminalConfig getInstance() {
         return ApplicationManager.getApplication().getService(ConchTerminalConfig.class);
