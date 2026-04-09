@@ -1,0 +1,8 @@
+<idea-plugin xmlns:xi="http://www.w3.org/2001/XInclude">
+  <module value="com.conch.modules.terminal"/>
+
+  <xi:include href="/META-INF/PlatformLangPlugin.xml"/>
+
+  <content namespace="conch">
+  </content>
+</idea-plugin>
