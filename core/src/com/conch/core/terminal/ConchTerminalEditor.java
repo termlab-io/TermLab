@@ -1,11 +1,13 @@
 package com.conch.core.terminal;
 
 import com.conch.core.explorer.CwdSyncManager;
+import com.conch.core.settings.ConchTerminalConfig;
 import com.conch.sdk.TerminalSessionProvider;
 import com.intellij.openapi.fileEditor.FileEditor;
 import com.intellij.openapi.fileEditor.FileEditorState;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.util.UserDataHolderBase;
+import com.jediterm.terminal.CursorShape;
 import com.jediterm.terminal.TtyConnector;
 import com.jediterm.terminal.ui.JediTermWidget;
 import org.jetbrains.annotations.NotNull;
@@ -27,6 +29,7 @@ public final class ConchTerminalEditor extends UserDataHolderBase implements Fil
         this.project = project;
         this.file = file;
         this.terminalWidget = new JediTermWidget(new ConchTerminalSettings());
+        applyCursorShape();
         initTerminalSession();
     }
 
@@ -66,6 +69,19 @@ public final class ConchTerminalEditor extends UserDataHolderBase implements Fil
         if (connector != null) {
             try { connector.close(); } catch (Exception ignored) {}
         }
+    }
+
+    private void applyCursorShape() {
+        ConchTerminalConfig config = ConchTerminalConfig.getInstance();
+        ConchTerminalConfig.State s = config != null ? config.getState() : null;
+        String shape = (s != null) ? s.cursorShape : "BLOCK";
+
+        CursorShape cursorShape = switch (shape) {
+            case "UNDERLINE" -> CursorShape.STEADY_UNDERLINE;
+            case "VERTICAL_BAR" -> CursorShape.STEADY_VERTICAL_BAR;
+            default -> CursorShape.STEADY_BLOCK;
+        };
+        terminalWidget.getTerminalPanel().setDefaultCursorShape(cursorShape);
     }
 
     public @NotNull ConchTerminalVirtualFile getTerminalFile() { return file; }

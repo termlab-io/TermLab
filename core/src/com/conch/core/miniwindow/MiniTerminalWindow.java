@@ -1,8 +1,10 @@
 package com.conch.core.miniwindow;
 
+import com.conch.core.settings.ConchTerminalConfig;
 import com.conch.core.terminal.ConchTerminalSettings;
 import com.conch.core.terminal.LocalPtySessionProvider;
 import com.conch.sdk.TerminalSessionProvider;
+import com.jediterm.terminal.CursorShape;
 import com.jediterm.terminal.TtyConnector;
 import com.jediterm.terminal.ui.JediTermWidget;
 import org.jetbrains.annotations.NotNull;
@@ -32,6 +34,17 @@ public final class MiniTerminalWindow {
         frame.getContentPane().setBackground(javax.swing.UIManager.getColor("Panel.background"));
 
         terminalWidget = new JediTermWidget(new ConchTerminalSettings());
+
+        // Apply cursor shape from settings
+        ConchTerminalConfig config = ConchTerminalConfig.getInstance();
+        ConchTerminalConfig.State s = config != null ? config.getState() : null;
+        String shape = (s != null) ? s.cursorShape : "BLOCK";
+        CursorShape cursorShape = switch (shape) {
+            case "UNDERLINE" -> CursorShape.STEADY_UNDERLINE;
+            case "VERTICAL_BAR" -> CursorShape.STEADY_VERTICAL_BAR;
+            default -> CursorShape.STEADY_BLOCK;
+        };
+        terminalWidget.getTerminalPanel().setDefaultCursorShape(cursorShape);
 
         LocalPtySessionProvider ptyProvider = new LocalPtySessionProvider();
         TerminalSessionProvider.SessionContext context = () -> System.getProperty("user.home");
