@@ -84,12 +84,25 @@ public final class ConchTerminalSettings extends DefaultSettingsProvider {
     public @NotNull Font getTerminalFont() {
         ConchTerminalConfig.State s = getConfigState();
         String family = !s.fontFamily.isEmpty() ? s.fontFamily : bestMonospace();
-        return new Font(family, Font.PLAIN, s.fontSize);
+        Font font = new Font(family, Font.PLAIN, s.fontSize);
+
+        // Apply character spacing (tracking) if non-zero
+        if (Math.abs(s.characterSpacing) > 0.001f) {
+            java.util.Map<java.awt.font.TextAttribute, Object> attrs = new java.util.HashMap<>(font.getAttributes());
+            attrs.put(java.awt.font.TextAttribute.TRACKING, s.characterSpacing);
+            font = font.deriveFont(attrs);
+        }
+        return font;
     }
 
     @Override
     public float getTerminalFontSize() {
         return getConfigState().fontSize;
+    }
+
+    @Override
+    public float getLineSpacing() {
+        return getConfigState().lineSpacing;
     }
 
     @Override public boolean useAntialiasing() { return true; }

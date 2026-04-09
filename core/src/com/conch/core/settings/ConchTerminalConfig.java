@@ -18,6 +18,8 @@ public final class ConchTerminalConfig implements PersistentStateComponent<Conch
         // Font
         public String fontFamily = "";  // empty = auto-detect best monospace
         public int fontSize = 14;
+        public float lineSpacing = 1.0f;        // 1.0 = normal, 1.2 = 20% extra
+        public float characterSpacing = 0.0f;   // 0.0 = normal, 0.1 = 10% wider
 
         // Colors (hex)
         public String foreground = "#BBBBBB";

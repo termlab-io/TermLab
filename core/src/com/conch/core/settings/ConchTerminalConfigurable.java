@@ -14,6 +14,8 @@ public final class ConchTerminalConfigurable implements Configurable {
     private JPanel mainPanel;
     private JComboBox<String> fontFamilyCombo;
     private JSpinner fontSizeSpinner;
+    private JSpinner lineSpacingSpinner;
+    private JSpinner charSpacingSpinner;
     private JComboBox<String> cursorShapeCombo;
     private ColorPanel foregroundColor;
     private ColorPanel backgroundColor;
@@ -60,6 +62,14 @@ public final class ConchTerminalConfigurable implements Configurable {
         // Font Size
         fontSizeSpinner = new JSpinner(new SpinnerNumberModel(14, 8, 48, 1));
         addLabeledRow(gbc, row++, "Font size:", fontSizeSpinner, null);
+
+        // Line Spacing
+        lineSpacingSpinner = new JSpinner(new SpinnerNumberModel(1.0, 0.8, 2.0, 0.05));
+        addLabeledRow(gbc, row++, "Line spacing:", lineSpacingSpinner, "(1.0 = normal)");
+
+        // Character Spacing
+        charSpacingSpinner = new JSpinner(new SpinnerNumberModel(0.0, -0.1, 0.5, 0.01));
+        addLabeledRow(gbc, row++, "Character spacing:", charSpacingSpinner, "(0.0 = normal)");
 
         // === Cursor Section ===
         addSectionHeader(gbc, row++, "Cursor");
@@ -158,6 +168,8 @@ public final class ConchTerminalConfigurable implements Configurable {
 
         return !getSelectedFont().equals(state.fontFamily)
             || (int) fontSizeSpinner.getValue() != state.fontSize
+            || floatsDiffer((double) lineSpacingSpinner.getValue(), state.lineSpacing)
+            || floatsDiffer((double) charSpacingSpinner.getValue(), state.characterSpacing)
             || !String.valueOf(cursorShapeCombo.getSelectedItem()).equals(state.cursorShape)
             || !colorToHex(foregroundColor.getSelectedColor()).equals(state.foreground)
             || !colorToHex(backgroundColor.getSelectedColor()).equals(state.background)
@@ -176,6 +188,8 @@ public final class ConchTerminalConfigurable implements Configurable {
 
         state.fontFamily = getSelectedFont();
         state.fontSize = (int) fontSizeSpinner.getValue();
+        state.lineSpacing = ((Number) lineSpacingSpinner.getValue()).floatValue();
+        state.characterSpacing = ((Number) charSpacingSpinner.getValue()).floatValue();
         state.cursorShape = String.valueOf(cursorShapeCombo.getSelectedItem());
         state.foreground = colorToHex(foregroundColor.getSelectedColor());
         state.background = colorToHex(backgroundColor.getSelectedColor());
@@ -194,6 +208,8 @@ public final class ConchTerminalConfigurable implements Configurable {
 
         fontFamilyCombo.setSelectedItem(state.fontFamily);
         fontSizeSpinner.setValue(state.fontSize);
+        lineSpacingSpinner.setValue((double) state.lineSpacing);
+        charSpacingSpinner.setValue((double) state.characterSpacing);
         cursorShapeCombo.setSelectedItem(state.cursorShape);
         foregroundColor.setSelectedColor(hexToColor(state.foreground));
         backgroundColor.setSelectedColor(hexToColor(state.background));
@@ -213,6 +229,10 @@ public final class ConchTerminalConfigurable implements Configurable {
     private static String colorToHex(Color c) {
         if (c == null) return "#BBBBBB";
         return String.format("#%02X%02X%02X", c.getRed(), c.getGreen(), c.getBlue());
+    }
+
+    private static boolean floatsDiffer(double a, float b) {
+        return Math.abs(a - b) > 0.001;
     }
 
     private static Color hexToColor(String hex) {
