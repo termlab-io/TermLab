@@ -33,6 +33,10 @@
         <fileEditorProvider
             implementation="com.conch.core.terminal.ConchTerminalEditorProvider"/>
 
+        <editorTabTitleProvider
+            implementation="com.conch.core.terminal.ConchEditorTabTitleProvider"
+            order="first"/>
+
         <postStartupActivity
             implementation="com.conch.core.ConchStartupActivity"/>
 

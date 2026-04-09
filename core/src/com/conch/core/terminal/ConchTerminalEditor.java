@@ -25,7 +25,6 @@ public final class ConchTerminalEditor extends UserDataHolderBase implements Fil
     private final ConchTerminalVirtualFile file;
     private final JediTermWidget terminalWidget;
     private TtyConnector connector;
-    private ForegroundProcessPoller processPoller;
 
     public ConchTerminalEditor(@NotNull Project project,
                                 @NotNull ConchTerminalVirtualFile file) {
@@ -60,14 +59,6 @@ public final class ConchTerminalEditor extends UserDataHolderBase implements Fil
 
             terminalWidget.createTerminalSession(connector);
             terminalWidget.start();
-
-            // Poll the foreground process name to update tab title
-            // This works regardless of whether the shell emits OSC sequences
-            if (rawConnector instanceof LocalPtySessionProvider.LocalPtyTtyConnector ptyConnector) {
-                long pid = ptyConnector.getPty().pid();
-                processPoller = new ForegroundProcessPoller(pid, this::updateTabTitle);
-                processPoller.start();
-            }
 
             // Watch for shell exit and close the tab automatically
             startExitWatcher();
@@ -104,9 +95,8 @@ public final class ConchTerminalEditor extends UserDataHolderBase implements Fil
 
     private void updateTabTitle(String newTitle) {
         if (newTitle != null && !newTitle.isBlank()) {
-            try {
-                file.rename(this, newTitle);
-            } catch (Exception ignored) {}
+            file.setTerminalTitle(newTitle);
+            // Trigger tab title refresh via EditorTabTitleProvider
             ApplicationManager.getApplication().invokeLater(() -> {
                 if (!project.isDisposed()) {
                     FileEditorManager.getInstance(project).updateFilePresentation(file);
@@ -117,9 +107,6 @@ public final class ConchTerminalEditor extends UserDataHolderBase implements Fil
 
     @Override
     public void dispose() {
-        if (processPoller != null) {
-            processPoller.stop();
-        }
         if (connector != null) {
             try { connector.close(); } catch (Exception ignored) {}
         }

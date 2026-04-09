@@ -11,6 +11,7 @@ public final class ConchTerminalVirtualFile extends LightVirtualFile {
     private final String sessionId;
     private final TerminalSessionProvider provider;
     private String currentWorkingDirectory;
+    private volatile String terminalTitle;
 
     public ConchTerminalVirtualFile(@NotNull String title,
                                      @NotNull TerminalSessionProvider provider) {
@@ -23,6 +24,8 @@ public final class ConchTerminalVirtualFile extends LightVirtualFile {
     public @NotNull TerminalSessionProvider getProvider() { return provider; }
     public @Nullable String getCurrentWorkingDirectory() { return currentWorkingDirectory; }
     public void setCurrentWorkingDirectory(@Nullable String cwd) { this.currentWorkingDirectory = cwd; }
+    public @Nullable String getTerminalTitle() { return terminalTitle; }
+    public void setTerminalTitle(@Nullable String title) { this.terminalTitle = title; }
 
     @Override public boolean isWritable() { return false; }
 
