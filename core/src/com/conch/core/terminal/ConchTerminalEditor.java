@@ -44,31 +44,32 @@ public final class ConchTerminalEditor extends UserDataHolderBase implements Fil
         TtyConnector rawConnector = file.getProvider().createSession(context);
 
         if (rawConnector != null) {
-            // Wrap with OSC 7 tracking for CWD sync
-            connector = new OscTrackingTtyConnector(rawConnector, newCwd -> {
-                file.setCurrentWorkingDirectory(newCwd);
-                CwdSyncManager cwdSync = CwdSyncManager.getInstance(project);
-                cwdSync.onWorkingDirectoryChanged(newCwd);
-            });
+            // Wrap with OSC tracking for CWD sync and tab title updates
+            connector = new OscTrackingTtyConnector(
+                rawConnector,
+                // OSC 7 — working directory changed
+                newCwd -> {
+                    file.setCurrentWorkingDirectory(newCwd);
+                    CwdSyncManager cwdSync = CwdSyncManager.getInstance(project);
+                    cwdSync.onWorkingDirectoryChanged(newCwd);
+                },
+                // OSC 0/2 — terminal title changed
+                newTitle -> {
+                    if (newTitle != null && !newTitle.isBlank()) {
+                        try {
+                            file.rename(this, newTitle);
+                        } catch (Exception ignored) {}
+                        ApplicationManager.getApplication().invokeLater(() -> {
+                            if (!project.isDisposed()) {
+                                FileEditorManager.getInstance(project).updateFilePresentation(file);
+                            }
+                        });
+                    }
+                }
+            );
 
             terminalWidget.createTerminalSession(connector);
             terminalWidget.start();
-
-            // Update tab title when the terminal title changes (OSC 0/2)
-            terminalWidget.getTerminal().addApplicationTitleListener(title -> {
-                if (title != null && !title.isBlank()) {
-                    // Rename the virtual file — this updates the editor tab title
-                    try {
-                        file.rename(this, title);
-                    } catch (Exception ignored) {}
-                    // Force tab UI refresh on EDT
-                    ApplicationManager.getApplication().invokeLater(() -> {
-                        if (!project.isDisposed()) {
-                            FileEditorManager.getInstance(project).updateFilePresentation(file);
-                        }
-                    });
-                }
-            });
 
             // Watch for shell exit and close the tab automatically
             startExitWatcher();
