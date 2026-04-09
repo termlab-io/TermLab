@@ -55,7 +55,7 @@ public final class LocalPtySessionProvider implements TerminalSessionProvider {
      * Unlike ProcessTtyConnector (which has a no-op resize), this calls
      * PtyProcess.setWinSize() so tmux, vim, etc. see the correct terminal size.
      */
-    private static final class LocalPtyTtyConnector implements TtyConnector {
+    static final class LocalPtyTtyConnector implements TtyConnector {
         private final PtyProcess pty;
         private final InputStreamReader reader;
         private final OutputStream writer;
@@ -64,45 +64,11 @@ public final class LocalPtySessionProvider implements TerminalSessionProvider {
             this.pty = pty;
             this.reader = new InputStreamReader(pty.getInputStream(), StandardCharsets.UTF_8);
             this.writer = pty.getOutputStream();
-            injectShellIntegration();
         }
 
-        /**
-         * Inject shell hooks that emit OSC 0 (title) and OSC 7 (CWD) sequences.
-         * macOS's xterm-256color terminfo doesn't advertise title support,
-         * so shells/programs won't emit title sequences on their own.
-         */
-        private void injectShellIntegration() {
-            Thread injector = new Thread(() -> {
-                try {
-                    // Wait for shell to initialize
-                    Thread.sleep(300);
-
-                    // Detect shell type and inject appropriate hooks
-                    String shell = System.getenv("SHELL");
-                    String snippet;
-                    if (shell != null && shell.contains("zsh")) {
-                        snippet = String.join("; ",
-                            // precmd: set title to user@host:dir after each command
-                            "precmd() { print -Pn \"\\e]0;%n@%m: %~\\a\" }",
-                            // preexec: set title to the running command
-                            "preexec() { print -Pn \"\\e]0;$1\\a\" }"
-                        ) + "\n";
-                    } else {
-                        // bash or other POSIX shell
-                        snippet = String.join("; ",
-                            // trap DEBUG: set title to running command
-                            "trap 'printf \"\\033]0;%s\\007\" \"${BASH_COMMAND}\"' DEBUG",
-                            // PROMPT_COMMAND: set title to user@host:dir at prompt
-                            "PROMPT_COMMAND='printf \"\\033]0;%s@%s:%s\\007\" \"${USER}\" \"${HOSTNAME%%.*}\" \"${PWD/#$HOME/\\~}\";'\"${PROMPT_COMMAND}\""
-                        ) + "\n";
-                    }
-
-                    write(snippet);
-                } catch (Exception ignored) {}
-            }, "Conch-shell-integration");
-            injector.setDaemon(true);
-            injector.start();
+        /** Get the PID of the child process for foreground process polling. */
+        PtyProcess getPty() {
+            return pty;
         }
 
         @Override

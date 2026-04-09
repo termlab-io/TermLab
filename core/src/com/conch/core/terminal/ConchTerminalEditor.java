@@ -25,6 +25,7 @@ public final class ConchTerminalEditor extends UserDataHolderBase implements Fil
     private final ConchTerminalVirtualFile file;
     private final JediTermWidget terminalWidget;
     private TtyConnector connector;
+    private ForegroundProcessPoller processPoller;
 
     public ConchTerminalEditor(@NotNull Project project,
                                 @NotNull ConchTerminalVirtualFile file) {
@@ -44,7 +45,7 @@ public final class ConchTerminalEditor extends UserDataHolderBase implements Fil
         TtyConnector rawConnector = file.getProvider().createSession(context);
 
         if (rawConnector != null) {
-            // Wrap with OSC tracking for CWD sync and tab title updates
+            // Wrap with OSC tracking for CWD sync and title updates
             connector = new OscTrackingTtyConnector(
                 rawConnector,
                 // OSC 7 — working directory changed
@@ -53,23 +54,20 @@ public final class ConchTerminalEditor extends UserDataHolderBase implements Fil
                     CwdSyncManager cwdSync = CwdSyncManager.getInstance(project);
                     cwdSync.onWorkingDirectoryChanged(newCwd);
                 },
-                // OSC 0/2 — terminal title changed
-                newTitle -> {
-                    if (newTitle != null && !newTitle.isBlank()) {
-                        try {
-                            file.rename(this, newTitle);
-                        } catch (Exception ignored) {}
-                        ApplicationManager.getApplication().invokeLater(() -> {
-                            if (!project.isDisposed()) {
-                                FileEditorManager.getInstance(project).updateFilePresentation(file);
-                            }
-                        });
-                    }
-                }
+                // OSC 0/2 — terminal title changed (if shell emits them)
+                this::updateTabTitle
             );
 
             terminalWidget.createTerminalSession(connector);
             terminalWidget.start();
+
+            // Poll the foreground process name to update tab title
+            // This works regardless of whether the shell emits OSC sequences
+            if (rawConnector instanceof LocalPtySessionProvider.LocalPtyTtyConnector ptyConnector) {
+                long pid = ptyConnector.getPty().pid();
+                processPoller = new ForegroundProcessPoller(pid, this::updateTabTitle);
+                processPoller.start();
+            }
 
             // Watch for shell exit and close the tab automatically
             startExitWatcher();
@@ -104,8 +102,24 @@ public final class ConchTerminalEditor extends UserDataHolderBase implements Fil
     @Override public void addPropertyChangeListener(@NotNull PropertyChangeListener listener) {}
     @Override public void removePropertyChangeListener(@NotNull PropertyChangeListener listener) {}
 
+    private void updateTabTitle(String newTitle) {
+        if (newTitle != null && !newTitle.isBlank()) {
+            try {
+                file.rename(this, newTitle);
+            } catch (Exception ignored) {}
+            ApplicationManager.getApplication().invokeLater(() -> {
+                if (!project.isDisposed()) {
+                    FileEditorManager.getInstance(project).updateFilePresentation(file);
+                }
+            });
+        }
+    }
+
     @Override
     public void dispose() {
+        if (processPoller != null) {
+            processPoller.stop();
+        }
         if (connector != null) {
             try { connector.close(); } catch (Exception ignored) {}
         }
