@@ -1,0 +1,12 @@
+load("@rules_jvm//:jvm.bzl", "jvm_library")
+
+jvm_library(
+    name = "sdk",
+    module_name = "intellij.conch.sdk",
+    visibility = ["//visibility:public"],
+    srcs = glob(["src/**/*.java"]),
+    deps = [
+        "//libraries/jediterm-core:jediterm-core",
+        "@lib//:jetbrains-annotations",
+    ],
+)

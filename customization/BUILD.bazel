@@ -1,0 +1,15 @@
+load("@rules_jvm//:jvm.bzl", "jvm_library", "resourcegroup")
+
+resourcegroup(
+    name = "customization_resources",
+    srcs = glob(["resources/**/*"]),
+    strip_prefix = "resources",
+)
+
+jvm_library(
+    name = "customization",
+    module_name = "intellij.conch.customization",
+    visibility = ["//visibility:public"],
+    srcs = glob([], allow_empty = True),
+    resources = [":customization_resources"],
+)
