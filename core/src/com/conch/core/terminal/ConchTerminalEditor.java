@@ -3,7 +3,9 @@ package com.conch.core.terminal;
 import com.conch.core.explorer.CwdSyncManager;
 import com.conch.core.settings.ConchTerminalConfig;
 import com.conch.sdk.TerminalSessionProvider;
+import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.fileEditor.FileEditor;
+import com.intellij.openapi.fileEditor.FileEditorManager;
 import com.intellij.openapi.fileEditor.FileEditorState;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.util.UserDataHolderBase;
@@ -51,7 +53,28 @@ public final class ConchTerminalEditor extends UserDataHolderBase implements Fil
 
             terminalWidget.createTerminalSession(connector);
             terminalWidget.start();
+
+            // Watch for shell exit and close the tab automatically
+            startExitWatcher();
         }
+    }
+
+    private void startExitWatcher() {
+        Thread watcher = new Thread(() -> {
+            try {
+                connector.waitFor();
+            } catch (InterruptedException ignored) {
+                return;
+            }
+            // Shell exited — close this tab on the EDT
+            ApplicationManager.getApplication().invokeLater(() -> {
+                if (!project.isDisposed()) {
+                    FileEditorManager.getInstance(project).closeFile(file);
+                }
+            });
+        }, "Conch-exit-watcher-" + file.getSessionId());
+        watcher.setDaemon(true);
+        watcher.start();
     }
 
     @Override public @NotNull JComponent getComponent() { return terminalWidget; }
