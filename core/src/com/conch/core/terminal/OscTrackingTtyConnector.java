@@ -1,5 +1,6 @@
 package com.conch.core.terminal;
 
+import com.intellij.openapi.diagnostic.Logger;
 import com.jediterm.terminal.TtyConnector;
 import org.jetbrains.annotations.NotNull;
 
@@ -16,6 +17,8 @@ import java.util.regex.Pattern;
  * - OSC 0/2 (window title): text set by shell/programs
  */
 public final class OscTrackingTtyConnector implements TtyConnector {
+    private static final Logger LOG = Logger.getInstance(OscTrackingTtyConnector.class);
+
     // ESC = \x1b, BEL = \x07, ST = ESC + backslash
     // OSC 7: ESC]7;file://hostname/path followed by BEL or ST
     private static final Pattern OSC7_PATTERN = Pattern.compile(
@@ -31,6 +34,7 @@ public final class OscTrackingTtyConnector implements TtyConnector {
     private final Consumer<String> cwdListener;
     private final Consumer<String> titleListener;
     private final StringBuilder buffer = new StringBuilder();
+    private boolean loggedSample = false;
 
     public OscTrackingTtyConnector(@NotNull TtyConnector delegate,
                                     @NotNull Consumer<String> cwdListener,
@@ -45,6 +49,22 @@ public final class OscTrackingTtyConnector implements TtyConnector {
         int count = delegate.read(buf, offset, length);
         if (count > 0) {
             buffer.append(buf, offset, count);
+
+            // Log a sample of raw output to help debug OSC detection
+            if (!loggedSample && buffer.length() > 200) {
+                loggedSample = true;
+                StringBuilder hex = new StringBuilder();
+                for (int i = 0; i < Math.min(buffer.length(), 300); i++) {
+                    char c = buffer.charAt(i);
+                    if (c < 0x20 || c == 0x7f) {
+                        hex.append(String.format("[%02x]", (int) c));
+                    } else {
+                        hex.append(c);
+                    }
+                }
+                LOG.warn("Terminal raw output sample (first 300 chars): " + hex);
+            }
+
             extractOsc();
             if (buffer.length() > 4096) {
                 buffer.delete(0, buffer.length() - 512);
@@ -61,6 +81,7 @@ public final class OscTrackingTtyConnector implements TtyConnector {
             lastCwd = cwdMatcher.group(1);
         }
         if (lastCwd != null) {
+            LOG.warn("OSC 7 CWD detected: " + lastCwd);
             cwdListener.accept(lastCwd);
         }
 
@@ -73,6 +94,7 @@ public final class OscTrackingTtyConnector implements TtyConnector {
             lastEnd = titleMatcher.end();
         }
         if (lastTitle != null) {
+            LOG.warn("OSC 0/2 title detected: " + lastTitle);
             titleListener.accept(lastTitle);
         }
 
