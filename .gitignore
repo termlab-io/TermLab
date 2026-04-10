@@ -1,3 +1,6 @@
+# Local config written by setup.sh — absolute path to intellij-community
+/.intellij-root
+
 # Bazel build outputs (live in the intellij tree, not here, but just in case)
 /bazel-*
 /out/

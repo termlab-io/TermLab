@@ -68,6 +68,12 @@ else
 fi
 
 echo
+# Record the resolved intellij-community path so the Makefile can find it
+# whether you run 'make' from the workbench dir or from the symlink.
+echo "$INTELLIJ_DIR" > "$WORKBENCH_DIR/.intellij-root"
+echo "==> Wrote $WORKBENCH_DIR/.intellij-root"
+
+echo
 echo "✓ Setup complete."
 echo
 echo "  intellij-community: $INTELLIJ_DIR"

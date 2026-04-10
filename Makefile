@@ -9,11 +9,25 @@
 #   make conch-build — build only (no run)
 #   make conch-clean — clean build artifacts
 #
-# Override INTELLIJ_ROOT if your intellij-community checkout is somewhere
-# unexpected (default: parent of this Makefile, i.e. intellij-community/).
+# INTELLIJ_ROOT resolution order:
+#   1. Environment variable / `make INTELLIJ_ROOT=...`
+#   2. .intellij-root file (written by setup.sh, contains an absolute path)
+#   3. Sibling 'intellij-community' directory (zero-config fallback)
+#
+# .intellij-root is gitignored — it's local config, not source.
 
-INTELLIJ_ROOT ?= $(realpath $(dir $(lastword $(MAKEFILE_LIST))))/..
-BAZEL          := cd $(INTELLIJ_ROOT) && bash bazel.cmd
+WORKBENCH_DIR  := $(realpath $(dir $(lastword $(MAKEFILE_LIST))))
+INTELLIJ_ROOT_FILE := $(WORKBENCH_DIR)/.intellij-root
+
+ifeq ($(origin INTELLIJ_ROOT), undefined)
+  ifneq ($(wildcard $(INTELLIJ_ROOT_FILE)),)
+    INTELLIJ_ROOT := $(strip $(shell cat $(INTELLIJ_ROOT_FILE)))
+  else
+    INTELLIJ_ROOT := $(WORKBENCH_DIR)/../intellij-community
+  endif
+endif
+
+BAZEL := cd $(INTELLIJ_ROOT) && bash bazel.cmd
 
 # Open the user's home directory as the project root — lets the Project View
 # follow any terminal CWD under ~.
