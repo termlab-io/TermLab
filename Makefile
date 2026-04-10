@@ -7,17 +7,15 @@
 #   make idea        — build and run IntelliJ IDEA CE (for reference)
 
 BAZEL := bash bazel.cmd
-CONCH_WORKSPACE := $(HOME)/.config/conch
+# Open the user's home directory as the project root — allows the
+# Project View to follow any terminal CWD under ~
+CONCH_WORKSPACE := $(HOME)
 
 .PHONY: conch conch-build conch-clean idea
 
-# Build and run Conch — opens ~/.config/conch as the project to skip welcome screen
-conch: $(CONCH_WORKSPACE)
+# Build and run Conch
+conch:
 	$(BAZEL) run //conch:conch_run -- $(CONCH_WORKSPACE)
-
-# Ensure the workspace directory exists
-$(CONCH_WORKSPACE):
-	mkdir -p $(CONCH_WORKSPACE)
 
 # Build Conch without running
 conch-build:

@@ -2,6 +2,7 @@ package com.conch.core;
 
 import com.conch.core.settings.ConchTerminalConfig;
 import com.conch.core.workspace.WorkspaceManager;
+import com.intellij.ide.GeneralSettings;
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.startup.ProjectActivity;
@@ -24,6 +25,9 @@ public final class ConchStartupActivity implements ProjectActivity {
     public @Nullable Object execute(@NotNull Project project,
                                      @NotNull Continuation<? super Unit> continuation) {
         WorkspaceManager.getInstance(project).restore();
+
+        // Quit the app when the last project window is closed (don't show welcome screen)
+        GeneralSettings.getInstance().setShowWelcomeScreen(false);
 
         ApplicationManager.getApplication().invokeLater(() -> {
             ToolWindowManager twm = ToolWindowManager.getInstance(project);
