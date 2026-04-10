@@ -115,6 +115,34 @@ If the build breaks because of an upstream API change, fix it in this repo (the 
 
 All targets resolve `INTELLIJ_ROOT` from this Makefile's location (`..`). Override the env var if your layout differs.
 
+## Running and debugging from IntelliJ IDEA
+
+`setup.sh` automatically wires Conch into the IntelliJ project that lives in `intellij-community/.idea/`, so you can run and debug from the IDE with breakpoints in conch sources.
+
+It does two things:
+
+1. Drops `Conch.xml` into `intellij-community/.idea/runConfigurations/` — an `Application` run config that boots `com.intellij.idea.Main` with `-Didea.platform.prefix=Conch` and the same JVM flags `make conch` uses.
+2. Patches `intellij-community/.idea/modules.xml` to register the four conch `.iml` files (`intellij.conch.{main,core,sdk,customization}`) so IntelliJ can resolve their dependencies and compile them.
+
+To use it:
+
+```bash
+# Open the intellij-community tree as a project (NOT the conch_workbench dir).
+# IntelliJ IDEA → Open → ~/projects/intellij-community
+```
+
+After indexing, the **Conch** run configuration appears in the run dropdown. ▶ runs it; 🐞 debugs it. Set breakpoints anywhere under `conch/` (the symlinked tree) and they'll fire.
+
+> **Note about `intellij-community/.idea/modules.xml`:** the patch shows up as a "modified" tracked file in the upstream tree. That's expected — your local intellij-community is a vendored snapshot and never gets pushed anywhere, so the local diff is harmless. If you want to hide it from `git status`, run `git -C ~/projects/intellij-community update-index --skip-worktree .idea/modules.xml`. Note that this also blocks future upstream changes to that file from being pulled cleanly; just toggle it back with `--no-skip-worktree` before running `git pull`.
+
+If you ever need to re-install the IDE config without re-running full setup:
+
+```bash
+./scripts/install-idea-config.sh
+```
+
+It's idempotent.
+
 ## License
 
 TBD.

@@ -5,11 +5,18 @@
 /bazel-*
 /out/
 
-# IntelliJ project files (the .iml files in this repo are intentionally tracked
-# because they're part of the conch module wiring; user-local IDE state is not)
-.idea/workspace.xml
-.idea/usage.statistics.xml
-.idea/shelf/
+# IntelliJ project state. Conch lives inside the intellij-community project;
+# this repo is never opened as its own IntelliJ project, so any .idea/ that
+# appears here is stale junk from accidental opens.
+.idea/
+
+# Auto-generated short-named .iml files from IntelliJ when it indexes the
+# conch modules from the symlinked path. The canonical .iml files we ship
+# are named intellij.conch.{main,core,sdk,customization}.iml; anything else
+# is regenerated noise.
+core/core.iml
+sdk/sdk.iml
+customization/customization.iml
 
 # OS junk
 .DS_Store

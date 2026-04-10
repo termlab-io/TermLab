@@ -1,0 +1,130 @@
+#!/usr/bin/env bash
+#
+# install-idea-config.sh — wire conch into intellij-community's IntelliJ project
+#
+# When you open intellij-community in IntelliJ IDEA, IntelliJ reads its project
+# state from intellij-community/.idea/. For Conch to be runnable/debuggable from
+# the IDE, two things must live there:
+#
+#   1. A registration entry in .idea/modules.xml pointing at each conch *.iml.
+#   2. A run configuration at .idea/runConfigurations/Conch.xml.
+#
+# Both of these are *local-only* additions — they patch a file (modules.xml)
+# that intellij-community ships under git, so they show up as a 'modified' file
+# in the upstream tree. That's expected; we don't push intellij-community
+# anywhere, so the patch stays local.
+#
+# This script is idempotent — re-running it does nothing on top of an existing
+# install.
+#
+# Usage:
+#   ./scripts/install-idea-config.sh                          # uses .intellij-root
+#   ./scripts/install-idea-config.sh /path/to/intellij-community
+
+set -euo pipefail
+
+WORKBENCH_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
+if [ $# -ge 1 ]; then
+  INTELLIJ_DIR="$1"
+elif [ -f "$WORKBENCH_DIR/.intellij-root" ]; then
+  INTELLIJ_DIR="$(tr -d '[:space:]' < "$WORKBENCH_DIR/.intellij-root")"
+else
+  echo "ERROR: no intellij-community location given." >&2
+  echo "       Run setup.sh first, or pass the path explicitly." >&2
+  exit 1
+fi
+
+if [ ! -f "$INTELLIJ_DIR/.idea/modules.xml" ]; then
+  echo "ERROR: $INTELLIJ_DIR/.idea/modules.xml not found." >&2
+  echo "       Is $INTELLIJ_DIR a real intellij-community checkout?" >&2
+  exit 1
+fi
+
+MODULES_XML="$INTELLIJ_DIR/.idea/modules.xml"
+RUN_CONFIG_DIR="$INTELLIJ_DIR/.idea/runConfigurations"
+RUN_CONFIG_DEST="$RUN_CONFIG_DIR/Conch.xml"
+RUN_CONFIG_SRC="$WORKBENCH_DIR/scripts/idea/Conch.run.xml"
+
+# --- 1. Install the run configuration ----------------------------------------
+
+mkdir -p "$RUN_CONFIG_DIR"
+if [ -f "$RUN_CONFIG_DEST" ] && cmp -s "$RUN_CONFIG_SRC" "$RUN_CONFIG_DEST"; then
+  echo "==> Run configuration already installed: $RUN_CONFIG_DEST"
+else
+  cp "$RUN_CONFIG_SRC" "$RUN_CONFIG_DEST"
+  echo "==> Installed run configuration: $RUN_CONFIG_DEST"
+fi
+
+# --- 2. Register conch modules in modules.xml --------------------------------
+#
+# We insert four <module .../> entries pointing at the symlinked conch tree
+# (intellij-community/conch → conch_workbench). They go just after the existing
+# 'compose.ide.plugin.shared.tests.iml' entry, alphabetically near 'configurationScript'
+# where 'conch' belongs. The entries use $PROJECT_DIR$ so IntelliJ resolves them
+# relative to intellij-community.
+
+CONCH_MODULES=(
+  "conch/core/intellij.conch.core.iml"
+  "conch/customization/intellij.conch.customization.iml"
+  "conch/intellij.conch.main.iml"
+  "conch/sdk/intellij.conch.sdk.iml"
+)
+
+if grep -q "intellij.conch.main.iml" "$MODULES_XML"; then
+  echo "==> Conch modules already registered in $MODULES_XML"
+else
+  echo "==> Registering conch modules in $MODULES_XML"
+
+  # Build the block of <module .../> lines to insert.
+  INSERT_BLOCK=""
+  for path in "${CONCH_MODULES[@]}"; do
+    line="      <module fileurl=\"file://\$PROJECT_DIR\$/$path\" filepath=\"\$PROJECT_DIR\$/$path\" />"
+    INSERT_BLOCK+="$line"$'\n'
+  done
+
+  # Find the anchor line and inject the block right after it.
+  ANCHOR='intellij.compose.ide.plugin.shared.tests.iml'
+  if ! grep -q "$ANCHOR" "$MODULES_XML"; then
+    echo "ERROR: anchor line not found in $MODULES_XML." >&2
+    echo "       The intellij-community version may have changed." >&2
+    echo "       Manually add these lines to .idea/modules.xml inside <modules>:" >&2
+    printf "%s" "$INSERT_BLOCK" >&2
+    exit 1
+  fi
+
+  python3 - "$MODULES_XML" "$ANCHOR" <<PYEOF
+import sys
+
+path, anchor = sys.argv[1], sys.argv[2]
+insert = """      <module fileurl="file://\$PROJECT_DIR\$/conch/core/intellij.conch.core.iml" filepath="\$PROJECT_DIR\$/conch/core/intellij.conch.core.iml" />
+      <module fileurl="file://\$PROJECT_DIR\$/conch/customization/intellij.conch.customization.iml" filepath="\$PROJECT_DIR\$/conch/customization/intellij.conch.customization.iml" />
+      <module fileurl="file://\$PROJECT_DIR\$/conch/intellij.conch.main.iml" filepath="\$PROJECT_DIR\$/conch/intellij.conch.main.iml" />
+      <module fileurl="file://\$PROJECT_DIR\$/conch/sdk/intellij.conch.sdk.iml" filepath="\$PROJECT_DIR\$/conch/sdk/intellij.conch.sdk.iml" />
+"""
+
+with open(path) as f:
+    lines = f.readlines()
+
+out = []
+inserted = False
+for line in lines:
+    out.append(line)
+    if not inserted and anchor in line:
+        out.append(insert)
+        inserted = True
+
+if not inserted:
+    sys.exit("anchor not found")
+
+with open(path, "w") as f:
+    f.writelines(out)
+PYEOF
+fi
+
+echo
+echo "✓ IDEA config installed."
+echo
+echo "Open intellij-community in IntelliJ IDEA, wait for it to index, then pick"
+echo "the 'Conch' run configuration from the run dropdown. ▶ runs it; 🐞 debugs"
+echo "with breakpoints in the conch sources."

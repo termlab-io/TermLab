@@ -74,6 +74,11 @@ echo "$INTELLIJ_DIR" > "$WORKBENCH_DIR/.intellij-root"
 echo "==> Wrote $WORKBENCH_DIR/.intellij-root"
 
 echo
+# Wire up the IntelliJ run configuration and module registrations so the user
+# can run/debug Conch from inside IntelliJ. Idempotent.
+"$WORKBENCH_DIR/scripts/install-idea-config.sh" "$INTELLIJ_DIR"
+
+echo
 echo "✓ Setup complete."
 echo
 echo "  intellij-community: $INTELLIJ_DIR"
