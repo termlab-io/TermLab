@@ -77,20 +77,12 @@ public final class ConchTerminalConfigurable implements Configurable {
         cursorShapeCombo = new JComboBox<>(new String[]{"BLOCK", "UNDERLINE", "VERTICAL_BAR"});
         addLabeledRow(gbc, row++, "Cursor shape:", cursorShapeCombo, null);
 
-        // === Colors Section ===
-        addSectionHeader(gbc, row++, "Colors");
-
+        // Hidden color fields — not shown in UI, driven by editor color scheme.
+        // Kept as fields so isModified/apply/reset don't break.
         foregroundColor = new ColorPanel();
-        addLabeledRow(gbc, row++, "Foreground:", foregroundColor, null);
-
         backgroundColor = new ColorPanel();
-        addLabeledRow(gbc, row++, "Background:", backgroundColor, null);
-
         selectionFgColor = new ColorPanel();
-        addLabeledRow(gbc, row++, "Selection foreground:", selectionFgColor, null);
-
         selectionBgColor = new ColorPanel();
-        addLabeledRow(gbc, row++, "Selection background:", selectionBgColor, null);
 
         // === Behavior Section ===
         addSectionHeader(gbc, row++, "Behavior");
