@@ -5,7 +5,7 @@
     <orderEntry type="inheritedJdk" />
     <orderEntry type="sourceFolder" forTests="false" />
     <orderEntry type="module" module-name="intellij.platform.monolith.main" scope="RUNTIME" />
-    <orderEntry type="module" module-name="intellij.platform.bootstrap" scope="RUNTIME" />
+    <orderEntry type="module" module-name="intellij.platform.bootstrap" />
     <orderEntry type="module" module-name="intellij.platform.starter" />
     <orderEntry type="module" module-name="intellij.conch.customization" />
     <orderEntry type="module" module-name="intellij.conch.core" />
