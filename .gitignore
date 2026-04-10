@@ -1,0 +1,17 @@
+# Bazel build outputs (live in the intellij tree, not here, but just in case)
+/bazel-*
+/out/
+
+# IntelliJ project files (the .iml files in this repo are intentionally tracked
+# because they're part of the conch module wiring; user-local IDE state is not)
+.idea/workspace.xml
+.idea/usage.statistics.xml
+.idea/shelf/
+
+# OS junk
+.DS_Store
+Thumbs.db
+
+# Editor scratch
+*.swp
+*~
