@@ -1403,22 +1403,165 @@ git commit -am "feat(vault): mix device secret into key derivation"
 
 **Files:**
 - Create: `plugins/vault/src/com/conch/vault/credentials/VaultCredentialProvider.java`
+- Create: `plugins/vault/src/com/conch/vault/credentials/AuthMethodMapper.java`
+- Create: `plugins/vault/test/com/conch/vault/credentials/VaultCredentialProviderTest.java`
 
-`com.conch.sdk.CredentialProvider` is the SDK interface other plugins query. Implementation stub:
+The SDK interface (`conch_workbench/sdk/src/com/conch/sdk/CredentialProvider.java`) defines four methods: `getDisplayName()`, `isAvailable()`, `getCredential(UUID)`, `promptForCredential()`. The return type is a flat `Credential` record (with `char[]` sensitive fields and a `destroy()` method) — **not** the vault's internal `VaultAccount`. This decoupling means the SDK contract is stable even if the vault's internal model changes.
+
+**Key boundary work:** the vault's internal `vault.model.AuthMethod` is a sealed interface with three records (`Password`, `Key`, `KeyAndPassword`); the SDK's `CredentialProvider.AuthMethod` is a three-value enum (`PASSWORD`, `KEY`, `KEY_AND_PASSWORD`). The conversion happens here, not anywhere else.
+
+- [ ] **Step 1: Write the AuthMethodMapper helper.**
+
+```java
+package com.conch.vault.credentials;
+
+import com.conch.sdk.CredentialProvider;
+import com.conch.vault.model.AuthMethod;
+import com.conch.vault.model.VaultAccount;
+import org.jetbrains.annotations.NotNull;
+
+/**
+ * Maps internal vault.model types into the public SDK Credential record.
+ * Only place that converts from vault.model.AuthMethod (sealed interface,
+ * String fields) to sdk.CredentialProvider.AuthMethod (enum) + char[] fields.
+ *
+ * The String → char[] copy at this boundary is the security weak point —
+ * see "Risks and gotchas" in the plan header.
+ */
+final class AuthMethodMapper {
+    private AuthMethodMapper() {}
+
+    static @NotNull CredentialProvider.Credential toCredential(@NotNull VaultAccount account) {
+        AuthMethod auth = account.auth();
+        return switch (auth) {
+            case AuthMethod.Password p -> new CredentialProvider.Credential(
+                account.id(),
+                account.displayName(),
+                account.username(),
+                CredentialProvider.AuthMethod.PASSWORD,
+                p.password().toCharArray(),
+                null,
+                null
+            );
+            case AuthMethod.Key k -> new CredentialProvider.Credential(
+                account.id(),
+                account.displayName(),
+                account.username(),
+                CredentialProvider.AuthMethod.KEY,
+                null,
+                k.keyPath(),
+                k.passphrase() == null ? null : k.passphrase().toCharArray()
+            );
+            case AuthMethod.KeyAndPassword kp -> new CredentialProvider.Credential(
+                account.id(),
+                account.displayName(),
+                account.username(),
+                CredentialProvider.AuthMethod.KEY_AND_PASSWORD,
+                kp.password().toCharArray(),
+                kp.keyPath(),
+                kp.passphrase() == null ? null : kp.passphrase().toCharArray()
+            );
+        };
+    }
+}
+```
+
+- [ ] **Step 2: Failing test for the mapper.**
+
+```java
+package com.conch.vault.credentials;
+
+import com.conch.sdk.CredentialProvider;
+import com.conch.vault.model.AuthMethod;
+import com.conch.vault.model.VaultAccount;
+import org.junit.jupiter.api.Test;
+
+import java.time.Instant;
+import java.util.UUID;
+
+import static org.junit.jupiter.api.Assertions.*;
+
+class VaultCredentialProviderTest {
+    @Test
+    void mapper_passwordAccount_yieldsPasswordCredential() {
+        VaultAccount account = new VaultAccount(
+            UUID.randomUUID(), "DB", "dbadmin",
+            new AuthMethod.Password("hunter2"),
+            Instant.now(), Instant.now()
+        );
+        CredentialProvider.Credential cred = AuthMethodMapper.toCredential(account);
+        assertEquals(CredentialProvider.AuthMethod.PASSWORD, cred.authMethod());
+        assertArrayEquals("hunter2".toCharArray(), cred.password());
+        assertNull(cred.keyPath());
+        assertNull(cred.keyPassphrase());
+    }
+
+    @Test
+    void mapper_keyAccount_yieldsKeyCredential_passphraseOptional() {
+        VaultAccount account = new VaultAccount(
+            UUID.randomUUID(), "Github", "git",
+            new AuthMethod.Key("/home/me/.ssh/id_ed25519", null),
+            Instant.now(), Instant.now()
+        );
+        CredentialProvider.Credential cred = AuthMethodMapper.toCredential(account);
+        assertEquals(CredentialProvider.AuthMethod.KEY, cred.authMethod());
+        assertEquals("/home/me/.ssh/id_ed25519", cred.keyPath());
+        assertNull(cred.password());
+        assertNull(cred.keyPassphrase());
+    }
+
+    @Test
+    void mapper_keyAndPasswordAccount_yieldsCombined() {
+        VaultAccount account = new VaultAccount(
+            UUID.randomUUID(), "Bastion", "ops",
+            new AuthMethod.KeyAndPassword("/home/me/.ssh/id_rsa", "key-pass", "server-pass"),
+            Instant.now(), Instant.now()
+        );
+        CredentialProvider.Credential cred = AuthMethodMapper.toCredential(account);
+        assertEquals(CredentialProvider.AuthMethod.KEY_AND_PASSWORD, cred.authMethod());
+        assertEquals("/home/me/.ssh/id_rsa", cred.keyPath());
+        assertArrayEquals("server-pass".toCharArray(), cred.password());
+        assertArrayEquals("key-pass".toCharArray(), cred.keyPassphrase());
+    }
+
+    @Test
+    void destroy_zeroesPasswordAndPassphrase() {
+        VaultAccount account = new VaultAccount(
+            UUID.randomUUID(), "X", "u",
+            new AuthMethod.KeyAndPassword("/k", "pp", "pw"),
+            Instant.now(), Instant.now()
+        );
+        CredentialProvider.Credential cred = AuthMethodMapper.toCredential(account);
+        cred.destroy();
+        for (char c : cred.password()) assertEquals('\0', c);
+        for (char c : cred.keyPassphrase()) assertEquals('\0', c);
+    }
+}
+```
+
+- [ ] **Step 3: Run the test, expect failure.**
+
+Run: `bazel test //plugins/vault:vault_test --test_filter=VaultCredentialProviderTest`
+Expected: FAIL (mapper class doesn't exist).
+
+- [ ] **Step 4: Implement the mapper (already shown in Step 1). Run tests, expect pass.**
+
+- [ ] **Step 5: Implement VaultCredentialProvider against the actual SDK.**
 
 ```java
 package com.conch.vault.credentials;
 
 import com.conch.sdk.CredentialProvider;
 import com.conch.vault.lock.LockManager;
-import com.conch.vault.model.AuthMethod;
+import com.conch.vault.model.Vault;
 import com.conch.vault.model.VaultAccount;
+import com.conch.vault.ui.AccountPickerDialog;
+import com.intellij.openapi.project.Project;
+import com.intellij.openapi.project.ProjectManager;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import java.util.List;
 import java.util.UUID;
-import java.util.stream.Collectors;
 
 public final class VaultCredentialProvider implements CredentialProvider {
 
@@ -1429,40 +1572,45 @@ public final class VaultCredentialProvider implements CredentialProvider {
     }
 
     @Override
-    public @NotNull String getId() { return "com.conch.vault"; }
+    public @NotNull String getDisplayName() {
+        return "Conch Vault";
+    }
 
     @Override
-    public @NotNull String getDisplayName() { return "Conch Vault"; }
+    public boolean isAvailable() {
+        return !lockManager.isLocked();
+    }
 
     @Override
-    public boolean isUnlocked() { return !lockManager.isLocked(); }
-
-    @Override
-    public @Nullable VaultAccount findById(@NotNull UUID id) {
-        var vault = lockManager.getVault();
+    public @Nullable Credential getCredential(@NotNull UUID accountId) {
+        Vault vault = lockManager.getVault();
         if (vault == null) return null;
         return vault.accounts.stream()
-            .filter(a -> a.id().equals(id))
+            .filter(a -> a.id().equals(accountId))
             .findFirst()
+            .map(AuthMethodMapper::toCredential)
             .orElse(null);
     }
 
     @Override
-    public @NotNull List<UUID> listAccountIds() {
-        var vault = lockManager.getVault();
-        if (vault == null) return List.of();
-        return vault.accounts.stream().map(VaultAccount::id).collect(Collectors.toList());
+    public @Nullable Credential promptForCredential() {
+        // Lazy: if locked, the picker dialog will trigger UnlockDialog itself
+        // before showing the list. See AccountPickerDialog (Task 4.7).
+        Project project = ProjectManager.getInstance().getDefaultProject();
+        VaultAccount picked = AccountPickerDialog.show(project, lockManager);
+        return picked == null ? null : AuthMethodMapper.toCredential(picked);
     }
 }
 ```
 
-> **Note:** Verify the actual `CredentialProvider` interface in `conch_workbench/sdk/src/com/conch/sdk/CredentialProvider.java` before implementing — the spec describes it but the current SDK file may have a different shape. If the interface needs new methods, add them to the SDK first as a separate commit, then update this provider.
+- [ ] **Step 6: Commit.**
 
-- [ ] **Step 1: Read the SDK interface.** Adjust the implementation skeleton above to match.
+```bash
+git add plugins/vault/src/com/conch/vault/credentials/ plugins/vault/test/com/conch/vault/credentials/
+git commit -m "feat(vault): VaultCredentialProvider — implements SDK CredentialProvider"
+```
 
-- [ ] **Step 2: Implement.**
-
-- [ ] **Step 3: Commit.**
+> **Note:** `promptForCredential()` references `AccountPickerDialog`, which is created in Task 4.7. If you're executing strictly in order, leave the `promptForCredential()` method body as `return null;` for now and fill it in after Task 4.7 lands. The mapper, `getCredential`, `getDisplayName`, and `isAvailable` work without the dialog and ship in this task.
 
 ### Task 3.2 — Plugin XML and entry point
 
@@ -1472,9 +1620,15 @@ public final class VaultCredentialProvider implements CredentialProvider {
 
 `plugin.xml` declares:
 - `<id>com.conch.vault</id>`
+- `<depends>com.conch.core</depends>` — the credentialProvider extension point lives in `com.conch.core`
 - Application service: `LockManager` (singleton, holds the in-memory vault state for the whole IDE)
 - Application service: `VaultCredentialProvider` (bound to the LockManager)
-- Extension to `com.conch.sdk.credentialProvider`: register the VaultCredentialProvider
+- Extension to `com.conch.core.credentialProvider`:
+  ```xml
+  <extensions defaultExtensionNs="com.conch.core">
+    <credentialProvider implementation="com.conch.vault.credentials.VaultCredentialProvider"/>
+  </extensions>
+  ```
 - Action: `com.conch.vault.OpenVaultAction` bound to `Cmd+Shift+V`
 - Status bar widget factory
 - Project listener to bridge "user activity" → `InactivityTimer.markActivity()`
@@ -1494,7 +1648,7 @@ make conch
 
 - [ ] **Step 4: Commit.**
 
-**Phase 3 milestone:** The vault service is loaded into the running Conch process. Other plugins can call `CredentialProvider.findById(...)`. There's still no UI to populate the vault — that's Phase 4.
+**Phase 3 milestone:** The vault service is loaded into the running Conch process. Other plugins can call `CredentialProvider.getCredential(uuid)` and `isAvailable()`. `promptForCredential()` returns null until Task 4.7 lands the picker dialog. There's still no UI to populate the vault — that's the rest of Phase 4.
 
 ---
 
@@ -1609,7 +1763,110 @@ Register in plugin.xml with keyboard shortcut `meta shift V` (macOS) and `ctrl s
 - [ ] **Step 1:** Implement and register.
 - [ ] **Step 2:** Commit.
 
-**Phase 4 milestone:** A user can create a vault, unlock it, add accounts, save, lock, unlock again, all from the UI. The status bar shows the lock state. Cmd+Shift+V opens the vault. Other plugins can already query credentials via `CredentialProvider`.
+### Task 4.7 — AccountPickerDialog (used by `promptForCredential`)
+
+**Files:**
+- Create: `plugins/vault/src/com/conch/vault/ui/AccountPickerDialog.java`
+- Modify: `plugins/vault/src/com/conch/vault/credentials/VaultCredentialProvider.java` (replace the `return null;` placeholder added in Task 3.1)
+
+When another plugin calls `CredentialProvider.promptForCredential()`, the vault must show an account picker. This dialog is a stripped-down version of `VaultDialog` — list of accounts, search filter, OK/Cancel — with no edit/delete affordances. If the vault is locked when the dialog is invoked, it triggers `UnlockDialog` first; if the user cancels unlock, the picker returns null.
+
+```java
+package com.conch.vault.ui;
+
+import com.conch.vault.lock.LockManager;
+import com.conch.vault.model.Vault;
+import com.conch.vault.model.VaultAccount;
+import com.intellij.openapi.project.Project;
+import com.intellij.openapi.ui.DialogWrapper;
+import com.intellij.ui.SearchTextField;
+import com.intellij.ui.components.JBList;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
+
+import javax.swing.*;
+import java.awt.*;
+import java.util.List;
+import java.util.stream.Collectors;
+
+public final class AccountPickerDialog extends DialogWrapper {
+
+    private final LockManager lockManager;
+    private final JBList<VaultAccount> list;
+    private final DefaultListModel<VaultAccount> model;
+    private final SearchTextField search;
+
+    private AccountPickerDialog(@Nullable Project project, @NotNull LockManager lockManager) {
+        super(project, true);
+        this.lockManager = lockManager;
+        this.model = new DefaultListModel<>();
+        this.list = new JBList<>(model);
+        this.search = new SearchTextField();
+        setTitle("Choose Credential");
+        init();
+        reload();
+        search.addDocumentListener(new com.intellij.ui.DocumentAdapter() {
+            @Override protected void textChanged(@NotNull javax.swing.event.DocumentEvent e) { reload(); }
+        });
+    }
+
+    /**
+     * Show the picker. Returns the selected account, or null if cancelled.
+     * Triggers UnlockDialog automatically if the vault is locked. Returns null
+     * if the user cancels unlock.
+     */
+    public static @Nullable VaultAccount show(@Nullable Project project, @NotNull LockManager lockManager) {
+        if (lockManager.isLocked()) {
+            UnlockDialog unlock = new UnlockDialog(project, lockManager);
+            if (!unlock.showAndGet()) return null;
+        }
+        AccountPickerDialog dlg = new AccountPickerDialog(project, lockManager);
+        if (!dlg.showAndGet()) return null;
+        return dlg.list.getSelectedValue();
+    }
+
+    @Override
+    protected @Nullable JComponent createCenterPanel() {
+        JPanel panel = new JPanel(new BorderLayout(8, 8));
+        panel.setPreferredSize(new Dimension(420, 320));
+        panel.add(search, BorderLayout.NORTH);
+        panel.add(new JScrollPane(list), BorderLayout.CENTER);
+        list.setCellRenderer(new VaultAccountCellRenderer());
+        return panel;
+    }
+
+    private void reload() {
+        Vault vault = lockManager.getVault();
+        if (vault == null) {
+            model.clear();
+            return;
+        }
+        String query = search.getText().toLowerCase();
+        List<VaultAccount> filtered = vault.accounts.stream()
+            .filter(a -> query.isEmpty()
+                || a.displayName().toLowerCase().contains(query)
+                || a.username().toLowerCase().contains(query))
+            .collect(Collectors.toList());
+        model.clear();
+        filtered.forEach(model::addElement);
+        if (!filtered.isEmpty()) list.setSelectedIndex(0);
+    }
+
+    @Override
+    protected @Nullable javax.swing.Action[] createActions() {
+        return new javax.swing.Action[]{ getOKAction(), getCancelAction() };
+    }
+}
+```
+
+`VaultAccountCellRenderer` is a small `ListCellRenderer<VaultAccount>` that renders `displayName` on top and `username` underneath. Lives next to this dialog.
+
+- [ ] **Step 1:** Implement `AccountPickerDialog` (and the small cell renderer).
+- [ ] **Step 2:** Replace the `return null;` placeholder in `VaultCredentialProvider.promptForCredential()` with the call shown in Task 3.1's Step 5.
+- [ ] **Step 3:** Smoke-test by hand: create a vault with two accounts, then from a Kotlin scratch buffer (or a temporary action) call `application.getService(VaultCredentialProvider.class).promptForCredential()` and verify the picker shows up and returns a non-null `Credential`.
+- [ ] **Step 4:** Commit.
+
+**Phase 4 milestone:** A user can create a vault, unlock it, add accounts, save, lock, unlock again, all from the UI. The status bar shows the lock state. Cmd+Shift+V opens the vault. Other plugins can both look up credentials by ID (`getCredential(uuid)`) AND ask the vault to show a picker (`promptForCredential()`). The full SDK contract is implemented.
 
 ---
 
@@ -1675,8 +1932,89 @@ Algorithm dropdown, comment field, "Generate" button. On success, the new entry 
 
 **Files:**
 - Create: `plugins/vault/src/com/conch/vault/palette/VaultPaletteContributor.java`
+- Modify: `plugins/vault/resources/META-INF/plugin.xml` (register the contributor under `com.conch.core.commandPaletteContributor`)
 
-Implements `com.conch.sdk.CommandPaletteContributor`. Returns a list of `PaletteItem` for each unlocked account, plus actions ("Lock vault", "Open vault…").
+The SDK's `CommandPaletteContributor` interface (`conch_workbench/sdk/src/com/conch/sdk/CommandPaletteContributor.java`) requires three methods: `getTabName()`, `getTabWeight()`, and `search(String query)`. The contributor returns a list of `PaletteItem`s, each with a `Runnable` action.
+
+This contributor lives **inside** the vault plugin (it has direct access to `LockManager`'s in-memory state); it does NOT consume `CredentialProvider` for enumeration. `CredentialProvider` only exposes lookup-by-id and prompt — it intentionally has no `listAccountIds()`. Enumeration is the vault plugin's own concern.
+
+```java
+package com.conch.vault.palette;
+
+import com.conch.sdk.CommandPaletteContributor;
+import com.conch.sdk.PaletteItem;
+import com.conch.vault.lock.LockManager;
+import com.conch.vault.model.Vault;
+import com.conch.vault.model.VaultAccount;
+import com.conch.vault.ui.AccountEditDialog;
+import com.intellij.openapi.application.ApplicationManager;
+import com.intellij.openapi.project.ProjectManager;
+import org.jetbrains.annotations.NotNull;
+
+import java.util.ArrayList;
+import java.util.List;
+
+public final class VaultPaletteContributor implements CommandPaletteContributor {
+
+    @Override
+    public @NotNull String getTabName() { return "Vault"; }
+
+    @Override
+    public int getTabWeight() { return 60; }
+
+    @Override
+    public @NotNull List<PaletteItem> search(@NotNull String query) {
+        LockManager lm = ApplicationManager.getApplication().getService(LockManager.class);
+        List<PaletteItem> out = new ArrayList<>();
+
+        // Always include the management actions, regardless of lock state.
+        out.add(new PaletteItem(
+            "vault.open", "Open vault", "Cmd+Shift+V", null,
+            () -> /* trigger OpenVaultAction */ {}
+        ));
+        if (!lm.isLocked()) {
+            out.add(new PaletteItem(
+                "vault.lock", "Lock vault now", null, null,
+                lm::lock
+            ));
+        }
+
+        // Account entries — only if unlocked.
+        Vault vault = lm.getVault();
+        if (vault != null) {
+            String q = query.toLowerCase();
+            for (VaultAccount account : vault.accounts) {
+                if (!q.isEmpty()
+                    && !account.displayName().toLowerCase().contains(q)
+                    && !account.username().toLowerCase().contains(q)) {
+                    continue;
+                }
+                out.add(new PaletteItem(
+                    "vault.account." + account.id(),
+                    account.displayName(),
+                    account.username(),
+                    null,
+                    () -> AccountEditDialog.show(
+                        ProjectManager.getInstance().getDefaultProject(), lm, account)
+                ));
+            }
+        }
+        return out;
+    }
+}
+```
+
+Register in plugin.xml:
+```xml
+<extensions defaultExtensionNs="com.conch.core">
+  <commandPaletteContributor implementation="com.conch.vault.palette.VaultPaletteContributor"/>
+</extensions>
+```
+
+- [ ] **Step 1:** Implement.
+- [ ] **Step 2:** Register in plugin.xml.
+- [ ] **Step 3:** Build, launch Conch, press `Cmd+Shift+P` → "Vault" tab → see accounts and actions.
+- [ ] **Step 4:** Commit.
 
 ### Task 6.2 — VaultShutdownHook
 
@@ -1734,6 +2072,20 @@ Tracked here so they don't get accidentally absorbed:
 **5. SecKeychainAddGenericPassword is deprecated** (replaced by `SecItemAdd` in modern Security framework). It still works through macOS 14 but Apple may remove it. If/when that happens, port the keychain backend to use `CFDictionary`-based `SecItem*` calls. Out of scope for v1.
 
 **6. Test isolation.** Several tests touch `~/.config/conch/vault.enc`. **Always** use `@TempDir` in tests; never test against the user's real vault path.
+
+**7. String → char[] divergence at the SDK boundary (known v1 weakness).** The vault's internal `vault.model.AuthMethod` uses `String` fields for passwords and passphrases because Gson serializes Strings natively. The SDK's `CredentialProvider.Credential` correctly uses `char[]` so consumers can `Arrays.fill('\0')` and explicitly destroy secrets. The conversion happens in `AuthMethodMapper.toCredential(...)` (Task 3.1) — `String.toCharArray()` allocates a fresh char array we hand to consumers, which they can zero.
+
+The weakness: the **internal** `String` form is **not** zeroable. Once Gson parses JSON into a `Vault` object, the password Strings live in the heap until garbage collection, and even then the heap region may persist. An attacker who can read the JVM's memory after the vault is decrypted can still recover the cleartext. This is strictly worse than the Rust reference implementation, which uses `Zeroize for AuthMethod` to wipe String contents on drop (Rust's `String` is just an owned heap buffer; Java's is immutable).
+
+**Acceptable for v1 because:** the in-memory window is bounded by the lock manager's auto-lock timeout (default 15 min), and the device-binding + AES-GCM disk encryption mean the *file* on disk is still secure. Process hardening (Task 6.3) prevents debugger/heap-dump extraction. The weakness only matters against a memory-reading attacker on a running, unlocked Conch.
+
+**Path to fix post-v1** (do NOT do this in the initial implementation — it's a separate effort):
+- Replace `String` fields in `AuthMethod` records with `byte[]`/`char[]`.
+- Write a custom Gson `TypeAdapter<AuthMethod>` that reads JSON strings into freshly-allocated `char[]` (bypassing Gson's String pool).
+- Track every reference to those arrays and zero them on lock.
+- Audit `Cipher.doFinal` calls — the `byte[] plaintext` from `VaultCrypto.decrypt` is already zeroed (Task 1.5 shows the `try/finally`), but if Gson copies bytes into String during parse, those Strings survive. The custom TypeAdapter removes that step.
+
+Tracked in `docs/plans/` as a future hardening pass once the vault is shipping.
 
 ---
 
