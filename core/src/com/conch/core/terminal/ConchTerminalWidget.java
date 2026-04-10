@@ -1,7 +1,12 @@
 package com.conch.core.terminal;
 
+import com.jediterm.terminal.TerminalStarter;
+import com.jediterm.terminal.TtyBasedArrayDataStream;
+import com.jediterm.terminal.TtyConnector;
+import com.jediterm.terminal.model.JediTerminal;
 import com.jediterm.terminal.ui.JediTermWidget;
 import com.jediterm.terminal.ui.settings.SettingsProvider;
+import org.jetbrains.annotations.NotNull;
 
 import javax.swing.*;
 import javax.swing.plaf.basic.BasicScrollBarUI;
@@ -17,6 +22,18 @@ public class ConchTerminalWidget extends JediTermWidget {
 
     public ConchTerminalWidget(SettingsProvider settingsProvider) {
         super(settingsProvider);
+    }
+
+    @Override
+    protected TerminalStarter createTerminalStarter(@NotNull JediTerminal terminal,
+                                                     @NotNull TtyConnector connector) {
+        return new ConchTerminalStarter(
+            terminal,
+            connector,
+            new TtyBasedArrayDataStream(connector, getTypeAheadManager()::onTerminalStateChanged),
+            getTypeAheadManager(),
+            getExecutorServiceManager()
+        );
     }
 
     @Override

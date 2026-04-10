@@ -6,14 +6,38 @@ import org.jetbrains.annotations.NotNull;
 import com.jediterm.core.util.TermSize;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayDeque;
+import java.util.Arrays;
+import java.util.Deque;
 import java.util.function.Consumer;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * Wraps a TtyConnector and intercepts OSC escape sequences from terminal output:
- * - OSC 7 (working directory): file://hostname/path
- * - OSC 0/2 (window title): text set by shell/programs (e.g., Codex, vim)
+ * Wraps a TtyConnector and:
+ * <ul>
+ *   <li>Intercepts OSC escape sequences from terminal output:
+ *     <ul>
+ *       <li>OSC 7 (working directory): {@code file://hostname/path}</li>
+ *       <li>OSC 0/2 (window title): text set by shell/programs (e.g. vim, codex)</li>
+ *     </ul>
+ *   </li>
+ *   <li>Fixes JediTerm's broken Device Attributes responses. JediTerm replies to
+ *       BOTH primary DA ({@code ESC[c}) and secondary DA ({@code ESC[>c}) queries
+ *       with {@code ESC[?6c}. The primary form is mostly fine but undersized; the
+ *       secondary form is wholly invalid (DA2 must use {@code ESC[>...c}). tmux
+ *       can't parse either response cleanly and leaks the bytes through to its
+ *       active pane as visible garbage. We track DA queries from the program
+ *       output, then on the matching JediTerm write, substitute the correct
+ *       xterm-style response: {@code ESC[?1;2c} for primary, {@code ESC[>0;0;0c}
+ *       for secondary.</li>
+ * </ul>
+ *
+ * <p>The DA queue is touched only by the JediTerm emulator thread: reads happen
+ * via {@link #read} from the emulator's main loop, and writes for non-user-input
+ * traffic (i.e. terminal-generated responses) are dispatched synchronously by
+ * {@link ConchTerminalStarter} on that same thread. No synchronization required.
  */
 public final class OscTrackingTtyConnector implements TtyConnector {
     // ESC = \x1b, BEL = \x07, ST = ESC + backslash
@@ -27,10 +51,27 @@ public final class OscTrackingTtyConnector implements TtyConnector {
         "\\x1b\\][02];(.+?)(?:\\x1b\\\\|\\x07)"
     );
 
+    // Device Attributes queries from the running program:
+    //   ESC[c   — Primary DA   (group 1 empty)
+    //   ESC[>c  — Secondary DA (group 1 = ">")
+    private static final Pattern DA_QUERY_PATTERN = Pattern.compile("\\x1b\\[(>?)c");
+
+    // JediTerm's broken DA response — same bytes for both primary and secondary.
+    private static final byte[] JEDITERM_DA_BYTES = {0x1B, '[', '?', '6', 'c'};
+    private static final String JEDITERM_DA_STRING = new String(JEDITERM_DA_BYTES, StandardCharsets.US_ASCII);
+
+    // Proper xterm-style replies:
+    //   Primary DA   → ESC[?1;2c   (VT100 + Advanced Video Option)
+    //   Secondary DA → ESC[>0;0;0c (VT100, firmware 0, ROM 0)
+    private static final byte[] PROPER_DA1 = {0x1B, '[', '?', '1', ';', '2', 'c'};
+    private static final byte[] PROPER_DA2 = {0x1B, '[', '>', '0', ';', '0', ';', '0', 'c'};
+
     private final TtyConnector delegate;
     private final Consumer<String> cwdListener;
     private final Consumer<String> titleListener;
     private final StringBuilder buffer = new StringBuilder();
+    /** Pending DA queries in order of arrival; {@code true} = secondary DA, {@code false} = primary DA. */
+    private final Deque<Boolean> pendingDaQueries = new ArrayDeque<>();
 
     public OscTrackingTtyConnector(@NotNull TtyConnector delegate,
                                     @NotNull Consumer<String> cwdListener,
@@ -46,6 +87,7 @@ public final class OscTrackingTtyConnector implements TtyConnector {
         if (count > 0) {
             buffer.append(buf, offset, count);
             extractOsc();
+            trackDaQueries();
             if (buffer.length() > 4096) {
                 buffer.delete(0, buffer.length() - 512);
             }
@@ -75,9 +117,39 @@ public final class OscTrackingTtyConnector implements TtyConnector {
         }
     }
 
+    private void trackDaQueries() {
+        Matcher m = DA_QUERY_PATTERN.matcher(buffer);
+        while (m.find()) {
+            pendingDaQueries.addLast(">".equals(m.group(1)));
+        }
+    }
+
     @Override public boolean isConnected() { return delegate.isConnected(); }
-    @Override public void write(byte[] bytes) throws IOException { delegate.write(bytes); }
-    @Override public void write(String string) throws IOException { delegate.write(string); }
+
+    @Override
+    public void write(byte[] bytes) throws IOException {
+        delegate.write(fixDaResponse(bytes));
+    }
+
+    @Override
+    public void write(String string) throws IOException {
+        if (JEDITERM_DA_STRING.equals(string)) {
+            delegate.write(fixDaResponse(JEDITERM_DA_BYTES));
+        } else {
+            delegate.write(string);
+        }
+    }
+
+    private byte[] fixDaResponse(byte[] bytes) {
+        if (!Arrays.equals(bytes, JEDITERM_DA_BYTES)) {
+            return bytes;
+        }
+        Boolean isSecondary = pendingDaQueries.pollFirst();
+        // If we don't have a tracked query (e.g. response races ahead of our scan),
+        // default to the primary form — that's what tmux is most likely waiting for.
+        return Boolean.TRUE.equals(isSecondary) ? PROPER_DA2 : PROPER_DA1;
+    }
+
     @Override public int waitFor() throws InterruptedException { return delegate.waitFor(); }
     @Override public boolean ready() throws IOException { return delegate.ready(); }
     @Override public String getName() { return delegate.getName(); }
