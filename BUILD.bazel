@@ -18,7 +18,10 @@ java_binary(
         "//conch/core",
         "//conch/sdk",
 
-        # Bundled plugins — ONLY these exist in Conch
+        # Conch bundled plugins (first-party, always enabled)
+        "//conch/plugins/vault",
+
+        # IntelliJ-platform bundled plugins — ONLY these exist in Conch
         "//plugins/classic-ui",
         "//plugins/sh/plugin",
         "//plugins/textmate",
@@ -97,6 +100,10 @@ java_binary(
         "-Didea.jre.check=true",
         "-Didea.is.internal=true",
         "-Didea.debug.mode=true",
+        # Disable file indexing globally in Conch (terminal-first product).
+        "-Didea.indexes.pretendNoFiles=true",
+        # Never auto-open Project View during startup in Conch.
+        "-Dide.open.project.view.on.startup=false",
         "-Didea.platform.prefix=Conch",
         "-Didea.config.path=$${BUILD_WORKSPACE_DIRECTORY}/config/conch",
         "-Didea.system.path=$${BUILD_WORKSPACE_DIRECTORY}/system/conch",

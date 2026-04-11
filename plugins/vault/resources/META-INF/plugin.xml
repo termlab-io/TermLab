@@ -1,0 +1,16 @@
+<idea-plugin>
+    <id>com.conch.vault</id>
+    <name>Conch Vault</name>
+    <vendor>Conch</vendor>
+    <description>Encrypted credential vault. Stores SSH credentials (passwords, keys, passphrases) on disk with AES-256-GCM and Argon2id, device-bound via the OS keychain, and exposes them to other Conch plugins through the CredentialProvider extension point.</description>
+
+    <!-- The credentialProvider extension point is declared in Conch core. -->
+    <depends>com.conch.core</depends>
+
+    <!--
+      Registration of the VaultCredentialProvider, status-bar widget, actions,
+      and services comes in Phase 3 of the vault implementation plan. This
+      placeholder plugin.xml exists so the Bazel resourcegroup glob matches
+      something during Phase 1.
+    -->
+</idea-plugin>

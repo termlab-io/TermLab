@@ -1,0 +1,62 @@
+load("@rules_java//java:defs.bzl", "java_binary")
+load("@rules_jvm//:jvm.bzl", "jvm_library", "resourcegroup")
+
+resourcegroup(
+    name = "vault_resources",
+    srcs = glob(["resources/**/*"]),
+    strip_prefix = "resources",
+)
+
+jvm_library(
+    name = "vault",
+    module_name = "intellij.conch.vault",
+    visibility = ["//visibility:public"],
+    srcs = glob(["src/**/*.java"], allow_empty = True),
+    resources = [":vault_resources"],
+    deps = [
+        "//conch/sdk",
+        "//platform/core-api:core",
+        "//platform/platform-api:ide",
+        "//platform/platform-impl:ide-impl",
+        "//platform/util:util-ui",
+        "//libraries/bouncy-castle-provider",
+        "@lib//:jetbrains-annotations",
+        "@lib//:gson",
+        "@lib//:kotlin-stdlib",
+    ],
+)
+
+# Test sources compile as a separate library so we can catch typos via
+# `make conch-build`. Executable test target can be added later once the
+# Conch tree has a pattern for running pure-JUnit5 tests via Bazel.
+jvm_library(
+    name = "vault_test_lib",
+    module_name = "intellij.conch.vault.tests",
+    visibility = ["//visibility:public"],
+    srcs = glob(["test/**/*.java"], allow_empty = True),
+    deps = [
+        ":vault",
+        "//conch/sdk",
+        "//libraries/bouncy-castle-provider",
+        "//libraries/junit5",
+        "//libraries/junit5-jupiter",
+        "//libraries/junit5-launcher",
+        "@lib//:jetbrains-annotations",
+        "@lib//:gson",
+        "@lib//:kotlin-stdlib",
+    ],
+)
+
+# Standalone test runner: runs the full vault Phase 1 test tree via the
+# JUnit 5 platform launcher. Invoke with:
+#     bash bazel.cmd run //conch/plugins/vault:vault_test_runner
+# Exits 0 on all-pass, non-zero on any failure.
+java_binary(
+    name = "vault_test_runner",
+    main_class = "com.conch.vault.TestRunner",
+    runtime_deps = [
+        ":vault_test_lib",
+        "//libraries/junit5-jupiter",
+        "//libraries/junit5-launcher",
+    ],
+)
