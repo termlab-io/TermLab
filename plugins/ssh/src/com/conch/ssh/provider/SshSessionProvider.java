@@ -1,6 +1,7 @@
 package com.conch.ssh.provider;
 
 import com.conch.sdk.TerminalSessionProvider;
+import com.conch.ssh.client.ConchServerKeyVerifier;
 import com.conch.ssh.client.ConchSshClient;
 import com.conch.ssh.client.SshConnectException;
 import com.conch.ssh.client.SshConnection;
@@ -17,7 +18,6 @@ import com.intellij.openapi.progress.ProgressManager;
 import com.intellij.openapi.progress.Task;
 import com.intellij.openapi.ui.Messages;
 import com.jediterm.terminal.TtyConnector;
-import org.apache.sshd.client.keyverifier.AcceptAllServerKeyVerifier;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -48,11 +48,10 @@ import javax.swing.*;
  *       "accept anyway" path.</li>
  * </ol>
  *
- * <p>Host-key verification is currently a placeholder
- * {@link AcceptAllServerKeyVerifier} — Phase 5 replaces it with a
- * {@code ConchServerKeyVerifier} that consults {@link KnownHostsFile}
- * and prompts the user on first contact. Until then, an unknown host
- * is accepted silently and written to disk on next reconnect attempt.
+ * <p>Host-key verification is handled by {@link ConchServerKeyVerifier}
+ * which consults {@link KnownHostsFile} and prompts the user on first
+ * contact. MISMATCH is a hard reject routed through the same
+ * {@code HOST_KEY_REJECTED} error path the client already handles.
  */
 public final class SshSessionProvider implements TerminalSessionProvider {
 
@@ -194,11 +193,8 @@ public final class SshSessionProvider implements TerminalSessionProvider {
             public void run(@NotNull ProgressIndicator indicator) {
                 indicator.setIndeterminate(true);
                 try {
-                    // Host-key verification is a Phase 5 concern —
-                    // AcceptAllServerKeyVerifier keeps the flow unblocked
-                    // until ConchServerKeyVerifier lands.
                     outcome.connection = client.connect(
-                        host, credential, AcceptAllServerKeyVerifier.INSTANCE);
+                        host, credential, new ConchServerKeyVerifier());
                 } catch (SshConnectException e) {
                     outcome.failure = e;
                 } catch (Exception e) {

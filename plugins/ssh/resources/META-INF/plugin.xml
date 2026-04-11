@@ -32,15 +32,39 @@
           connection.
         -->
         <applicationService serviceImplementation="com.conch.ssh.client.ConchSshClient"/>
+
+        <!--
+          Hosts tool window — left sidebar, between Project and Structure
+          in practice. Icon uses AllIcons.Webreferences.Server to match
+          the SSH provider icon in the terminal editor.
+        -->
+        <toolWindow id="ConchHosts"
+                    anchor="left"
+                    icon="AllIcons.Webreferences.Server"
+                    factoryClass="com.conch.ssh.toolwindow.HostsToolWindowFactory"/>
     </extensions>
 
     <!--
-      Register the SSH session provider under the core extension point.
-      Phase 5 adds actions (New SSH Session on Cmd+K / Ctrl+K), a Hosts
-      tool window, and a host-picker dialog — until those land, the
-      provider is reachable programmatically but not yet from any menu.
+      Register the SSH session provider and the palette contributor under
+      the core extension points.
     -->
     <extensions defaultExtensionNs="com.conch.core">
         <terminalSessionProvider implementation="com.conch.ssh.provider.SshSessionProvider"/>
+        <commandPaletteContributor implementation="com.conch.ssh.palette.HostsPaletteContributor"/>
     </extensions>
+
+    <actions>
+        <!--
+          "New SSH Session…" — Cmd+K on macOS, Ctrl+K on Linux/Windows.
+          Opens a host picker from anywhere in the IDE. Same code path as
+          the palette's Hosts tab, just a different entry point.
+        -->
+        <action id="Conch.NewSshSession"
+                class="com.conch.ssh.actions.NewSshSessionAction"
+                text="New SSH Session…"
+                description="Open the host picker and start a new SSH session">
+            <keyboard-shortcut keymap="$default" first-keystroke="meta K"/>
+            <keyboard-shortcut keymap="$default" first-keystroke="ctrl K"/>
+        </action>
+    </actions>
 </idea-plugin>

@@ -35,11 +35,11 @@ public final class ConchTerminalEditor extends UserDataHolderBase implements Fil
     }
 
     private void initTerminalSession() {
-        String cwd = file.getCurrentWorkingDirectory();
-        if (cwd == null) cwd = System.getProperty("user.home");
-        String workDir = cwd;
-
-        TerminalSessionProvider.SessionContext context = () -> workDir;
+        // The file owns the context — for local terminals this is a
+        // lambda exposing the CWD, but providers like SSH can stash a
+        // richer context via ConchTerminalVirtualFile.setSessionContext()
+        // before the editor is opened.
+        TerminalSessionProvider.SessionContext context = file.getSessionContext();
         TtyConnector rawConnector = file.getProvider().createSession(context);
 
         if (rawConnector != null) {
