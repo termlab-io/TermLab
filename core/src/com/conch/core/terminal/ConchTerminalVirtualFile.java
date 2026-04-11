@@ -12,6 +12,7 @@ public final class ConchTerminalVirtualFile extends LightVirtualFile {
     private final TerminalSessionProvider provider;
     private String currentWorkingDirectory;
     private volatile String terminalTitle;
+    private volatile boolean manualTitleOverride;
 
     public ConchTerminalVirtualFile(@NotNull String title,
                                      @NotNull TerminalSessionProvider provider) {
@@ -26,6 +27,18 @@ public final class ConchTerminalVirtualFile extends LightVirtualFile {
     public void setCurrentWorkingDirectory(@Nullable String cwd) { this.currentWorkingDirectory = cwd; }
     public @Nullable String getTerminalTitle() { return terminalTitle; }
     public void setTerminalTitle(@Nullable String title) { this.terminalTitle = title; }
+
+    /**
+     * When {@code true}, OSC 0/2 title updates from the shell are ignored and
+     * the current {@link #terminalTitle} stays pinned. Set by the Rename
+     * action so a user-chosen tab name doesn't get clobbered the next time
+     * the shell prompt repaints. Clear it again by renaming back to an empty
+     * string, which also restores auto-titling.
+     */
+    public boolean hasManualTitleOverride() { return manualTitleOverride; }
+    public void setManualTitleOverride(boolean manualTitleOverride) {
+        this.manualTitleOverride = manualTitleOverride;
+    }
 
     @Override public boolean isWritable() { return false; }
 

@@ -91,6 +91,10 @@ public final class ConchTerminalEditor extends UserDataHolderBase implements Fil
     @Override public void removePropertyChangeListener(@NotNull PropertyChangeListener listener) {}
 
     private void updateTabTitle(String newTitle) {
+        // If the user has explicitly renamed this tab, OSC 0/2 updates from
+        // the shell shouldn't clobber the user's choice.
+        if (file.hasManualTitleOverride()) return;
+
         if (newTitle != null && !newTitle.isBlank()) {
             file.setTerminalTitle(newTitle);
             // Trigger tab title refresh via EditorTabTitleProvider

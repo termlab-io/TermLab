@@ -124,6 +124,21 @@
             <keyboard-shortcut keymap="$default" first-keystroke="meta shift P"/>
         </action>
 
+        <!--
+          Rename the currently-focused terminal tab. Added to
+          EditorTabPopupMenu programmatically by
+          ConchActionConfigurationCustomizer so it's the single entry in the
+          tab right-click menu (the rest of the inherited file-oriented
+          entries get cleared). Bound to F2 globally so the shortcut works
+          whether or not the popup is open.
+        -->
+        <action id="Conch.RenameTerminalTab"
+                class="com.conch.core.actions.RenameTerminalTabAction"
+                text="Rename Tab…"
+                description="Rename the current terminal tab">
+            <keyboard-shortcut keymap="$default" first-keystroke="F2"/>
+        </action>
+
         <group id="Conch.TerminalActions" text="Terminal" popup="true">
             <add-to-group group-id="MainMenu" anchor="before" relative-to-action="HelpMenu"/>
 

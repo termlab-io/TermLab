@@ -79,7 +79,16 @@ public final class ConchActionConfigurationCustomizer implements ActionConfigura
     @SuppressWarnings("removal")
     public void customize(@NotNull ActionManager actionManager) {
         replaceWithHiddenGroup(actionManager, "EditorTabsEntryPoint");
-        replaceWithHiddenGroup(actionManager, "EditorTabPopupMenu");
+
+        // Keep EditorTabPopupMenu functional — just replace its contents with
+        // Conch-only items. Clear the inherited file-oriented children, then
+        // explicitly re-add our own. We do this programmatically rather than
+        // via plugin.xml <add-to-group> because clearGroup() runs after
+        // add-to-group processing, which would otherwise wipe our own entries
+        // along with the platform ones.
+        clearGroup(actionManager, "EditorTabPopupMenu");
+        addToGroupIfPresent(actionManager, "EditorTabPopupMenu", "Conch.RenameTerminalTab");
+
         clearGroup(actionManager, "FileOpenGroup");
         for (String menuId : UNWANTED_MAIN_MENU_IDS) {
             replaceWithHiddenGroup(actionManager, menuId);
@@ -93,6 +102,23 @@ public final class ConchActionConfigurationCustomizer implements ActionConfigura
         }
     }
 
+    private static void addToGroupIfPresent(@NotNull ActionManager actionManager,
+                                             @NotNull String groupId,
+                                             @NotNull String actionId) {
+        AnAction group = actionManager.getAction(groupId);
+        if (!(group instanceof DefaultActionGroup dag)) return;
+        AnAction action = actionManager.getAction(actionId);
+        if (action != null) {
+            // IMPORTANT: use the overload that takes ActionManager explicitly.
+            // The no-arg DefaultActionGroup.add() calls ActionManager.getInstance()
+            // internally, which re-enters service lookup — and we're INSIDE
+            // ActionManagerImpl's constructor here, so that re-entry trips a
+            // CycleInitializationException. Passing the already-available
+            // actionManager instance bypasses the re-entry.
+            dag.add(action, actionManager);
+        }
+    }
+
     private static void replaceWithHiddenGroup(@NotNull ActionManager actionManager, @NotNull String actionId) {
         AnAction existing = actionManager.getAction(actionId);
         if (existing instanceof ActionGroup) {
@@ -101,6 +127,11 @@ public final class ConchActionConfigurationCustomizer implements ActionConfigura
     }
 
     private static void clearGroup(@NotNull ActionManager actionManager, @NotNull String groupId) {
+        // Use getAction (not getActionOrStub) so the group's stub resolves to
+        // a real DefaultActionGroup instance — otherwise the instanceof check
+        // below fails and the clear is a no-op. Safe for groups because their
+        // implementation classes are platform types (DefaultActionGroup and
+        // friends), never anything from a stripped module.
         AnAction action = actionManager.getAction(groupId);
         if (action instanceof DefaultActionGroup group) {
             group.removeAll();
