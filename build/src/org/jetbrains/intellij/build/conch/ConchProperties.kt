@@ -13,7 +13,7 @@ class ConchProperties(private val communityHomeDir: Path) : JetBrainsProductProp
     platformPrefix = "Conch"
     applicationInfoModule = "intellij.conch.customization"
     scrambleMainJar = false
-    useSplash = false
+    useSplash = true
     buildCrossPlatformDistribution = false
 
     productLayout.productImplementationModules = listOf(
