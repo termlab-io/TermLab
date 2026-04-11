@@ -96,6 +96,14 @@
         -->
         <listener class="com.conch.core.palette.ConchSearchEverywhereCustomizer"
                   topic="com.intellij.ide.AppLifecycleListener"/>
+
+        <!--
+          Strips IDE-oriented tool windows (Problems View, etc.) that bundled
+          modules still register via <toolWindow> extensions. Same
+          appFrameCreated hook so the stripe buttons never get painted.
+        -->
+        <listener class="com.conch.core.ConchToolWindowCustomizer"
+                  topic="com.intellij.ide.AppLifecycleListener"/>
     </applicationListeners>
 
     <projectListeners>
