@@ -1,6 +1,5 @@
 package com.conch.core.terminal;
 
-import com.conch.core.explorer.CwdSyncManager;
 import com.conch.core.settings.ConchTerminalConfig;
 import com.conch.sdk.TerminalSessionProvider;
 import com.intellij.openapi.application.ApplicationManager;
@@ -50,8 +49,6 @@ public final class ConchTerminalEditor extends UserDataHolderBase implements Fil
                 // OSC 7 — working directory changed
                 newCwd -> {
                     file.setCurrentWorkingDirectory(newCwd);
-                    CwdSyncManager cwdSync = CwdSyncManager.getInstance(project);
-                    cwdSync.onWorkingDirectoryChanged(newCwd);
                 },
                 // OSC 0/2 — terminal title changed (if shell emits them)
                 this::updateTabTitle

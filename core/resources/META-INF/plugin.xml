@@ -32,6 +32,21 @@
             id="conch.terminal.settings"
             displayName="Conch Terminal"/>
 
+        <applicationConfigurable
+            parentId="conch.terminal.settings"
+            instance="com.conch.core.settings.ConchTerminalAppearanceConfigurable"
+            id="conch.terminal.settings.appearance"
+            displayName="Appearance"/>
+
+        <applicationConfigurable
+            parentId="conch.terminal.settings"
+            instance="com.conch.core.settings.ConchTerminalTerminalConfigurable"
+            id="conch.terminal.settings.terminal"
+            displayName="Terminal"/>
+
+        <search.optionContributor
+            implementation="com.conch.core.settings.ConchSearchableOptionContributor"/>
+
         <fileEditorProvider
             implementation="com.conch.core.terminal.ConchTerminalEditorProvider"/>
 
@@ -42,11 +57,22 @@
         <postStartupActivity
             implementation="com.conch.core.ConchStartupActivity"/>
 
+        <projectFrameCapabilitiesProvider
+            implementation="com.conch.core.ConchProjectFrameCapabilitiesProvider"/>
+
+        <actionConfigurationCustomizer
+            implementation="com.conch.core.actions.ConchActionConfigurationCustomizer"/>
+
         <projectService
             serviceImplementation="com.conch.core.workspace.WorkspaceManager"/>
 
+        <!-- Conch intentionally suppresses plugin-advertiser prompts.
+             This prevents marketplace-style notifications such as
+             "Plugin ... supporting run configuration ... is not installed". -->
         <projectService
-            serviceImplementation="com.conch.core.explorer.CwdSyncManager"/>
+            overrides="true"
+            serviceInterface="com.intellij.openapi.updateSettings.impl.pluginsAdvertisement.PluginAdvertiserService"
+            serviceImplementation="com.intellij.openapi.updateSettings.impl.pluginsAdvertisement.HeadlessPluginAdvertiserServiceImpl"/>
 
         <searchEverywhereContributor
             implementation="com.conch.core.palette.TerminalPaletteContributor$Factory"/>
@@ -64,7 +90,25 @@
                   topic="com.intellij.openapi.project.ProjectManagerListener"/>
     </applicationListeners>
 
+    <projectListeners>
+        <listener class="com.conch.core.terminal.ConchTerminalOnlyFileEditorListener"
+                  topic="com.intellij.openapi.fileEditor.FileEditorManagerListener"/>
+    </projectListeners>
+
     <actions>
+        <!--
+          Stub registered as id="Debug" so platform code that unconditionally
+          looks up this action (notably RunToolbarTopLevelExecutorActionGroup
+          in RedesignedRunWidget.kt) doesn't NPE on startup. Conch strips the
+          xdebugger modules via essential.minimal, so the real Debug executor
+          never registers its action. See NoopExecutorStubAction docs for the
+          full story.
+        -->
+        <action id="Debug"
+                class="com.conch.core.actions.NoopExecutorStubAction"
+                text=""
+                description="No-op stub — Conch has no debugger"/>
+
         <action id="Conch.CommandPalette"
                 class="com.intellij.ide.actions.SearchEverywhereAction"
                 text="Command Palette"
@@ -107,11 +151,40 @@
 
             <separator/>
 
-            <action id="Conch.OpenMiniWindow"
-                    class="com.conch.core.actions.OpenMiniWindowAction"
-                    text="Quick Terminal"
-                    description="Open a lightweight terminal window">
-                <keyboard-shortcut keymap="$default" first-keystroke="meta shift N"/>
+            <action id="Conch.FocusTerminalLeft"
+                    class="com.conch.core.actions.FocusTerminalLeftAction"
+                    text="Focus Terminal Left"
+                    description="Move focus to the terminal split on the left">
+                <keyboard-shortcut keymap="$default" first-keystroke="alt shift LEFT"/>
+                <keyboard-shortcut keymap="Mac OS X 10.5+" first-keystroke="meta alt LEFT" replace-all="true"/>
+                <keyboard-shortcut keymap="Mac OS X" first-keystroke="meta alt LEFT" replace-all="true"/>
+            </action>
+
+            <action id="Conch.FocusTerminalRight"
+                    class="com.conch.core.actions.FocusTerminalRightAction"
+                    text="Focus Terminal Right"
+                    description="Move focus to the terminal split on the right">
+                <keyboard-shortcut keymap="$default" first-keystroke="alt shift RIGHT"/>
+                <keyboard-shortcut keymap="Mac OS X 10.5+" first-keystroke="meta alt RIGHT" replace-all="true"/>
+                <keyboard-shortcut keymap="Mac OS X" first-keystroke="meta alt RIGHT" replace-all="true"/>
+            </action>
+
+            <action id="Conch.FocusTerminalUp"
+                    class="com.conch.core.actions.FocusTerminalUpAction"
+                    text="Focus Terminal Up"
+                    description="Move focus to the terminal split above">
+                <keyboard-shortcut keymap="$default" first-keystroke="alt shift UP"/>
+                <keyboard-shortcut keymap="Mac OS X 10.5+" first-keystroke="meta alt UP" replace-all="true"/>
+                <keyboard-shortcut keymap="Mac OS X" first-keystroke="meta alt UP" replace-all="true"/>
+            </action>
+
+            <action id="Conch.FocusTerminalDown"
+                    class="com.conch.core.actions.FocusTerminalDownAction"
+                    text="Focus Terminal Down"
+                    description="Move focus to the terminal split below">
+                <keyboard-shortcut keymap="$default" first-keystroke="alt shift DOWN"/>
+                <keyboard-shortcut keymap="Mac OS X 10.5+" first-keystroke="meta alt DOWN" replace-all="true"/>
+                <keyboard-shortcut keymap="Mac OS X" first-keystroke="meta alt DOWN" replace-all="true"/>
             </action>
 
             <separator/>

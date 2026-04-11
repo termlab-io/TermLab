@@ -109,11 +109,12 @@ If the build breaks because of an upstream API change, fix it in this repo (the 
 
 | Target            | What it does                                                |
 | ----------------- | ----------------------------------------------------------- |
-| `make conch`      | Build and run Conch (opens `$HOME` as the workspace root).  |
+| `make conch`      | Build and run Conch (opens `$HOME` as workspace root by default). |
 | `make conch-build`| Build only — useful for CI or quick "does it compile" runs. |
 | `make conch-clean`| `bazel clean` in the intellij tree.                         |
 
 All targets resolve `INTELLIJ_ROOT` from this Makefile's location (`..`). Override the env var if your layout differs.
+You can also override the workspace root explicitly with `CONCH_WORKSPACE=/path make conch`.
 
 ## Running and debugging from IntelliJ IDEA
 

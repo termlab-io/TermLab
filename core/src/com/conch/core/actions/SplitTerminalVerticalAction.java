@@ -5,9 +5,12 @@ import com.conch.core.terminal.LocalPtySessionProvider;
 import com.intellij.openapi.actionSystem.AnAction;
 import com.intellij.openapi.actionSystem.AnActionEvent;
 import com.intellij.openapi.fileEditor.ex.FileEditorManagerEx;
+import com.intellij.openapi.fileEditor.impl.EditorWindow;
 import com.intellij.openapi.project.DumbAware;
 import com.intellij.openapi.project.Project;
 import org.jetbrains.annotations.NotNull;
+
+import javax.swing.*;
 
 public final class SplitTerminalVerticalAction extends AnAction implements DumbAware {
     private final LocalPtySessionProvider ptyProvider = new LocalPtySessionProvider();
@@ -18,11 +21,21 @@ public final class SplitTerminalVerticalAction extends AnAction implements DumbA
         if (project == null) return;
 
         FileEditorManagerEx manager = FileEditorManagerEx.getInstanceEx(project);
-        manager.createSplitter(javax.swing.SwingConstants.HORIZONTAL, manager.getCurrentWindow());
+        EditorWindow current = e.getData(EditorWindow.DATA_KEY);
+        if (current == null) {
+            current = manager.getCurrentWindow();
+        }
+        if (current == null) return;
 
-        ConchTerminalVirtualFile terminalFile =
-            new ConchTerminalVirtualFile("Terminal", ptyProvider);
-        manager.openFile(terminalFile, true);
+        ConchTerminalVirtualFile terminalFile = new ConchTerminalVirtualFile("Terminal", ptyProvider);
+        current.split(
+            JSplitPane.VERTICAL_SPLIT,
+            true,
+            terminalFile,
+            true,
+            true,
+            true
+        );
     }
 
     @Override

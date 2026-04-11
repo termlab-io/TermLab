@@ -65,11 +65,16 @@ public final class OscTrackingTtyConnector implements TtyConnector {
     //   Secondary DA → ESC[>0;0;0c (VT100, firmware 0, ROM 0)
     private static final byte[] PROPER_DA1 = {0x1B, '[', '?', '1', ';', '2', 'c'};
     private static final byte[] PROPER_DA2 = {0x1B, '[', '>', '0', ';', '0', ';', '0', 'c'};
+    private static final int MAX_BUFFER_CHARS = 4096;
+    private static final int KEEP_BUFFER_CHARS = 512;
+    private static final int MAX_PENDING_DA_QUERIES = 1024;
 
     private final TtyConnector delegate;
     private final Consumer<String> cwdListener;
     private final Consumer<String> titleListener;
     private final StringBuilder buffer = new StringBuilder();
+    /** Buffer index from which DA query scanning should continue. */
+    private int daScanOffset = 0;
     /** Pending DA queries in order of arrival; {@code true} = secondary DA, {@code false} = primary DA. */
     private final Deque<Boolean> pendingDaQueries = new ArrayDeque<>();
 
@@ -88,9 +93,7 @@ public final class OscTrackingTtyConnector implements TtyConnector {
             buffer.append(buf, offset, count);
             extractOsc();
             trackDaQueries();
-            if (buffer.length() > 4096) {
-                buffer.delete(0, buffer.length() - 512);
-            }
+            trimBufferIfNeeded();
         }
         return count;
     }
@@ -114,14 +117,29 @@ public final class OscTrackingTtyConnector implements TtyConnector {
 
         if (lastEnd > 0) {
             buffer.delete(0, lastEnd);
+            daScanOffset = Math.max(0, daScanOffset - lastEnd);
         }
     }
 
     private void trackDaQueries() {
-        Matcher m = DA_QUERY_PATTERN.matcher(buffer);
+        int start = Math.max(0, Math.min(daScanOffset, buffer.length()));
+        Matcher m = DA_QUERY_PATTERN.matcher(buffer.subSequence(start, buffer.length()));
         while (m.find()) {
+            if (pendingDaQueries.size() >= MAX_PENDING_DA_QUERIES) {
+                pendingDaQueries.pollFirst();
+            }
             pendingDaQueries.addLast(">".equals(m.group(1)));
         }
+        daScanOffset = buffer.length();
+    }
+
+    private void trimBufferIfNeeded() {
+        if (buffer.length() <= MAX_BUFFER_CHARS) {
+            return;
+        }
+        int remove = buffer.length() - KEEP_BUFFER_CHARS;
+        buffer.delete(0, remove);
+        daScanOffset = Math.max(0, daScanOffset - remove);
     }
 
     @Override public boolean isConnected() { return delegate.isConnected(); }

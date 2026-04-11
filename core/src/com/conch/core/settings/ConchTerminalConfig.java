@@ -78,6 +78,10 @@ public final class ConchTerminalConfig {
         public float lineSpacing = 1.0f;
         public float characterSpacing = 0.0f;
 
+        // Shell launch
+        public String shellProgram = "";
+        public String shellArguments = "-l";
+
         // Colors (hex)
         public String foreground = "#BBBBBB";
         public String background = "#2B2B2B";
@@ -86,9 +90,6 @@ public final class ConchTerminalConfig {
 
         // Cursor
         public String cursorShape = "BLOCK";
-
-        // Layout
-        public boolean projectViewVisible = false;
 
         // Behavior
         public int scrollbackLines = 10000;

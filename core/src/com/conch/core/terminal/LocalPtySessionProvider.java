@@ -1,5 +1,6 @@
 package com.conch.core.terminal;
 
+import com.conch.core.settings.ConchTerminalConfig;
 import com.conch.sdk.TerminalSessionProvider;
 import com.jediterm.core.util.TermSize;
 import com.jediterm.terminal.TtyConnector;
@@ -12,7 +13,9 @@ import org.jetbrains.annotations.Nullable;
 import javax.swing.*;
 import java.io.*;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 public final class LocalPtySessionProvider implements TerminalSessionProvider {
@@ -25,8 +28,20 @@ public final class LocalPtySessionProvider implements TerminalSessionProvider {
     @Override
     public @Nullable TtyConnector createSession(@NotNull SessionContext context) {
         try {
-            String shell = System.getenv("SHELL");
-            if (shell == null || shell.isBlank()) shell = "/bin/zsh";
+            ConchTerminalConfig.State settings = ConchTerminalConfig.getInstance().getState();
+
+            String shell = normalize(settings.shellProgram);
+            if (shell.isEmpty()) {
+                shell = normalize(System.getenv("SHELL"));
+            }
+            if (shell.isEmpty()) {
+                shell = "/bin/zsh";
+            }
+
+            String rawArgs = normalize(settings.shellArguments);
+            List<String> command = new ArrayList<>();
+            command.add(shell);
+            command.addAll(parseCommandArgs(rawArgs));
 
             String workDir = context.getWorkingDirectory();
             if (workDir == null) workDir = System.getProperty("user.home");
@@ -37,7 +52,7 @@ public final class LocalPtySessionProvider implements TerminalSessionProvider {
             env.put("TERM_PROGRAM", "Conch");
 
             PtyProcess process = new PtyProcessBuilder()
-                .setCommand(new String[]{shell, "-l"})
+                .setCommand(command.toArray(String[]::new))
                 .setDirectory(workDir)
                 .setEnvironment(env)
                 .setInitialColumns(80)
@@ -48,6 +63,66 @@ public final class LocalPtySessionProvider implements TerminalSessionProvider {
         } catch (IOException e) {
             throw new RuntimeException("Failed to start local PTY: " + e.getMessage(), e);
         }
+    }
+
+    private static @NotNull List<String> parseCommandArgs(@NotNull String raw) {
+        List<String> args = new ArrayList<>();
+        if (raw.isBlank()) {
+            return args;
+        }
+
+        StringBuilder current = new StringBuilder();
+        boolean inSingle = false;
+        boolean inDouble = false;
+        boolean escaped = false;
+
+        for (int i = 0; i < raw.length(); i++) {
+            char ch = raw.charAt(i);
+
+            if (escaped) {
+                current.append(ch);
+                escaped = false;
+                continue;
+            }
+
+            if (ch == '\\' && !inSingle) {
+                escaped = true;
+                continue;
+            }
+
+            if (ch == '"' && !inSingle) {
+                inDouble = !inDouble;
+                continue;
+            }
+
+            if (ch == '\'' && !inDouble) {
+                inSingle = !inSingle;
+                continue;
+            }
+
+            if (Character.isWhitespace(ch) && !inSingle && !inDouble) {
+                if (current.length() > 0) {
+                    args.add(current.toString());
+                    current.setLength(0);
+                }
+                continue;
+            }
+
+            current.append(ch);
+        }
+
+        if (escaped) {
+            current.append('\\');
+        }
+        if (current.length() > 0) {
+            args.add(current.toString());
+        }
+
+        return args;
+    }
+
+    private static @NotNull String normalize(@Nullable String value) {
+        return value == null ? "" : value.trim();
     }
 
     /**

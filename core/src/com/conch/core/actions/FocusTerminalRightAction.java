@@ -1,0 +1,10 @@
+package com.conch.core.actions;
+
+import org.jetbrains.annotations.NotNull;
+
+public final class FocusTerminalRightAction extends DirectionalTerminalNavigationAction {
+    @Override
+    protected @NotNull Direction direction() {
+        return Direction.RIGHT;
+    }
+}

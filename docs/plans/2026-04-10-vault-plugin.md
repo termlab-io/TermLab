@@ -1,4 +1,4 @@
-# Conch Vault Plugin — Implementation Plan
+# Credential Vault Plugin — Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
@@ -1573,7 +1573,7 @@ public final class VaultCredentialProvider implements CredentialProvider {
 
     @Override
     public @NotNull String getDisplayName() {
-        return "Conch Vault";
+        return "Credential Vault";
     }
 
     @Override
@@ -1684,7 +1684,7 @@ Shown after successful unlock. Layout:
 
 ```
 +--------------------------------------------------+
-| Conch Vault                              [_][O][X]|
+| Credential Vault                              [_][O][X]|
 +--------------------------------------------------+
 | Search: [____________________]  [+ Add] [Lock]   |
 +--------------------------------------------------+

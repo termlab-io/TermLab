@@ -29,9 +29,9 @@ endif
 
 BAZEL := cd $(INTELLIJ_ROOT) && bash bazel.cmd
 
-# Open the user's home directory as the project root — lets the Project View
-# follow any terminal CWD under ~.
-CONCH_WORKSPACE := $(HOME)
+# Default workspace root for Conch. Override with:
+#   make conch CONCH_WORKSPACE=/path/to/workspace
+CONCH_WORKSPACE ?= $(HOME)
 
 .PHONY: conch conch-build conch-clean check-intellij
 

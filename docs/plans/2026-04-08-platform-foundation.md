@@ -399,7 +399,7 @@ import java.util.UUID;
  */
 public interface CredentialProvider {
 
-    /** Human-readable name of this provider (e.g., "Conch Vault"). */
+    /** Human-readable name of this provider (e.g., "Credential Vault"). */
     @NotNull String getDisplayName();
 
     /** Whether the credential store is currently unlocked and available. */
