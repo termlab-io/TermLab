@@ -2,7 +2,9 @@ package com.conch.ssh.ui;
 
 import com.conch.sdk.CredentialProvider;
 import com.conch.sdk.CredentialProvider.CredentialDescriptor;
+import com.conch.ssh.model.SshAuth;
 import com.conch.ssh.model.SshHost;
+import com.conch.ssh.model.VaultAuth;
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.extensions.ExtensionPointName;
 import com.intellij.openapi.project.Project;
@@ -25,7 +27,7 @@ import java.util.UUID;
  * Modal add/edit dialog for a single {@link SshHost}. Produces either a
  * brand-new host (add mode, {@code existing == null}) or an edited copy
  * of an existing one (edit mode) via
- * {@link SshHost#withEdited(String, String, int, String, UUID)}.
+ * {@link SshHost#withEdited(String, String, int, String, SshAuth)}.
  *
  * <p>The credential combo is populated from every
  * {@link CredentialProvider} extension in the application area,
@@ -106,7 +108,9 @@ public final class HostEditDialog extends DialogWrapper {
         portSpinner.setValue(existing.port());
         usernameField.setText(existing.username());
 
-        UUID savedId = existing.credentialId();
+        UUID savedId = existing.auth() instanceof VaultAuth vaultAuth
+            ? vaultAuth.credentialId()
+            : null;
         if (savedId == null) {
             credentialCombo.setSelectedItem(CredentialEntry.NONE);
             return;
@@ -193,11 +197,12 @@ public final class HostEditDialog extends DialogWrapper {
 
         CredentialEntry selected = (CredentialEntry) credentialCombo.getSelectedItem();
         UUID credentialId = selected == null ? null : selected.id();
+        SshAuth auth = new VaultAuth(credentialId);
 
         if (existing == null) {
-            result = SshHost.create(label, host, port, username, credentialId);
+            result = SshHost.create(label, host, port, username, auth);
         } else {
-            result = existing.withEdited(label, host, port, username, credentialId);
+            result = existing.withEdited(label, host, port, username, auth);
         }
 
         super.doOKAction();

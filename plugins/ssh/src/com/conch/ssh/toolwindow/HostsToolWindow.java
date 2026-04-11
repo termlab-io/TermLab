@@ -126,7 +126,7 @@ public final class HostsToolWindow extends JPanel {
         group.add(new RefreshAction());
 
         ActionToolbar toolbar = ActionManager.getInstance()
-            .createActionToolbar("ConchHostsToolbar", group, true);
+            .createActionToolbar("HostsToolbar", group, true);
         toolbar.setTargetComponent(this);
         return toolbar;
     }
@@ -185,7 +185,7 @@ public final class HostsToolWindow extends JPanel {
             selected.host(),
             selected.port(),
             selected.username(),
-            selected.credentialId()
+            selected.auth()
         );
         store.addHost(copy);
         saveAndRefresh();

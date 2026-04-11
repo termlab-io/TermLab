@@ -1,6 +1,10 @@
 package com.conch.ssh.persistence;
 
 import com.conch.ssh.model.SshHost;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import org.jetbrains.annotations.NotNull;
 
 import java.io.IOException;
@@ -15,7 +19,7 @@ import java.util.List;
  * Atomic JSON I/O for the SSH host list.
  *
  * <p>The file is wrapped in a versioned envelope so we have room to evolve
- * the format later without breaking existing vaults:
+ * the format later without breaking existing users:
  * <pre>
  *   {
  *     "version": 1,
@@ -25,6 +29,12 @@ import java.util.List;
  *
  * <p>Atomic write: serialize → write to temp → rename. A crash mid-write
  * can never corrupt the existing file.
+ *
+ * <p><b>Legacy migration.</b> Before {@link com.conch.ssh.model.SshAuth}
+ * existed, host entries carried a bare top-level {@code credentialId}
+ * field. On load, {@link #load(Path)} rewrites any such entry into the
+ * new {@code "auth": {"type": "vault", ...}} shape before handing the
+ * JSON to Gson. The next {@link #save} drops the legacy field for good.
  */
 public final class HostsFile {
 
@@ -54,9 +64,19 @@ public final class HostsFile {
         if (!Files.isRegularFile(source)) {
             return Collections.emptyList();
         }
-        String json = Files.readString(source);
+        String raw = Files.readString(source);
         try {
-            Envelope envelope = SshGson.GSON.fromJson(json, Envelope.class);
+            JsonElement rootEl = JsonParser.parseString(raw);
+            if (rootEl == null || !rootEl.isJsonObject()) return Collections.emptyList();
+            JsonObject root = rootEl.getAsJsonObject();
+            if (!root.has("hosts") || !root.get("hosts").isJsonArray()) {
+                return Collections.emptyList();
+            }
+            JsonArray hostsArray = root.getAsJsonArray("hosts");
+            for (JsonElement element : hostsArray) {
+                if (element.isJsonObject()) migrateLegacyHostEntry(element.getAsJsonObject());
+            }
+            Envelope envelope = SshGson.GSON.fromJson(root, Envelope.class);
             if (envelope == null || envelope.hosts == null) {
                 return Collections.emptyList();
             }
@@ -64,6 +84,26 @@ public final class HostsFile {
         } catch (Exception malformed) {
             return Collections.emptyList();
         }
+    }
+
+    /**
+     * In-place rewrite of a single host JSON object: if it has a bare
+     * top-level {@code credentialId} field (the pre-SshAuth shape) and no
+     * {@code auth} field, synthesize the new
+     * {@code "auth": {"type": "vault", ...}} sub-object and strip the
+     * legacy field so Gson sees only the current schema.
+     */
+    private static void migrateLegacyHostEntry(@NotNull JsonObject hostObj) {
+        if (hostObj.has("auth")) return;                    // already new-shape
+        if (!hostObj.has("credentialId")) return;           // nothing to migrate
+
+        JsonElement legacy = hostObj.remove("credentialId");
+        JsonObject auth = new JsonObject();
+        auth.addProperty("type", "vault");
+        if (legacy != null && !legacy.isJsonNull()) {
+            auth.addProperty("credentialId", legacy.getAsString());
+        }
+        hostObj.add("auth", auth);
     }
 
     public static boolean exists(@NotNull Path target) {

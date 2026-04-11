@@ -3,6 +3,7 @@ package com.conch.ssh.credentials;
 import com.conch.sdk.CredentialProvider;
 import com.conch.ssh.client.SshResolvedCredential;
 import com.conch.ssh.model.SshHost;
+import com.conch.ssh.model.VaultAuth;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
@@ -18,14 +19,14 @@ class SshCredentialPickerTest {
 
     @Test
     void pick_returnsNullWhenNoProvidersRegistered() {
-        SshHost host = SshHost.create("h", "example.com", 22, "u", null);
+        SshHost host = SshHost.create("h", "example.com", 22, "u", new VaultAuth(null));
         SshCredentialPicker picker = new SshCredentialPicker(List.of());
         assertNull(picker.pick(host));
     }
 
     @Test
     void pick_returnsNullWhenProviderReturnsNull() {
-        SshHost host = SshHost.create("h", "example.com", 22, "u", null);
+        SshHost host = SshHost.create("h", "example.com", 22, "u", new VaultAuth(null));
         FakeProvider provider = new FakeProvider(() -> null);
         SshCredentialPicker picker = new SshCredentialPicker(List.of(provider));
         assertNull(picker.pick(host));
@@ -33,7 +34,7 @@ class SshCredentialPickerTest {
 
     @Test
     void pick_returnsResolvedCredentialWhenProviderReturnsAccount() {
-        SshHost host = SshHost.create("h", "example.com", 22, "fallback", null);
+        SshHost host = SshHost.create("h", "example.com", 22, "fallback", new VaultAuth(null));
 
         FakeProvider provider = new FakeProvider(() -> new CredentialProvider.Credential(
             UUID.randomUUID(),
@@ -55,7 +56,7 @@ class SshCredentialPickerTest {
 
     @Test
     void pick_standaloneKey_injectsHostUsername() {
-        SshHost host = SshHost.create("h", "example.com", 22, "fallback-user", null);
+        SshHost host = SshHost.create("h", "example.com", 22, "fallback-user", new VaultAuth(null));
 
         FakeProvider provider = new FakeProvider(() -> new CredentialProvider.Credential(
             UUID.randomUUID(),
@@ -76,7 +77,7 @@ class SshCredentialPickerTest {
 
     @Test
     void pick_sdkCredentialIsDestroyedAfterCopy() {
-        SshHost host = SshHost.create("h", "example.com", 22, "u", null);
+        SshHost host = SshHost.create("h", "example.com", 22, "u", new VaultAuth(null));
 
         char[] pw = "secret".toCharArray();
         CredentialProvider.Credential sdkCred = new CredentialProvider.Credential(
@@ -96,7 +97,7 @@ class SshCredentialPickerTest {
 
     @Test
     void pick_skipsProviderThatReturnsNull_triesNext() {
-        SshHost host = SshHost.create("h", "example.com", 22, "u", null);
+        SshHost host = SshHost.create("h", "example.com", 22, "u", new VaultAuth(null));
 
         FakeProvider empty = new FakeProvider(() -> null);
         FakeProvider answering = new FakeProvider(() -> new CredentialProvider.Credential(

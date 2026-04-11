@@ -23,8 +23,8 @@ class HostStoreTest {
     @Test
     void addHost_appendsToList(@TempDir Path tmp) {
         HostStore store = new HostStore(tmp.resolve("ssh-hosts.json"), List.of());
-        SshHost a = SshHost.create("a", "host-a", 22, "u", null);
-        SshHost b = SshHost.create("b", "host-b", 22, "u", null);
+        SshHost a = SshHost.create("a", "host-a", 22, "u", new VaultAuth(null));
+        SshHost b = SshHost.create("b", "host-b", 22, "u", new VaultAuth(null));
         store.addHost(a);
         store.addHost(b);
         assertEquals(2, store.size());
@@ -35,7 +35,7 @@ class HostStoreTest {
     @Test
     void removeHost_returnsTrueOnHit(@TempDir Path tmp) {
         HostStore store = new HostStore(tmp.resolve("ssh-hosts.json"), List.of());
-        SshHost host = SshHost.create("a", "host", 22, "u", null);
+        SshHost host = SshHost.create("a", "host", 22, "u", new VaultAuth(null));
         store.addHost(host);
         assertTrue(store.removeHost(host.id()));
         assertEquals(0, store.size());
@@ -50,7 +50,7 @@ class HostStoreTest {
     @Test
     void updateHost_replacesInPlace(@TempDir Path tmp) {
         HostStore store = new HostStore(tmp.resolve("ssh-hosts.json"), List.of());
-        SshHost original = SshHost.create("old-label", "host", 22, "u", null);
+        SshHost original = SshHost.create("old-label", "host", 22, "u", new VaultAuth(null));
         store.addHost(original);
 
         SshHost renamed = original.withLabel("new-label");
@@ -61,14 +61,14 @@ class HostStoreTest {
     @Test
     void updateHost_missingIdReturnsFalse(@TempDir Path tmp) {
         HostStore store = new HostStore(tmp.resolve("ssh-hosts.json"), List.of());
-        SshHost stranger = SshHost.create("nope", "host", 22, "u", null);
+        SshHost stranger = SshHost.create("nope", "host", 22, "u", new VaultAuth(null));
         assertFalse(store.updateHost(stranger));
     }
 
     @Test
     void findById_matches(@TempDir Path tmp) {
         HostStore store = new HostStore(tmp.resolve("ssh-hosts.json"), List.of());
-        SshHost host = SshHost.create("a", "host", 22, "u", null);
+        SshHost host = SshHost.create("a", "host", 22, "u", new VaultAuth(null));
         store.addHost(host);
         assertSame(host, store.findById(host.id()));
         assertNull(store.findById(UUID.randomUUID()));
@@ -77,16 +77,16 @@ class HostStoreTest {
     @Test
     void getHosts_returnsDefensiveSnapshot(@TempDir Path tmp) {
         HostStore store = new HostStore(tmp.resolve("ssh-hosts.json"), List.of());
-        store.addHost(SshHost.create("a", "host", 22, "u", null));
+        store.addHost(SshHost.create("a", "host", 22, "u", new VaultAuth(null)));
         List<SshHost> snapshot = store.getHosts();
         assertThrows(UnsupportedOperationException.class,
-            () -> snapshot.add(SshHost.create("b", "host2", 22, "u", null)));
+            () -> snapshot.add(SshHost.create("b", "host2", 22, "u", new VaultAuth(null))));
     }
 
     @Test
     void constructor_acceptsInitialList(@TempDir Path tmp) {
-        SshHost a = SshHost.create("a", "h-a", 22, "u", null);
-        SshHost b = SshHost.create("b", "h-b", 22, "u", null);
+        SshHost a = SshHost.create("a", "h-a", 22, "u", new VaultAuth(null));
+        SshHost b = SshHost.create("b", "h-b", 22, "u", new VaultAuth(null));
         HostStore store = new HostStore(tmp.resolve("ssh-hosts.json"), List.of(a, b));
         assertEquals(2, store.size());
     }
@@ -94,7 +94,7 @@ class HostStoreTest {
     @Test
     void clear_emptiesStore(@TempDir Path tmp) {
         HostStore store = new HostStore(tmp.resolve("ssh-hosts.json"), List.of());
-        store.addHost(SshHost.create("a", "h", 22, "u", null));
+        store.addHost(SshHost.create("a", "h", 22, "u", new VaultAuth(null)));
         store.clear();
         assertEquals(0, store.size());
     }
@@ -103,7 +103,7 @@ class HostStoreTest {
     void save_persistsToDisk(@TempDir Path tmp) throws Exception {
         Path file = tmp.resolve("ssh-hosts.json");
         HostStore store = new HostStore(file, List.of());
-        SshHost host = SshHost.create("prod", "example.com", 22, "admin", null);
+        SshHost host = SshHost.create("prod", "example.com", 22, "admin", new VaultAuth(null));
         store.addHost(host);
         store.save();
 
@@ -116,7 +116,7 @@ class HostStoreTest {
     @Test
     void reload_readsFromDisk(@TempDir Path tmp) throws Exception {
         Path file = tmp.resolve("ssh-hosts.json");
-        SshHost diskHost = SshHost.create("on-disk", "example.com", 22, "admin", null);
+        SshHost diskHost = SshHost.create("on-disk", "example.com", 22, "admin", new VaultAuth(null));
         HostsFile.save(file, List.of(diskHost));
 
         HostStore store = new HostStore(file, List.of());
@@ -132,7 +132,7 @@ class HostStoreTest {
         HostsFile.save(file, List.of());
 
         HostStore store = new HostStore(file, List.of());
-        store.addHost(SshHost.create("unsaved", "example.com", 22, "admin", null));
+        store.addHost(SshHost.create("unsaved", "example.com", 22, "admin", new VaultAuth(null)));
         assertEquals(1, store.size());
 
         store.reload();

@@ -1,6 +1,7 @@
 package com.conch.ssh.persistence;
 
 import com.conch.ssh.model.SshHost;
+import com.conch.ssh.model.VaultAuth;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -32,7 +33,7 @@ class HostsFileTest {
     void saveSingleHost_thenLoad_preservesFields(@TempDir Path tmp) throws Exception {
         Path file = tmp.resolve("ssh-hosts.json");
         UUID credId = UUID.randomUUID();
-        SshHost original = SshHost.create("prod", "db.example.com", 2222, "dbadmin", credId);
+        SshHost original = SshHost.create("prod", "db.example.com", 2222, "dbadmin", new VaultAuth(credId));
 
         HostsFile.save(file, List.of(original));
         List<SshHost> loaded = HostsFile.load(file);
@@ -44,16 +45,16 @@ class HostsFileTest {
         assertEquals("db.example.com", restored.host());
         assertEquals(2222, restored.port());
         assertEquals("dbadmin", restored.username());
-        assertEquals(credId, restored.credentialId());
+        assertEquals(credId, ((VaultAuth) restored.auth()).credentialId());
         assertEquals(original.createdAt(), restored.createdAt());
     }
 
     @Test
     void saveMultipleHosts_preservesOrder(@TempDir Path tmp) throws Exception {
         Path file = tmp.resolve("ssh-hosts.json");
-        SshHost a = SshHost.create("a", "host-a", 22, "u", null);
-        SshHost b = SshHost.create("b", "host-b", 22, "u", null);
-        SshHost c = SshHost.create("c", "host-c", 22, "u", null);
+        SshHost a = SshHost.create("a", "host-a", 22, "u", new VaultAuth(null));
+        SshHost b = SshHost.create("b", "host-b", 22, "u", new VaultAuth(null));
+        SshHost c = SshHost.create("c", "host-c", 22, "u", new VaultAuth(null));
         HostsFile.save(file, List.of(a, b, c));
 
         List<SshHost> loaded = HostsFile.load(file);
@@ -64,18 +65,18 @@ class HostsFileTest {
     }
 
     @Test
-    void save_nullCredentialIdRoundTrips(@TempDir Path tmp) throws Exception {
+    void save_vaultAuthWithNullId_roundTrips(@TempDir Path tmp) throws Exception {
         Path file = tmp.resolve("ssh-hosts.json");
-        SshHost host = SshHost.create("no-cred", "example.com", 22, "user", null);
+        SshHost host = SshHost.create("no-cred", "example.com", 22, "user", new VaultAuth(null));
         HostsFile.save(file, List.of(host));
         List<SshHost> loaded = HostsFile.load(file);
-        assertNull(loaded.get(0).credentialId());
+        assertNull(((VaultAuth) loaded.get(0).auth()).credentialId());
     }
 
     @Test
     void save_isAtomic_noTempFileRemains(@TempDir Path tmp) throws Exception {
         Path file = tmp.resolve("ssh-hosts.json");
-        HostsFile.save(file, List.of(SshHost.create("a", "h", 22, "u", null)));
+        HostsFile.save(file, List.of(SshHost.create("a", "h", 22, "u", new VaultAuth(null))));
         assertFalse(Files.exists(tmp.resolve("ssh-hosts.json.tmp")));
         assertTrue(Files.exists(file));
     }
@@ -112,7 +113,7 @@ class HostsFileTest {
     @Test
     void save_fileIsPrettyPrinted(@TempDir Path tmp) throws Exception {
         Path file = tmp.resolve("ssh-hosts.json");
-        HostsFile.save(file, List.of(SshHost.create("a", "h", 22, "u", null)));
+        HostsFile.save(file, List.of(SshHost.create("a", "h", 22, "u", new VaultAuth(null))));
         String contents = Files.readString(file);
         // Pretty-printed JSON has newlines between fields — trivial smoke check.
         assertTrue(contents.contains("\n"),

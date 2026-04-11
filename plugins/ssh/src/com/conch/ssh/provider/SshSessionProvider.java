@@ -92,11 +92,16 @@ public final class SshSessionProvider implements TerminalSessionProvider {
         SshCredentialResolver resolver = new SshCredentialResolver();
         SshCredentialPicker picker = new SshCredentialPicker();
 
-        // Step 1: try the saved credential.
-        SshResolvedCredential credential = resolver.resolve(host);
-
-        // Step 2: fall back to the picker if the host has no saved
-        // credential or the saved one can no longer be resolved.
+        // Phase 5: only VaultAuth is wired here. PromptPasswordAuth and
+        // KeyFileAuth are handled in a follow-up task — for now they fall
+        // through to the picker, which is a legitimate behavior (the user
+        // still gets prompted, just via the full vault picker instead of the
+        // inline dialog).
+        SshResolvedCredential credential = null;
+        if (host.auth() instanceof com.conch.ssh.model.VaultAuth vaultAuth
+            && vaultAuth.credentialId() != null) {
+            credential = resolver.resolve(vaultAuth.credentialId(), host.username());
+        }
         if (credential == null) {
             credential = picker.pick(host);
         }

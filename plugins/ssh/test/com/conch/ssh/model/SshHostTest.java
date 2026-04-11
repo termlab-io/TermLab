@@ -10,20 +10,21 @@ class SshHostTest {
 
     @Test
     void create_populatesIdAndTimestamps() {
-        SshHost host = SshHost.create("prod", "example.com", 22, "root", null);
+        SshHost host = SshHost.create("prod", "example.com", 22, "root", new VaultAuth(null));
         assertNotNull(host.id());
         assertEquals("prod", host.label());
         assertEquals("example.com", host.host());
         assertEquals(22, host.port());
         assertEquals("root", host.username());
-        assertNull(host.credentialId());
+        assertInstanceOf(VaultAuth.class, host.auth());
+        assertNull(((VaultAuth) host.auth()).credentialId());
         assertNotNull(host.createdAt());
         assertEquals(host.createdAt(), host.updatedAt());
     }
 
     @Test
     void withLabel_preservesIdentityBumpsUpdatedAt() throws InterruptedException {
-        SshHost original = SshHost.create("prod", "example.com", 22, "root", null);
+        SshHost original = SshHost.create("prod", "example.com", 22, "root", new VaultAuth(null));
         Thread.sleep(5);
         SshHost renamed = original.withLabel("production-db");
         assertEquals(original.id(), renamed.id());
@@ -33,27 +34,36 @@ class SshHostTest {
     }
 
     @Test
-    void withCredentialId_preservesIdentity() {
-        SshHost original = SshHost.create("prod", "example.com", 22, "root", null);
-        UUID credentialId = UUID.randomUUID();
-        SshHost linked = original.withCredentialId(credentialId);
+    void withAuth_replacesAuthPreservingIdentity() {
+        SshHost original = SshHost.create("prod", "example.com", 22, "root", new VaultAuth(null));
+        UUID credId = UUID.randomUUID();
+        SshHost linked = original.withAuth(new VaultAuth(credId));
         assertEquals(original.id(), linked.id());
-        assertEquals(credentialId, linked.credentialId());
+        assertInstanceOf(VaultAuth.class, linked.auth());
+        assertEquals(credId, ((VaultAuth) linked.auth()).credentialId());
     }
 
     @Test
-    void withCredentialId_nullClearsLink() {
-        UUID initialCred = UUID.randomUUID();
-        SshHost original = SshHost.create("prod", "example.com", 22, "root", initialCred);
-        SshHost unlinked = original.withCredentialId(null);
-        assertNull(unlinked.credentialId());
+    void withAuth_promptPasswordVariant() {
+        SshHost original = SshHost.create("prod", "example.com", 22, "root", new VaultAuth(null));
+        SshHost flipped = original.withAuth(new PromptPasswordAuth());
+        assertInstanceOf(PromptPasswordAuth.class, flipped.auth());
+    }
+
+    @Test
+    void withAuth_keyFileVariant() {
+        SshHost original = SshHost.create("prod", "example.com", 22, "root", new VaultAuth(null));
+        SshHost flipped = original.withAuth(new KeyFileAuth("/tmp/key"));
+        assertInstanceOf(KeyFileAuth.class, flipped.auth());
+        assertEquals("/tmp/key", ((KeyFileAuth) flipped.auth()).keyFilePath());
     }
 
     @Test
     void withEdited_replacesAllEditableFields() {
-        SshHost original = SshHost.create("prod", "example.com", 22, "root", null);
+        SshHost original = SshHost.create("prod", "example.com", 22, "root", new VaultAuth(null));
         UUID newCredentialId = UUID.randomUUID();
-        SshHost edited = original.withEdited("staging", "stage.example.com", 2222, "deploy", newCredentialId);
+        SshHost edited = original.withEdited(
+            "staging", "stage.example.com", 2222, "deploy", new VaultAuth(newCredentialId));
 
         assertEquals(original.id(), edited.id());
         assertEquals(original.createdAt(), edited.createdAt());
@@ -61,7 +71,7 @@ class SshHostTest {
         assertEquals("stage.example.com", edited.host());
         assertEquals(2222, edited.port());
         assertEquals("deploy", edited.username());
-        assertEquals(newCredentialId, edited.credentialId());
+        assertEquals(newCredentialId, ((VaultAuth) edited.auth()).credentialId());
     }
 
     @Test

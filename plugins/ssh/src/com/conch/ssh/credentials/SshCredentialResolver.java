@@ -3,7 +3,6 @@ package com.conch.ssh.credentials;
 import com.conch.sdk.CredentialProvider;
 import com.conch.sdk.CredentialProvider.Credential;
 import com.conch.ssh.client.SshResolvedCredential;
-import com.conch.ssh.model.SshHost;
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.extensions.ExtensionPointName;
 import org.jetbrains.annotations.NotNull;
@@ -14,24 +13,17 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * Maps an {@link SshHost} to a short-lived {@link SshResolvedCredential}
- * by walking the registered {@link CredentialProvider} extensions and
- * looking up the host's {@link SshHost#credentialId}.
+ * Maps a vault credential id to a short-lived {@link SshResolvedCredential}
+ * by walking the registered {@link CredentialProvider} extensions.
  *
- * <p>The lookup is by-id only. If the host has no credential id, or the
- * credential was deleted from the vault, {@link #resolve(SshHost)}
- * returns {@code null} and the caller runs a picker instead (see
- * {@link SshCredentialPicker}).
- *
- * <p>Username handling: SSH credentials of kind {@code SSH_KEY} come
- * back from the vault with {@code username = null} — standalone keys
- * aren't bound to a user. In that case the resolver substitutes
- * {@link SshHost#username()}.
+ * <p>The caller decides the policy (which credential id to look up, what
+ * to do on miss) — this class is a pure dispatcher. When the returned
+ * credential is a standalone key that has no username of its own,
+ * {@code fallbackUsername} is substituted.
  *
  * <p>Two constructors: a zero-arg one that discovers providers via
- * the IntelliJ extension-area lookup (production path), and one that
- * accepts an explicit list (test path — lets unit tests inject a fake
- * {@code CredentialProvider} without booting the platform).
+ * the IntelliJ extension area (production path), and one that accepts an
+ * explicit list (tests).
  */
 public final class SshCredentialResolver {
 
@@ -56,28 +48,20 @@ public final class SshCredentialResolver {
     }
 
     /**
-     * Try to resolve the host's saved credential from any registered
-     * provider.
+     * Resolve {@code credentialId} through any registered provider and
+     * copy the result into a fresh {@link SshResolvedCredential} the
+     * caller owns and must {@code close()}.
      *
-     * <p>Callers own the returned {@link SshResolvedCredential} and MUST
-     * close it when done. The resolver also calls {@link Credential#destroy()}
-     * on the original SDK-level credential before returning — all sensitive
-     * material after this point lives inside the returned
-     * {@code SshResolvedCredential} and gets zeroed on its close.
-     *
-     * @return a fresh {@link SshResolvedCredential}, or {@code null} if:
-     *         <ul>
-     *           <li>the host has no saved credential id, or</li>
-     *           <li>no provider knows the credential (vault locked, deleted), or</li>
-     *           <li>the returned credential doesn't carry enough material
-     *               for any supported auth mode (shouldn't happen in
-     *               practice)</li>
-     *         </ul>
+     * @param credentialId     the saved credential's id
+     * @param fallbackUsername used when the resolved credential is a
+     *                         standalone key with no username of its own
+     * @return the resolved credential, or {@code null} if no provider
+     *         knows this id (locked vault, deleted entry)
      */
-    public @Nullable SshResolvedCredential resolve(@NotNull SshHost host) {
-        UUID credentialId = host.credentialId();
-        if (credentialId == null) return null;
-
+    public @Nullable SshResolvedCredential resolve(
+        @NotNull UUID credentialId,
+        @NotNull String fallbackUsername
+    ) {
         Credential sdkCredential = null;
         for (CredentialProvider provider : providerLookup.get()) {
             if (!provider.isAvailable()) continue;
@@ -90,7 +74,7 @@ public final class SshCredentialResolver {
         if (sdkCredential == null) return null;
 
         try {
-            return convert(sdkCredential, host.username());
+            return convert(sdkCredential, fallbackUsername);
         } finally {
             sdkCredential.destroy();
         }
