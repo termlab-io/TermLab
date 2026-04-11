@@ -56,6 +56,25 @@ public final class ConchActionConfigurationCustomizer implements ActionConfigura
         "FileChooser.NewFile",
     };
 
+    /**
+     * Actions whose implementation classes live in modules Conch strips
+     * (e.g. test framework modules). Their {@code <action>} declarations
+     * are loaded via PlatformActions.xml / ExecutionActions.xml, but the
+     * referenced classes aren't on the classpath. Left alone, the Action
+     * Search contributor hits PluginException/ClassNotFoundException the
+     * first time it tries to lazy-load them for the palette. Unregistering
+     * at customize time stops Action Search from ever seeing them.
+     *
+     * <p>These get unregistered with the same mechanism as the file-oriented
+     * ones but listed separately so it's obvious why they're here.
+     */
+    private static final String[] MISSING_CLASS_ACTION_IDS = {
+        // From PlatformActions.xml / ExecutionActions.xml — testframework
+        // impls that aren't in our module set.
+        "openAssertEqualsDiff",
+        "ExportTestResults",
+    };
+
     @Override
     @SuppressWarnings("removal")
     public void customize(@NotNull ActionManager actionManager) {
@@ -67,6 +86,9 @@ public final class ConchActionConfigurationCustomizer implements ActionConfigura
         }
 
         for (String actionId : FILE_ORIENTED_ACTION_IDS) {
+            unregisterIfPresent(actionManager, actionId);
+        }
+        for (String actionId : MISSING_CLASS_ACTION_IDS) {
             unregisterIfPresent(actionManager, actionId);
         }
     }
@@ -86,7 +108,13 @@ public final class ConchActionConfigurationCustomizer implements ActionConfigura
     }
 
     private static void unregisterIfPresent(@NotNull ActionManager actionManager, @NotNull String actionId) {
-        if (actionManager.getAction(actionId) != null) {
+        // IMPORTANT: use getActionOrStub, NOT getAction. getAction forces the
+        // stub to instantiate its implementation class, which crashes with
+        // PluginException / ClassNotFoundException for actions whose classes
+        // live in modules Conch strips (e.g. testframework). getActionOrStub
+        // returns the stub without loading the class, so we can unregister
+        // freely.
+        if (actionManager.getActionOrStub(actionId) != null) {
             actionManager.unregisterAction(actionId);
         }
     }
