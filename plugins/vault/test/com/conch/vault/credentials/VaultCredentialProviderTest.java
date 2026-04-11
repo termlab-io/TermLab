@@ -31,7 +31,7 @@ class VaultCredentialProviderTest {
     void displayName_isConchVault() {
         VaultCredentialProvider provider = new VaultCredentialProvider(
             new LockManager(Path.of("/nonexistent")));
-        assertEquals("Conch Vault", provider.getDisplayName());
+        assertEquals("Credential Vault", provider.getDisplayName());
     }
 
     @Test
@@ -102,9 +102,79 @@ class VaultCredentialProviderTest {
         assertArrayEquals("pw2".toCharArray(), cred.password());
     }
 
+    @Test
+    void listCredentials_returnsAccountsAndKeys(@TempDir Path tmp) throws Exception {
+        Path file = tmp.resolve("vault.enc");
+        Vault vault = new Vault();
+        vault.accounts.add(new VaultAccount(
+            UUID.randomUUID(), "DB", "admin",
+            new AuthMethod.Password("secret"),
+            Instant.now(), Instant.now()));
+        vault.keys.add(new com.conch.vault.model.VaultKey(
+            UUID.randomUUID(),
+            "Work Laptop",
+            "ed25519",
+            "SHA256:abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQ",
+            "dustin@laptop",
+            tmp.resolve("id_ed25519").toString(),
+            tmp.resolve("id_ed25519.pub").toString(),
+            Instant.now()));
+        VaultFile.save(file, vault, "pw".getBytes());
+
+        LockManager lm = new LockManager(file);
+        lm.unlock("pw".getBytes());
+
+        VaultCredentialProvider provider = new VaultCredentialProvider(lm);
+        var descriptors = provider.listCredentials();
+        assertEquals(2, descriptors.size());
+
+        var kinds = descriptors.stream()
+            .map(CredentialProvider.CredentialDescriptor::kind)
+            .collect(java.util.stream.Collectors.toSet());
+        assertTrue(kinds.contains(CredentialProvider.Kind.ACCOUNT_PASSWORD));
+        assertTrue(kinds.contains(CredentialProvider.Kind.SSH_KEY));
+    }
+
+    @Test
+    void listCredentials_whenLocked_isEmpty(@TempDir Path tmp) throws Exception {
+        LockManager lm = unlockedLockManager(tmp);
+        lm.lock();
+        VaultCredentialProvider provider = new VaultCredentialProvider(lm);
+        assertTrue(provider.listCredentials().isEmpty());
+    }
+
+    @Test
+    void getCredential_returnsKeyCredentialForVaultKey(@TempDir Path tmp) throws Exception {
+        Path file = tmp.resolve("vault.enc");
+        Vault vault = new Vault();
+        UUID keyId = UUID.randomUUID();
+        vault.keys.add(new com.conch.vault.model.VaultKey(
+            keyId,
+            "GitHub",
+            "ed25519",
+            "SHA256:xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+            "ci@github",
+            "/tmp/key",
+            "/tmp/key.pub",
+            Instant.now()));
+        VaultFile.save(file, vault, "pw".getBytes());
+
+        LockManager lm = new LockManager(file);
+        lm.unlock("pw".getBytes());
+
+        VaultCredentialProvider provider = new VaultCredentialProvider(lm);
+        CredentialProvider.Credential cred = provider.getCredential(keyId);
+        assertNotNull(cred);
+        assertEquals("GitHub", cred.displayName());
+        assertNull(cred.username(), "SSH keys have no embedded username");
+        assertEquals(CredentialProvider.AuthMethod.KEY, cred.authMethod());
+        assertEquals("/tmp/key", cred.keyPath());
+        assertNull(cred.password());
+    }
+
     // promptForCredential() opens an AccountPickerDialog which requires a live
     // IntelliJ application context, so there's no unit test for it here — the
     // flow is covered by the Phase 4 manual smoke test. The unit-testable
     // surface is AuthMethodMapper (covered separately) and the getCredential /
-    // isAvailable / getDisplayName methods above.
+    // isAvailable / getDisplayName / listCredentials methods above.
 }

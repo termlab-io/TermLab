@@ -77,10 +77,10 @@ public final class VaultLockStatusBarWidget implements StatusBarWidget, StatusBa
     public @Nullable String getTooltipText() {
         VaultState state = lockManager.getState();
         return switch (state) {
-            case LOCKED -> "Conch Vault — locked. Click to unlock.";
-            case UNLOCKING -> "Conch Vault — unlocking…";
-            case UNLOCKED -> "Conch Vault — unlocked. Click to manage.";
-            case SEALING -> "Conch Vault — locking…";
+            case LOCKED -> "Credential Vault — locked. Click to unlock.";
+            case UNLOCKING -> "Credential Vault — unlocking…";
+            case UNLOCKED -> "Credential Vault — unlocked. Click to manage.";
+            case SEALING -> "Credential Vault — locking…";
         };
     }
 

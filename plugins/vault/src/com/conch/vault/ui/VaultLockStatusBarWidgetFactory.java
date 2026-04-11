@@ -20,7 +20,7 @@ public final class VaultLockStatusBarWidgetFactory implements StatusBarWidgetFac
 
     @Override
     public @NotNull String getDisplayName() {
-        return "Conch Vault Lock";
+        return "Credential Vault Lock";
     }
 
     @Override

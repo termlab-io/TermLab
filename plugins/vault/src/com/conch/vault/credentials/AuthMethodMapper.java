@@ -3,6 +3,7 @@ package com.conch.vault.credentials;
 import com.conch.sdk.CredentialProvider;
 import com.conch.vault.model.AuthMethod;
 import com.conch.vault.model.VaultAccount;
+import com.conch.vault.model.VaultKey;
 import org.jetbrains.annotations.NotNull;
 
 /**
@@ -55,5 +56,50 @@ public final class AuthMethodMapper {
                 kp.passphrase() == null ? null : kp.passphrase().toCharArray()
             );
         };
+    }
+
+    /**
+     * Map a standalone {@link VaultKey} to an SDK {@link CredentialProvider.Credential}.
+     *
+     * <p>Unlike accounts, vault keys don't carry a username — the field is
+     * {@code null}, and the SDK contract says the consumer (SSH plugin) is
+     * responsible for prompting the user for one before using the key.
+     * The auth method is always {@link CredentialProvider.AuthMethod#KEY}.
+     */
+    public static @NotNull CredentialProvider.Credential toCredential(@NotNull VaultKey key) {
+        return new CredentialProvider.Credential(
+            key.id(),
+            key.name(),
+            null,                                          // username — consumer prompts
+            CredentialProvider.AuthMethod.KEY,
+            null,                                          // no password for a bare key
+            key.privatePath(),
+            null                                           // passphrase not stored yet
+        );
+    }
+
+    /** Compact view used by {@link CredentialProvider#listCredentials()}. */
+    public static @NotNull CredentialProvider.CredentialDescriptor toDescriptor(@NotNull VaultAccount account) {
+        CredentialProvider.Kind kind = switch (account.auth()) {
+            case AuthMethod.Password ignored -> CredentialProvider.Kind.ACCOUNT_PASSWORD;
+            case AuthMethod.Key ignored -> CredentialProvider.Kind.ACCOUNT_KEY;
+            case AuthMethod.KeyAndPassword ignored -> CredentialProvider.Kind.ACCOUNT_KEY_AND_PASSWORD;
+        };
+        return new CredentialProvider.CredentialDescriptor(
+            account.id(),
+            account.displayName(),
+            account.username(),
+            kind
+        );
+    }
+
+    /** Compact view used by {@link CredentialProvider#listCredentials()}. */
+    public static @NotNull CredentialProvider.CredentialDescriptor toDescriptor(@NotNull VaultKey key) {
+        return new CredentialProvider.CredentialDescriptor(
+            key.id(),
+            key.name(),
+            key.algorithm() + " · " + key.fingerprint(),
+            CredentialProvider.Kind.SSH_KEY
+        );
     }
 }

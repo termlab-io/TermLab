@@ -4,6 +4,7 @@ import com.conch.vault.crypto.WrongPasswordException;
 import com.conch.vault.model.AuthMethod;
 import com.conch.vault.model.Vault;
 import com.conch.vault.model.VaultAccount;
+import com.conch.vault.model.VaultKey;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -86,5 +87,32 @@ class VaultFileTest {
         VaultFile.save(file, new Vault(), "pw".getBytes(), deviceSecret);
         Vault loaded = VaultFile.load(file, "pw".getBytes(), deviceSecret);
         assertNotNull(loaded);
+    }
+
+    @Test
+    void vaultKeys_roundTrip(@TempDir Path tmp) throws Exception {
+        Path file = tmp.resolve("vault.enc");
+        Vault original = new Vault();
+        UUID keyId = UUID.randomUUID();
+        original.keys.add(new VaultKey(
+            keyId,
+            "Work laptop",
+            "ed25519",
+            "SHA256:dGVzdGhhc2h0ZXN0aGFzaHRlc3RoYXNodGVzdGhh",
+            "dustin@laptop",
+            "/home/dustin/.ssh/conch_vault/id_ed25519_abc",
+            "/home/dustin/.ssh/conch_vault/id_ed25519_abc.pub",
+            Instant.parse("2026-04-11T10:00:00Z")));
+
+        VaultFile.save(file, original, "pw".getBytes());
+        Vault loaded = VaultFile.load(file, "pw".getBytes());
+
+        assertEquals(1, loaded.keys.size());
+        VaultKey loadedKey = loaded.keys.get(0);
+        assertEquals(keyId, loadedKey.id());
+        assertEquals("Work laptop", loadedKey.name());
+        assertEquals("ed25519", loadedKey.algorithm());
+        assertEquals("dustin@laptop", loadedKey.comment());
+        assertTrue(loadedKey.publicPath().endsWith(".pub"));
     }
 }

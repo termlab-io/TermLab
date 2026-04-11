@@ -13,6 +13,7 @@ import java.io.IOException;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.function.Supplier;
 
 /**
  * In-process owner of the unlocked vault.
@@ -42,7 +43,13 @@ import java.util.concurrent.CopyOnWriteArrayList;
  */
 public final class LockManager {
 
-    private final Path vaultPath;
+    /**
+     * Path supplier — called on every access so the vault location can be
+     * changed at runtime via {@link com.conch.vault.settings.ConchVaultConfig}
+     * without recreating the service or restarting the app.
+     */
+    private final Supplier<Path> vaultPathSupplier;
+
     private final List<VaultStateListener> listeners = new CopyOnWriteArrayList<>();
 
     private VaultState state = VaultState.LOCKED;
@@ -55,19 +62,21 @@ public final class LockManager {
 
     /**
      * No-arg constructor used by the IntelliJ application-service framework.
-     * Resolves the vault path from {@link VaultPaths#vaultFile()}.
+     * Resolves the vault path lazily from {@link VaultPaths#vaultFile()} on
+     * each access, so path changes in Settings take effect on the next
+     * unlock / save without a restart.
      */
     public LockManager() {
-        this(VaultPaths.vaultFile());
+        this.vaultPathSupplier = VaultPaths::vaultFile;
     }
 
     /** Explicit path constructor — used by tests with {@code @TempDir}. */
     public LockManager(@NotNull Path vaultPath) {
-        this.vaultPath = vaultPath;
+        this.vaultPathSupplier = () -> vaultPath;
     }
 
     public @NotNull Path getVaultPath() {
-        return vaultPath;
+        return vaultPathSupplier.get();
     }
 
     public synchronized boolean isLocked() {
@@ -98,7 +107,7 @@ public final class LockManager {
         if (state == VaultState.UNLOCKED) return;
         setState(VaultState.UNLOCKING);
         try {
-            unlockedVault = VaultFile.load(vaultPath, password);
+            unlockedVault = VaultFile.load(vaultPathSupplier.get(), password);
             // Cache a defensive copy so save() can re-encrypt without a reprompt.
             cachedPassword = SecureBytes.copyOf(password);
             cachedDeviceSecret = null;
@@ -116,7 +125,7 @@ public final class LockManager {
         if (state == VaultState.UNLOCKED) return;
         setState(VaultState.UNLOCKING);
         try {
-            unlockedVault = VaultFile.load(vaultPath, password, deviceSecret);
+            unlockedVault = VaultFile.load(vaultPathSupplier.get(), password, deviceSecret);
             cachedPassword = SecureBytes.copyOf(password);
             cachedDeviceSecret = SecureBytes.copyOf(deviceSecret);
             setState(VaultState.UNLOCKED);
@@ -139,9 +148,9 @@ public final class LockManager {
             throw new IllegalStateException("cannot save vault when not unlocked");
         }
         if (cachedDeviceSecret != null) {
-            VaultFile.save(vaultPath, unlockedVault, cachedPassword.bytes(), cachedDeviceSecret.bytes());
+            VaultFile.save(vaultPathSupplier.get(), unlockedVault, cachedPassword.bytes(), cachedDeviceSecret.bytes());
         } else {
-            VaultFile.save(vaultPath, unlockedVault, cachedPassword.bytes());
+            VaultFile.save(vaultPathSupplier.get(), unlockedVault, cachedPassword.bytes());
         }
     }
 

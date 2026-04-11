@@ -1,6 +1,6 @@
 <idea-plugin>
     <id>com.conch.vault</id>
-    <name>Conch Vault</name>
+    <name>Credential Vault</name>
     <vendor>Conch</vendor>
     <description>Encrypted credential vault. Stores SSH credentials (passwords, keys, passphrases) on disk with AES-256-GCM and Argon2id, device-bound via IntelliJ's cross-platform PasswordSafe (Keychain / Credential Manager / libsecret / KWallet / encrypted file), and exposes them to other Conch plugins through the CredentialProvider extension point.</description>
 
@@ -14,6 +14,14 @@
           so every caller talks to the same instance.
         -->
         <applicationService serviceImplementation="com.conch.vault.lock.LockManager"/>
+
+        <!-- Top-level Settings entry for the vault. parentId="root" puts it at
+             the root of the Settings tree, sibling of "Conch Terminal". -->
+        <applicationConfigurable
+            parentId="root"
+            instance="com.conch.vault.settings.ConchVaultConfigurable"
+            id="conch.vault.settings"
+            displayName="Credential Vault"/>
 
         <!-- Lock/unlock indicator widget, anchored to the right of the status bar. -->
         <statusBarWidgetFactory
@@ -29,6 +37,7 @@
     -->
     <extensions defaultExtensionNs="com.conch.core">
         <credentialProvider implementation="com.conch.vault.credentials.VaultCredentialProvider"/>
+        <commandPaletteContributor implementation="com.conch.vault.palette.VaultPaletteContributor"/>
     </extensions>
 
     <actions>

@@ -26,13 +26,13 @@ import java.util.Base64;
  * derivation ends up reading the same 32 bytes it originally wrote, on any
  * platform the IntelliJ Platform supports.
  *
- * <p>The service name is {@code "Conch Vault"} and the user name is
+ * <p>The service name is {@code "Credential Vault"} and the user name is
  * {@code "device-secret"}, matching the convention recommended by the
  * IntelliJ Platform docs (human-readable prefix + key).
  */
 public final class PasswordSafeDeviceSecretStore implements DeviceSecretStore {
 
-    private static final String SERVICE_NAME = "Conch Vault";
+    private static final String SERVICE_NAME = "Credential Vault";
     private static final String KEY = "device-secret";
 
     private static CredentialAttributes attributes() {
