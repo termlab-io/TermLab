@@ -9,6 +9,7 @@ import com.conch.ssh.client.SshResolvedCredential;
 import com.conch.ssh.credentials.SshCredentialPicker;
 import com.conch.ssh.credentials.SshCredentialResolver;
 import com.conch.ssh.model.SshHost;
+import com.conch.ssh.model.VaultAuth;
 import com.conch.ssh.persistence.HostPaths;
 import com.conch.ssh.persistence.KnownHostsFile;
 import com.intellij.icons.AllIcons;
@@ -35,9 +36,10 @@ import javax.swing.*;
  *       target {@link SshHost}. Anything else returns {@code null}
  *       with an error dialog — a bare {@code SessionContext} would
  *       mean the caller didn't select a host first.</li>
- *   <li>{@link SshCredentialResolver#resolve(SshHost)} looks up the
- *       host's saved credential. If the host has no credential id, or
- *       the saved id no longer resolves, the picker kicks in instead.</li>
+ *   <li>If the host's {@link SshHost#auth()} is a {@link com.conch.ssh.model.VaultAuth}
+ *       with a non-null credential id, {@code SshCredentialResolver.resolve(UUID, String)}
+ *       looks it up in the vault. If there's no saved id, or the saved id no longer
+ *       resolves, {@link SshCredentialPicker#pick(SshHost)} kicks in instead.</li>
  *   <li>The connect runs inside a {@link Task.Modal} so the EDT never
  *       blocks during MINA's ~seconds-long SSH handshake.</li>
  *   <li>On {@link SshConnectException.Kind#AUTH_FAILED}, the provider
@@ -98,7 +100,7 @@ public final class SshSessionProvider implements TerminalSessionProvider {
         // still gets prompted, just via the full vault picker instead of the
         // inline dialog).
         SshResolvedCredential credential = null;
-        if (host.auth() instanceof com.conch.ssh.model.VaultAuth vaultAuth
+        if (host.auth() instanceof VaultAuth vaultAuth
             && vaultAuth.credentialId() != null) {
             credential = resolver.resolve(vaultAuth.credentialId(), host.username());
         }
