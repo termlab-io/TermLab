@@ -20,6 +20,11 @@ java_binary(
 
         # Conch bundled plugins (first-party, always enabled)
         "//conch/plugins/vault",
+        # Runtime implementation of PasswordSafe — required by the vault
+        # plugin so it can store the device secret in the cross-platform
+        # credential store (Keychain / Credential Manager / KWallet /
+        # libsecret / encrypted file fallback).
+        "//platform/credential-store-impl:credentialStore-impl",
 
         # IntelliJ-platform bundled plugins — ONLY these exist in Conch
         "//plugins/classic-ui",
@@ -108,7 +113,7 @@ java_binary(
         "-Didea.config.path=$${BUILD_WORKSPACE_DIRECTORY}/config/conch",
         "-Didea.system.path=$${BUILD_WORKSPACE_DIRECTORY}/system/conch",
         "-Didea.trust.all.projects=true",
-        "-Dnosplash=true",
+        "-Dsplash=true",
         "-Dide.no.tips.dialog=true",
         "-Dfus.internal.test.mode=true",
         # Use Classic UI by default (disable new UI)

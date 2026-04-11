@@ -19,6 +19,8 @@ jvm_library(
         "//platform/platform-api:ide",
         "//platform/platform-impl:ide-impl",
         "//platform/util:util-ui",
+        "//platform/util-ex",
+        "//platform/credential-store",
         "//libraries/bouncy-castle-provider",
         "@lib//:jetbrains-annotations",
         "@lib//:gson",
