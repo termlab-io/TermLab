@@ -88,6 +88,14 @@
     <applicationListeners>
         <listener class="com.conch.core.ConchProjectCloseListener"
                   topic="com.intellij.openapi.project.ProjectManagerListener"/>
+        <!--
+          Strips built-in Search Everywhere contributors (files, classes,
+          symbols, text, run configs, top hits, calculator, YAML keys) so the
+          Command Palette's "All" tab only shows Conch things. Fires on
+          appFrameCreated, before the user can open Search Everywhere.
+        -->
+        <listener class="com.conch.core.palette.ConchSearchEverywhereCustomizer"
+                  topic="com.intellij.ide.AppLifecycleListener"/>
     </applicationListeners>
 
     <projectListeners>
