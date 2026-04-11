@@ -2,13 +2,18 @@ package com.conch.ssh.ui;
 
 import com.conch.sdk.CredentialProvider;
 import com.conch.sdk.CredentialProvider.CredentialDescriptor;
+import com.conch.ssh.model.KeyFileAuth;
+import com.conch.ssh.model.PromptPasswordAuth;
 import com.conch.ssh.model.SshAuth;
 import com.conch.ssh.model.SshHost;
 import com.conch.ssh.model.VaultAuth;
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.extensions.ExtensionPointName;
+import com.intellij.openapi.fileChooser.FileChooserDescriptorFactory;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.ui.DialogWrapper;
+import com.intellij.openapi.ui.TextBrowseFolderListener;
+import com.intellij.openapi.ui.TextFieldWithBrowseButton;
 import com.intellij.openapi.ui.ValidationInfo;
 import com.intellij.util.ui.JBUI;
 import org.jetbrains.annotations.NotNull;
@@ -16,6 +21,8 @@ import org.jetbrains.annotations.Nullable;
 
 import javax.swing.*;
 import java.awt.*;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.List;
@@ -26,26 +33,29 @@ import java.util.UUID;
 /**
  * Modal add/edit dialog for a single {@link SshHost}. Produces either a
  * brand-new host (add mode, {@code existing == null}) or an edited copy
- * of an existing one (edit mode) via
- * {@link SshHost#withEdited(String, String, int, String, SshAuth)}.
+ * of an existing one (edit mode).
  *
- * <p>The credential combo is populated from every
- * {@link CredentialProvider} extension in the application area,
- * filtered to kinds that make sense for SSH ({@code ACCOUNT_PASSWORD},
- * {@code ACCOUNT_KEY}, {@code ACCOUNT_KEY_AND_PASSWORD}, {@code SSH_KEY}).
- * The first entry is always a synthetic {@code <no credential>} option —
- * picking it stores {@code credentialId = null} on the host, which makes
- * the session provider fall back to the vault picker at connect time.
- *
- * <p>Caller is responsible for persisting the returned host via
- * {@code HostStore.addHost} / {@code HostStore.updateHost} + {@code save()}.
+ * <p>Three auth modes, picked via radio buttons that mirror the layout
+ * of the vault plugin's {@code AccountEditDialog}:
+ * <ul>
+ *   <li><b>Vault credential</b> — combo populated from every
+ *       {@link CredentialProvider} extension filtered to SSH-usable
+ *       kinds, plus a {@code <no credential>} option that produces
+ *       {@code VaultAuth(null)} and makes the session provider run the
+ *       vault picker at connect time.</li>
+ *   <li><b>Password (prompt every connect)</b> — no fields; the connect
+ *       flow shows {@code InlineCredentialPromptDialog.promptPassword}
+ *       every time.</li>
+ *   <li><b>SSH key file</b> — key path with browse button; passphrase
+ *       is prompted at connect time by
+ *       {@code InlineCredentialPromptDialog.promptPassphrase}.</li>
+ * </ul>
  */
 public final class HostEditDialog extends DialogWrapper {
 
     private static final ExtensionPointName<CredentialProvider> EP_NAME =
         ExtensionPointName.create("com.conch.core.credentialProvider");
 
-    /** Kinds the SSH plugin can actually authenticate with. */
     private static final Set<CredentialProvider.Kind> SUPPORTED_KINDS = EnumSet.of(
         CredentialProvider.Kind.ACCOUNT_PASSWORD,
         CredentialProvider.Kind.ACCOUNT_KEY,
@@ -60,7 +70,13 @@ public final class HostEditDialog extends DialogWrapper {
     private final JSpinner portSpinner = new JSpinner(
         new SpinnerNumberModel(SshHost.DEFAULT_PORT, 1, 65535, 1));
     private final JTextField usernameField = new JTextField(24);
+
+    private final JRadioButton vaultRadio = new JRadioButton("Vault credential", true);
+    private final JRadioButton promptRadio = new JRadioButton("Password (prompt every connect)");
+    private final JRadioButton keyFileRadio = new JRadioButton("SSH key file");
+
     private final JComboBox<CredentialEntry> credentialCombo = new JComboBox<>();
+    private final TextFieldWithBrowseButton keyPathField = new TextFieldWithBrowseButton();
 
     private SshHost result;
 
@@ -69,29 +85,34 @@ public final class HostEditDialog extends DialogWrapper {
         this.existing = existing;
         setTitle(existing == null ? "Add SSH Host" : "Edit SSH Host");
         setOKButtonText(existing == null ? "Add" : "Save");
+        wireKeyPathChooser();
         populateCredentialCombo();
         init();
         populateFromExisting();
+        updateEnablement();
     }
 
-    /** @return the host produced by this dialog, or {@code null} if cancelled. */
     public static @Nullable SshHost show(@Nullable Project project, @Nullable SshHost existing) {
         HostEditDialog dlg = new HostEditDialog(project, existing);
         return dlg.showAndGet() ? dlg.result : null;
     }
 
+    private void wireKeyPathChooser() {
+        keyPathField.addBrowseFolderListener(new TextBrowseFolderListener(
+            FileChooserDescriptorFactory.createSingleFileDescriptor()));
+    }
+
     private void populateCredentialCombo() {
         credentialCombo.removeAllItems();
         credentialCombo.addItem(CredentialEntry.NONE);
-
         if (ApplicationManager.getApplication() == null) return;
 
         List<CredentialEntry> entries = new ArrayList<>();
         for (CredentialProvider provider : EP_NAME.getExtensionList()) {
             if (!provider.isAvailable()) continue;
-            for (CredentialDescriptor descriptor : provider.listCredentials()) {
-                if (!SUPPORTED_KINDS.contains(descriptor.kind())) continue;
-                entries.add(new CredentialEntry(descriptor));
+            for (CredentialDescriptor d : provider.listCredentials()) {
+                if (!SUPPORTED_KINDS.contains(d.kind())) continue;
+                entries.add(new CredentialEntry(d));
             }
         }
         entries.sort((a, b) -> a.label().compareToIgnoreCase(b.label()));
@@ -100,6 +121,7 @@ public final class HostEditDialog extends DialogWrapper {
 
     private void populateFromExisting() {
         if (existing == null) {
+            vaultRadio.setSelected(true);
             credentialCombo.setSelectedItem(CredentialEntry.NONE);
             return;
         }
@@ -108,9 +130,20 @@ public final class HostEditDialog extends DialogWrapper {
         portSpinner.setValue(existing.port());
         usernameField.setText(existing.username());
 
-        UUID savedId = existing.auth() instanceof VaultAuth vaultAuth
-            ? vaultAuth.credentialId()
-            : null;
+        switch (existing.auth()) {
+            case VaultAuth v -> {
+                vaultRadio.setSelected(true);
+                selectVaultEntry(v.credentialId());
+            }
+            case PromptPasswordAuth p -> promptRadio.setSelected(true);
+            case KeyFileAuth k -> {
+                keyFileRadio.setSelected(true);
+                keyPathField.setText(k.keyFilePath());
+            }
+        }
+    }
+
+    private void selectVaultEntry(@Nullable UUID savedId) {
         if (savedId == null) {
             credentialCombo.setSelectedItem(CredentialEntry.NONE);
             return;
@@ -122,9 +155,6 @@ public final class HostEditDialog extends DialogWrapper {
                 return;
             }
         }
-        // Saved credential is no longer available (vault locked, deleted,
-        // etc). Keep the id around as a "missing" entry so saving without
-        // touching the combo doesn't silently drop the reference.
         CredentialEntry missing = CredentialEntry.missing(savedId);
         credentialCombo.addItem(missing);
         credentialCombo.setSelectedItem(missing);
@@ -134,7 +164,7 @@ public final class HostEditDialog extends DialogWrapper {
     protected @NotNull JComponent createCenterPanel() {
         JPanel panel = new JPanel(new GridBagLayout());
         panel.setBorder(JBUI.Borders.empty(8));
-        panel.setPreferredSize(new Dimension(460, 200));
+        panel.setPreferredSize(new Dimension(520, 320));
 
         GridBagConstraints c = new GridBagConstraints();
         c.insets = JBUI.insets(4);
@@ -161,12 +191,41 @@ public final class HostEditDialog extends DialogWrapper {
         c.gridx = 1; c.weightx = 1;
         panel.add(usernameField, c);
 
-        c.gridy++; c.gridx = 0; c.weightx = 0;
-        panel.add(new JLabel("Credential:"), c);
+        ButtonGroup group = new ButtonGroup();
+        group.add(vaultRadio);
+        group.add(promptRadio);
+        group.add(keyFileRadio);
+
+        c.gridy++; c.gridx = 0; c.gridwidth = 2; c.weightx = 1;
+        panel.add(new JLabel("Auth method:"), c);
+
+        c.gridy++; c.gridx = 0; c.gridwidth = 2;
+        panel.add(vaultRadio, c);
+        c.gridy++; c.gridx = 0; c.gridwidth = 1; c.weightx = 0;
+        panel.add(Box.createHorizontalStrut(24), c);
         c.gridx = 1; c.weightx = 1;
         panel.add(credentialCombo, c);
 
+        c.gridy++; c.gridx = 0; c.gridwidth = 2; c.weightx = 1;
+        panel.add(promptRadio, c);
+
+        c.gridy++; c.gridx = 0; c.gridwidth = 2;
+        panel.add(keyFileRadio, c);
+        c.gridy++; c.gridx = 0; c.gridwidth = 1; c.weightx = 0;
+        panel.add(Box.createHorizontalStrut(24), c);
+        c.gridx = 1; c.weightx = 1;
+        panel.add(keyPathField, c);
+
+        vaultRadio.addActionListener(e -> updateEnablement());
+        promptRadio.addActionListener(e -> updateEnablement());
+        keyFileRadio.addActionListener(e -> updateEnablement());
+
         return panel;
+    }
+
+    private void updateEnablement() {
+        credentialCombo.setEnabled(vaultRadio.isSelected());
+        keyPathField.setEnabled(keyFileRadio.isSelected());
     }
 
     @Override
@@ -185,6 +244,15 @@ public final class HostEditDialog extends DialogWrapper {
         if (usernameField.getText().trim().isEmpty()) {
             return new ValidationInfo("Username is required", usernameField);
         }
+        if (keyFileRadio.isSelected()) {
+            String path = keyPathField.getText().trim();
+            if (path.isEmpty()) {
+                return new ValidationInfo("Key file path is required", keyPathField.getTextField());
+            }
+            if (!Files.isRegularFile(Paths.get(path))) {
+                return new ValidationInfo("Key file does not exist", keyPathField.getTextField());
+            }
+        }
         return null;
     }
 
@@ -195,9 +263,16 @@ public final class HostEditDialog extends DialogWrapper {
         int port = (Integer) portSpinner.getValue();
         String username = usernameField.getText().trim();
 
-        CredentialEntry selected = (CredentialEntry) credentialCombo.getSelectedItem();
-        UUID credentialId = selected == null ? null : selected.id();
-        SshAuth auth = new VaultAuth(credentialId);
+        SshAuth auth;
+        if (promptRadio.isSelected()) {
+            auth = new PromptPasswordAuth();
+        } else if (keyFileRadio.isSelected()) {
+            auth = new KeyFileAuth(keyPathField.getText().trim());
+        } else {
+            CredentialEntry selected = (CredentialEntry) credentialCombo.getSelectedItem();
+            UUID credentialId = selected == null ? null : selected.id();
+            auth = new VaultAuth(credentialId);
+        }
 
         if (existing == null) {
             result = SshHost.create(label, host, port, username, auth);
@@ -208,11 +283,8 @@ public final class HostEditDialog extends DialogWrapper {
         super.doOKAction();
     }
 
-    /**
-     * Combo entry. Wraps either a real {@link CredentialDescriptor}, a
-     * "no credential" marker, or a "missing" marker for a saved id that
-     * no provider currently resolves.
-     */
+    // -- combo entry ---------------------------------------------------------
+
     private static final class CredentialEntry {
         static final CredentialEntry NONE = new CredentialEntry(null, "<no credential>", null);
 
@@ -239,12 +311,8 @@ public final class HostEditDialog extends DialogWrapper {
         }
 
         @Nullable UUID id() { return id; }
-
         @NotNull String label() { return label; }
-
-        boolean matches(@NotNull UUID other) {
-            return Objects.equals(id, other);
-        }
+        boolean matches(@NotNull UUID other) { return Objects.equals(id, other); }
 
         @Override public String toString() { return label; }
     }
