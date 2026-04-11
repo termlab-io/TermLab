@@ -4,6 +4,7 @@ import com.conch.vault.crypto.VaultCorruptedException;
 import com.conch.vault.crypto.WrongPasswordException;
 import com.conch.vault.model.Vault;
 import com.conch.vault.persistence.VaultFile;
+import com.conch.vault.persistence.VaultPaths;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -46,6 +47,15 @@ public final class LockManager {
     private VaultState state = VaultState.LOCKED;
     private @Nullable Vault unlockedVault;
 
+    /**
+     * No-arg constructor used by the IntelliJ application-service framework.
+     * Resolves the vault path from {@link VaultPaths#vaultFile()}.
+     */
+    public LockManager() {
+        this(VaultPaths.vaultFile());
+    }
+
+    /** Explicit path constructor — used by tests with {@code @TempDir}. */
     public LockManager(@NotNull Path vaultPath) {
         this.vaultPath = vaultPath;
     }

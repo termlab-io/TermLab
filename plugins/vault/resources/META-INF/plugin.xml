@@ -2,15 +2,35 @@
     <id>com.conch.vault</id>
     <name>Conch Vault</name>
     <vendor>Conch</vendor>
-    <description>Encrypted credential vault. Stores SSH credentials (passwords, keys, passphrases) on disk with AES-256-GCM and Argon2id, device-bound via the OS keychain, and exposes them to other Conch plugins through the CredentialProvider extension point.</description>
+    <description>Encrypted credential vault. Stores SSH credentials (passwords, keys, passphrases) on disk with AES-256-GCM and Argon2id, device-bound via IntelliJ's cross-platform PasswordSafe (Keychain / Credential Manager / libsecret / KWallet / encrypted file), and exposes them to other Conch plugins through the CredentialProvider extension point.</description>
 
-    <!-- The credentialProvider extension point is declared in Conch core. -->
+    <!-- The credentialProvider extension point is declared by com.conch.core. -->
     <depends>com.conch.core</depends>
 
     <!--
-      Registration of the VaultCredentialProvider, status-bar widget, actions,
-      and services comes in Phase 3 of the vault implementation plan. This
-      placeholder plugin.xml exists so the Bazel resourcegroup glob matches
-      something during Phase 1.
+      LockManager is the single source of truth for "is the vault unlocked,
+      and if so, what does it contain". Registered as an application service
+      so every caller (CredentialProvider, UI actions, status-bar widget)
+      talks to the same instance.
+
+      The no-arg constructor resolves the vault path via VaultPaths.vaultFile(),
+      which maps to ~/.config/conch/vault.enc on every platform.
+    -->
+    <extensions defaultExtensionNs="com.intellij">
+        <applicationService serviceImplementation="com.conch.vault.lock.LockManager"/>
+    </extensions>
+
+    <!--
+      Register the vault's credential provider under the core extension point.
+      Other plugins (e.g. the forthcoming SSH plugin) query it via
+      com.conch.sdk.CredentialProvider.
+    -->
+    <extensions defaultExtensionNs="com.conch.core">
+        <credentialProvider implementation="com.conch.vault.credentials.VaultCredentialProvider"/>
+    </extensions>
+
+    <!--
+      Actions, status-bar widget, and palette contributor land in phases 4
+      and 6. Intentionally not declared here yet.
     -->
 </idea-plugin>
