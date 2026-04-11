@@ -62,4 +62,10 @@ class SshAuthJsonTest {
         String bad = "{ \"type\": \"bogus\" }";
         assertThrows(JsonParseException.class, () -> SshGson.GSON.fromJson(bad, SshAuth.class));
     }
+
+    @Test
+    void keyFileAuth_missingPath_throws() {
+        String bad = "{ \"type\": \"key_file\" }";
+        assertThrows(JsonParseException.class, () -> SshGson.GSON.fromJson(bad, SshAuth.class));
+    }
 }

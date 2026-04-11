@@ -102,7 +102,12 @@ public final class SshGson {
                     yield new VaultAuth(id);
                 }
                 case "prompt_password" -> new PromptPasswordAuth();
-                case "key_file" -> new KeyFileAuth(obj.get("keyFilePath").getAsString());
+                case "key_file" -> {
+                    if (!obj.has("keyFilePath")) {
+                        throw new JsonParseException("key_file SshAuth missing required 'keyFilePath'");
+                    }
+                    yield new KeyFileAuth(obj.get("keyFilePath").getAsString());
+                }
                 default -> throw new JsonParseException("unknown SshAuth type: " + type);
             };
         }
