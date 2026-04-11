@@ -1,5 +1,6 @@
 package com.conch.vault.lock;
 
+import com.conch.vault.crypto.SecureBytes;
 import com.conch.vault.crypto.VaultCorruptedException;
 import com.conch.vault.crypto.WrongPasswordException;
 import com.conch.vault.model.Vault;
@@ -47,6 +48,11 @@ public final class LockManager {
     private VaultState state = VaultState.LOCKED;
     private @Nullable Vault unlockedVault;
 
+    // Credentials cached for save() so the user isn't reprompted on every
+    // account edit. Both are zeroed on lock() so they don't linger.
+    private @Nullable SecureBytes cachedPassword;
+    private @Nullable SecureBytes cachedDeviceSecret;
+
     /**
      * No-arg constructor used by the IntelliJ application-service framework.
      * Resolves the vault path from {@link VaultPaths#vaultFile()}.
@@ -93,6 +99,9 @@ public final class LockManager {
         setState(VaultState.UNLOCKING);
         try {
             unlockedVault = VaultFile.load(vaultPath, password);
+            // Cache a defensive copy so save() can re-encrypt without a reprompt.
+            cachedPassword = SecureBytes.copyOf(password);
+            cachedDeviceSecret = null;
             setState(VaultState.UNLOCKED);
         } catch (Exception e) {
             unlockedVault = null;
@@ -108,11 +117,31 @@ public final class LockManager {
         setState(VaultState.UNLOCKING);
         try {
             unlockedVault = VaultFile.load(vaultPath, password, deviceSecret);
+            cachedPassword = SecureBytes.copyOf(password);
+            cachedDeviceSecret = SecureBytes.copyOf(deviceSecret);
             setState(VaultState.UNLOCKED);
         } catch (Exception e) {
             unlockedVault = null;
             setState(VaultState.LOCKED);
             throw e;
+        }
+    }
+
+    /**
+     * Persist the currently-unlocked vault using the cached credentials from
+     * the most recent successful unlock.
+     *
+     * @throws IllegalStateException if the vault isn't unlocked
+     * @throws IOException           if the file can't be written
+     */
+    public synchronized void save() throws IOException {
+        if (state != VaultState.UNLOCKED || unlockedVault == null || cachedPassword == null) {
+            throw new IllegalStateException("cannot save vault when not unlocked");
+        }
+        if (cachedDeviceSecret != null) {
+            VaultFile.save(vaultPath, unlockedVault, cachedPassword.bytes(), cachedDeviceSecret.bytes());
+        } else {
+            VaultFile.save(vaultPath, unlockedVault, cachedPassword.bytes());
         }
     }
 
@@ -130,6 +159,14 @@ public final class LockManager {
         if (state == VaultState.LOCKED) return;
         setState(VaultState.SEALING);
         unlockedVault = null;
+        if (cachedPassword != null) {
+            cachedPassword.close();
+            cachedPassword = null;
+        }
+        if (cachedDeviceSecret != null) {
+            cachedDeviceSecret.close();
+            cachedDeviceSecret = null;
+        }
         setState(VaultState.LOCKED);
     }
 

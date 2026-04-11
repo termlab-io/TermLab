@@ -3,7 +3,11 @@ package com.conch.vault.credentials;
 import com.conch.sdk.CredentialProvider;
 import com.conch.vault.lock.LockManager;
 import com.conch.vault.model.Vault;
+import com.conch.vault.model.VaultAccount;
+import com.conch.vault.ui.AccountPickerDialog;
 import com.intellij.openapi.application.ApplicationManager;
+import com.intellij.openapi.project.Project;
+import com.intellij.openapi.project.ProjectManager;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -65,19 +69,17 @@ public final class VaultCredentialProvider implements CredentialProvider {
     }
 
     /**
-     * Show an account picker and return the chosen credential.
-     *
-     * <p>The picker UI lives in the {@code ui} package and is implemented in
-     * Phase 4 of the vault plan. Until then this method returns {@code null},
-     * which is a legal signal per the SDK contract ("user cancelled or no
-     * picker available").
+     * Show an account picker and return the chosen credential. If the vault
+     * is locked at call time, {@link AccountPickerDialog} transparently
+     * runs an unlock flow first; cancelling either step returns {@code null}.
      */
     @Override
     public @Nullable Credential promptForCredential() {
-        // TODO(phase-4): instantiate AccountPickerDialog and return the
-        // chosen credential, automatically triggering UnlockDialog if the
-        // vault is locked at call time.
-        return null;
+        LockManager lm = lockManagerSupplier.get();
+        if (lm == null) return null;
+        Project project = ProjectManager.getInstance().getDefaultProject();
+        VaultAccount picked = AccountPickerDialog.show(project, lm);
+        return picked == null ? null : AuthMethodMapper.toCredential(picked);
     }
 
     @FunctionalInterface

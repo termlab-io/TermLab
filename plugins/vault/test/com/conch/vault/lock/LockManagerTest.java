@@ -133,6 +133,56 @@ class LockManagerTest {
     }
 
     @Test
+    void save_persistsChangesUsingCachedPassword(@TempDir Path tmp) throws Exception {
+        Path file = tmp.resolve("vault.enc");
+        VaultFile.save(file, new Vault(), "pw".getBytes());
+
+        LockManager lm = new LockManager(file);
+        lm.unlock("pw".getBytes());
+
+        // Mutate the unlocked vault and save without reprompting.
+        lm.getVault().accounts.add(new VaultAccount(
+            UUID.randomUUID(), "added", "u",
+            new AuthMethod.Password("secret"),
+            Instant.now(), Instant.now()));
+        lm.save();
+
+        // Lock, then unlock again and verify the addition persisted.
+        lm.lock();
+        lm.unlock("pw".getBytes());
+        assertEquals(1, lm.getVault().accounts.size());
+        assertEquals("added", lm.getVault().accounts.get(0).displayName());
+    }
+
+    @Test
+    void save_deviceBound_persistsChanges(@TempDir Path tmp) throws Exception {
+        Path file = tmp.resolve("vault.enc");
+        byte[] deviceSecret = new byte[32];
+        for (int i = 0; i < 32; i++) deviceSecret[i] = (byte) (i * 3);
+        VaultFile.save(file, new Vault(), "pw".getBytes(), deviceSecret);
+
+        LockManager lm = new LockManager(file);
+        lm.unlock("pw".getBytes(), deviceSecret);
+        lm.getVault().accounts.add(new VaultAccount(
+            UUID.randomUUID(), "dbc", "u",
+            new AuthMethod.Password("s"),
+            Instant.now(), Instant.now()));
+        lm.save();
+
+        lm.lock();
+        lm.unlock("pw".getBytes(), deviceSecret);
+        assertEquals(1, lm.getVault().accounts.size());
+    }
+
+    @Test
+    void save_whenLocked_throws(@TempDir Path tmp) throws Exception {
+        Path file = tmp.resolve("vault.enc");
+        VaultFile.save(file, new Vault(), "pw".getBytes());
+        LockManager lm = new LockManager(file);
+        assertThrows(IllegalStateException.class, lm::save);
+    }
+
+    @Test
     void removeListener_stopsNotifications(@TempDir Path tmp) throws Exception {
         Path file = tmp.resolve("vault.enc");
         VaultFile.save(file, new Vault(), "pw".getBytes());

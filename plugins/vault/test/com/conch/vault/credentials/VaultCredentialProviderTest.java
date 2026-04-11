@@ -102,12 +102,9 @@ class VaultCredentialProviderTest {
         assertArrayEquals("pw2".toCharArray(), cred.password());
     }
 
-    @Test
-    void promptForCredential_isNullPlaceholder(@TempDir Path tmp) throws Exception {
-        // Phase-4 picker not yet implemented — SDK contract allows null
-        // ("user cancelled or no picker available").
-        LockManager lm = unlockedLockManager(tmp);
-        VaultCredentialProvider provider = new VaultCredentialProvider(lm);
-        assertNull(provider.promptForCredential());
-    }
+    // promptForCredential() opens an AccountPickerDialog which requires a live
+    // IntelliJ application context, so there's no unit test for it here — the
+    // flow is covered by the Phase 4 manual smoke test. The unit-testable
+    // surface is AuthMethodMapper (covered separately) and the getCredential /
+    // isAvailable / getDisplayName methods above.
 }

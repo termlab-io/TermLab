@@ -7,17 +7,19 @@
     <!-- The credentialProvider extension point is declared by com.conch.core. -->
     <depends>com.conch.core</depends>
 
-    <!--
-      LockManager is the single source of truth for "is the vault unlocked,
-      and if so, what does it contain". Registered as an application service
-      so every caller (CredentialProvider, UI actions, status-bar widget)
-      talks to the same instance.
-
-      The no-arg constructor resolves the vault path via VaultPaths.vaultFile(),
-      which maps to ~/.config/conch/vault.enc on every platform.
-    -->
     <extensions defaultExtensionNs="com.intellij">
+        <!--
+          LockManager is the single source of truth for "is the vault unlocked,
+          and if so, what does it contain". Registered as an application service
+          so every caller talks to the same instance.
+        -->
         <applicationService serviceImplementation="com.conch.vault.lock.LockManager"/>
+
+        <!-- Lock/unlock indicator widget, anchored to the right of the status bar. -->
+        <statusBarWidgetFactory
+            id="com.conch.vault.lockWidget"
+            implementation="com.conch.vault.ui.VaultLockStatusBarWidgetFactory"
+            order="last"/>
     </extensions>
 
     <!--
@@ -29,8 +31,14 @@
         <credentialProvider implementation="com.conch.vault.credentials.VaultCredentialProvider"/>
     </extensions>
 
-    <!--
-      Actions, status-bar widget, and palette contributor land in phases 4
-      and 6. Intentionally not declared here yet.
-    -->
+    <actions>
+        <!-- Cmd+Shift+V (macOS) / Ctrl+Shift+V (Linux, Windows) opens the vault. -->
+        <action id="com.conch.vault.OpenVault"
+                class="com.conch.vault.actions.OpenVaultAction"
+                text="Open Vault…"
+                description="Open the Conch credential vault">
+            <keyboard-shortcut keymap="$default" first-keystroke="meta shift V"/>
+            <keyboard-shortcut keymap="$default" first-keystroke="ctrl shift V"/>
+        </action>
+    </actions>
 </idea-plugin>
