@@ -1,0 +1,18 @@
+<idea-plugin>
+    <id>com.conch.ssh</id>
+    <name>Conch SSH</name>
+    <vendor>Conch</vendor>
+    <description>SSH host manager and session provider. Opens remote
+    shells as terminal tabs using credentials from the Conch Vault.</description>
+
+    <depends>com.conch.core</depends>
+    <depends>com.conch.vault</depends>
+
+    <!--
+      Phases 1-2 ship model, persistence, and connection plumbing only.
+      The SshSessionProvider, HostStore app service, Hosts tool window,
+      and actions get registered in later phases. This placeholder
+      plugin.xml exists so the Bazel resourcegroup glob matches
+      something during Phases 1-2.
+    -->
+</idea-plugin>

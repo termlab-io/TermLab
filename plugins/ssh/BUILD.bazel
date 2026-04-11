@@ -1,0 +1,64 @@
+load("@rules_java//java:defs.bzl", "java_binary")
+load("@rules_jvm//:jvm.bzl", "jvm_library", "resourcegroup")
+
+resourcegroup(
+    name = "ssh_resources",
+    srcs = glob(["resources/**/*"]),
+    strip_prefix = "resources",
+)
+
+jvm_library(
+    name = "ssh",
+    module_name = "intellij.conch.ssh",
+    visibility = ["//visibility:public"],
+    srcs = glob(["src/**/*.java"], allow_empty = True),
+    resources = [":ssh_resources"],
+    deps = [
+        "//conch/sdk",
+        "//platform/core-api:core",
+        "//platform/core-ui",
+        "//platform/editor-ui-api:editor-ui",
+        "//platform/ide-core",
+        "//platform/platform-api:ide",
+        "//platform/platform-impl:ide-impl",
+        "//platform/projectModel-api:projectModel",
+        "//platform/util:util-ui",
+        "//libraries/jediterm-core:jediterm-core",
+        "//libraries/sshd-osgi",
+        "//libraries/bouncy-castle-provider",
+        "@lib//:jetbrains-annotations",
+        "@lib//:gson",
+        "@lib//:kotlin-stdlib",
+    ],
+)
+
+jvm_library(
+    name = "ssh_test_lib",
+    module_name = "intellij.conch.ssh.tests",
+    visibility = ["//visibility:public"],
+    srcs = glob(["test/**/*.java"], allow_empty = True),
+    deps = [
+        ":ssh",
+        "//conch/sdk",
+        "//libraries/junit5",
+        "//libraries/junit5-jupiter",
+        "//libraries/junit5-launcher",
+        "//libraries/jediterm-core:jediterm-core",
+        "//libraries/sshd-osgi",
+        "//libraries/bouncy-castle-provider",
+        "@lib//:jetbrains-annotations",
+        "@lib//:gson",
+        "@lib//:kotlin-stdlib",
+    ],
+)
+
+# Standalone test runner — same pattern as plugins/vault.
+java_binary(
+    name = "ssh_test_runner",
+    main_class = "com.conch.ssh.TestRunner",
+    runtime_deps = [
+        ":ssh_test_lib",
+        "//libraries/junit5-jupiter",
+        "//libraries/junit5-launcher",
+    ],
+)
