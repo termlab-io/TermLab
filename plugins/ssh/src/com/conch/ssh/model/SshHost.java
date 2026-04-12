@@ -1,6 +1,7 @@
 package com.conch.ssh.model;
 
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import java.time.Instant;
 import java.util.UUID;
@@ -33,6 +34,10 @@ import java.util.UUID;
  *                   username of its own, so the connector falls back to
  *                   this field.
  * @param auth       how the host authenticates — see {@link SshAuth}
+ * @param proxyCommand optional proxy command (for example
+ *                   {@code ssh -W %h:%p bastion}) used to reach the target
+ * @param proxyJump  optional proxy jump host spec (for example
+ *                   {@code deploy@bastion:2222}) used to reach the target
  * @param createdAt  when the host entry was created
  * @param updatedAt  when the host entry was last edited
  */
@@ -43,20 +48,27 @@ public record SshHost(
     int port,
     @NotNull String username,
     @NotNull SshAuth auth,
+    @Nullable String proxyCommand,
+    @Nullable String proxyJump,
     @NotNull Instant createdAt,
     @NotNull Instant updatedAt
 ) {
     /** Default SSH port — matches OpenSSH. */
     public static final int DEFAULT_PORT = 22;
 
+    public SshHost {
+        proxyCommand = trimToNull(proxyCommand);
+        proxyJump = trimToNull(proxyJump);
+    }
+
     /** @return a copy of this host with a new label and a bumped {@code updatedAt}. */
     public SshHost withLabel(@NotNull String newLabel) {
-        return new SshHost(id, newLabel, host, port, username, auth, createdAt, Instant.now());
+        return new SshHost(id, newLabel, host, port, username, auth, proxyCommand, proxyJump, createdAt, Instant.now());
     }
 
     /** @return a copy of this host with a new auth mode and a bumped {@code updatedAt}. */
     public SshHost withAuth(@NotNull SshAuth newAuth) {
-        return new SshHost(id, label, host, port, username, newAuth, createdAt, Instant.now());
+        return new SshHost(id, label, host, port, username, newAuth, proxyCommand, proxyJump, createdAt, Instant.now());
     }
 
     /** @return a copy with every editable field replaced. Used by the edit dialog's Save path. */
@@ -67,7 +79,22 @@ public record SshHost(
         @NotNull String newUsername,
         @NotNull SshAuth newAuth
     ) {
-        return new SshHost(id, newLabel, newHost, newPort, newUsername, newAuth, createdAt, Instant.now());
+        return withEdited(newLabel, newHost, newPort, newUsername, newAuth, proxyCommand, proxyJump);
+    }
+
+    /** @return a copy with every editable field replaced, including proxy settings. */
+    public SshHost withEdited(
+        @NotNull String newLabel,
+        @NotNull String newHost,
+        int newPort,
+        @NotNull String newUsername,
+        @NotNull SshAuth newAuth,
+        @Nullable String newProxyCommand,
+        @Nullable String newProxyJump
+    ) {
+        return new SshHost(
+            id, newLabel, newHost, newPort, newUsername, newAuth,
+            newProxyCommand, newProxyJump, createdAt, Instant.now());
     }
 
     /** Factory for brand-new hosts. */
@@ -78,7 +105,26 @@ public record SshHost(
         @NotNull String username,
         @NotNull SshAuth auth
     ) {
+        return create(label, host, port, username, auth, null, null);
+    }
+
+    /** Factory for brand-new hosts with proxy settings. */
+    public static @NotNull SshHost create(
+        @NotNull String label,
+        @NotNull String host,
+        int port,
+        @NotNull String username,
+        @NotNull SshAuth auth,
+        @Nullable String proxyCommand,
+        @Nullable String proxyJump
+    ) {
         Instant now = Instant.now();
-        return new SshHost(UUID.randomUUID(), label, host, port, username, auth, now, now);
+        return new SshHost(UUID.randomUUID(), label, host, port, username, auth, proxyCommand, proxyJump, now, now);
+    }
+
+    private static @Nullable String trimToNull(@Nullable String value) {
+        if (value == null) return null;
+        String trimmed = value.trim();
+        return trimmed.isEmpty() ? null : trimmed;
     }
 }

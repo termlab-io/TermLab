@@ -562,7 +562,7 @@ The tool window layout:
 
 ```xml
 <extensions defaultExtensionNs="com.intellij">
-  <toolWindow id="ConchHosts"
+  <toolWindow id="Hosts"
               anchor="left"
               icon="AllIcons.Webreferences.Server"
               factoryClass="com.conch.ssh.toolwindow.HostsToolWindowFactory"/>

@@ -1,5 +1,6 @@
 # Local config written by setup.sh — absolute path to intellij-community
 /.intellij-root
+/.worktrees/
 
 # Bazel build outputs (live in the intellij tree, not here, but just in case)
 /bazel-*
@@ -25,3 +26,7 @@ Thumbs.db
 # Editor scratch
 *.swp
 *~
+
+# Local perf harness artifacts
+perf-results/
+/.perf-workspace/

@@ -112,9 +112,56 @@ If the build breaks because of an upstream API change, fix it in this repo (the 
 | `make conch`      | Build and run Conch (opens `$HOME` as workspace root by default). |
 | `make conch-build`| Build only — useful for CI or quick "does it compile" runs. |
 | `make conch-clean`| `bazel clean` in the intellij tree.                         |
+| `make conch-perf-benchmark` | Launch Conch, sample idle RSS/CPU in a dedicated local perf workspace, and write CSV+JSON+env artifacts under `perf-results/`. |
+| `make conch-perf-budget` | Read the latest benchmark summary and print Stage A/Stage B budget status. |
 
 All targets resolve `INTELLIJ_ROOT` from this Makefile's location (`..`). Override the env var if your layout differs.
 You can also override the workspace root explicitly with `CONCH_WORKSPACE=/path make conch`.
+
+### Performance benchmarking loop
+
+Conch includes a reproducible idle-footprint harness for the dev path (`make conch`):
+
+```bash
+make conch-perf-benchmark
+make conch-perf-budget
+```
+
+The benchmark target:
+
+- launches Conch through `make conch`
+- uses `$(WORKBENCH_DIR)/.perf-workspace` as the default benchmark workspace (override with `CONCH_PERF_WORKSPACE=/path`)
+- waits for warmup, then samples process RSS/CPU at a fixed interval
+- captures `jcmd` snapshots (`VM.native_memory`, `GC.heap_info`, `VM.flags`)
+- writes artifacts to `perf-results/<timestamp>/`:
+  - `metrics.csv`
+  - `summary.json`
+  - `summary.env`
+  - `jcmd-thread-print.txt`
+  - `jcmd-class-histogram.txt`
+  - `conch.log`
+
+It also updates:
+
+- `perf-results/latest_summary.json`
+- `perf-results/latest_summary.env`
+- `perf-results/latest_metrics.csv`
+
+Default gate policy:
+
+- Stage A: `<=200MB` average RSS and `<=1%` average CPU
+- Stage B (stretch): `<=100MB` average RSS and `<=1%` average CPU
+
+You can tune the run without editing scripts:
+
+```bash
+make conch-perf-benchmark \
+  CONCH_PERF_WORKSPACE=/tmp/conch-bench-workspace \
+  CONCH_PERF_WARMUP_SEC=120 \
+  CONCH_PERF_SAMPLE_SEC=5 \
+  CONCH_PERF_DURATION_SEC=600 \
+  CONCH_PERF_OUT=/tmp/conch-perf
+```
 
 ## Running and debugging from IntelliJ IDEA
 

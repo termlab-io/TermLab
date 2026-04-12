@@ -18,10 +18,12 @@ import com.conch.ssh.persistence.KnownHostsFile;
 import com.conch.ssh.ui.InlineCredentialPromptDialog;
 import com.intellij.icons.AllIcons;
 import com.intellij.openapi.application.ApplicationManager;
+import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.progress.ProgressIndicator;
 import com.intellij.openapi.progress.ProgressManager;
 import com.intellij.openapi.progress.Task;
 import com.intellij.openapi.ui.Messages;
+import com.intellij.util.concurrency.AppExecutorUtil;
 import com.jediterm.terminal.TtyConnector;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -29,6 +31,11 @@ import org.jetbrains.annotations.Nullable;
 import javax.swing.*;
 import java.io.IOException;
 import java.nio.file.Path;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * {@link TerminalSessionProvider} that opens SSH sessions via
@@ -68,6 +75,8 @@ import java.nio.file.Path;
  * contact.
  */
 public final class SshSessionProvider implements TerminalSessionProvider {
+
+    private static final Logger LOG = Logger.getInstance(SshSessionProvider.class);
 
     public static final String ID = "com.conch.ssh";
 
@@ -200,6 +209,8 @@ public final class SshSessionProvider implements TerminalSessionProvider {
 
             current.close();
 
+            if (outcome.cancelled) return null;
+
             if (outcome.failure == null) return null;  // user cancelled mid-connect
 
             SshConnectException.Kind kind = outcome.failure.kind();
@@ -230,6 +241,13 @@ public final class SshSessionProvider implements TerminalSessionProvider {
                 return null;
             }
 
+            if (kind == SshConnectException.Kind.INVALID_PROXY_CONFIG) {
+                Messages.showErrorDialog(
+                    outcome.failure.getMessage(),
+                    "Invalid SSH Proxy Configuration");
+                return null;
+            }
+
             Messages.showErrorDialog(
                 "SSH connection failed: " + outcome.failure.getMessage(),
                 "SSH Connection Failed");
@@ -245,6 +263,7 @@ public final class SshSessionProvider implements TerminalSessionProvider {
         @NotNull SshResolvedCredential credential
     ) {
         ConnectOutcome outcome = new ConnectOutcome();
+        LOG.info("Conch SSH: opening connect modal host=" + host.host() + ":" + host.port());
 
         ProgressManager.getInstance().run(new Task.Modal(
             null,
@@ -254,17 +273,65 @@ public final class SshSessionProvider implements TerminalSessionProvider {
             @Override
             public void run(@NotNull ProgressIndicator indicator) {
                 indicator.setIndeterminate(true);
+
+                AtomicReference<SshConnection> connectionRef = new AtomicReference<>();
+                AtomicReference<SshConnectException> failureRef = new AtomicReference<>();
+                Future<?> job = AppExecutorUtil.getAppExecutorService().submit(() -> {
+                    try {
+                        connectionRef.set(client.connect(
+                            host, credential, new ConchServerKeyVerifier()));
+                    } catch (SshConnectException e) {
+                        failureRef.set(e);
+                    } catch (Exception e) {
+                        failureRef.set(new SshConnectException(
+                            SshConnectException.Kind.UNKNOWN,
+                            "Unexpected failure: " + e.getMessage(),
+                            e));
+                    }
+                });
+
                 try {
-                    outcome.connection = client.connect(
-                        host, credential, new ConchServerKeyVerifier());
-                } catch (SshConnectException e) {
-                    outcome.failure = e;
-                } catch (Exception e) {
-                    outcome.failure = new SshConnectException(
+                    while (true) {
+                        if (indicator.isCanceled()) {
+                            job.cancel(true);
+                            // Best-effort hard stop so blocked MINA internals
+                            // do not keep waiting after user cancellation.
+                            LOG.warn("Conch SSH: connect cancelled by user host="
+                                + host.host() + ":" + host.port() + " -> shutting down SSH client");
+                            client.shutdown();
+                            outcome.cancelled = true;
+                            SshConnection connection = connectionRef.getAndSet(null);
+                            if (connection != null) connection.close();
+                            return;
+                        }
+
+                        try {
+                            job.get(100, TimeUnit.MILLISECONDS);
+                            break;
+                        } catch (TimeoutException ignored) {
+                            // keep polling cancellation
+                        }
+                    }
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    job.cancel(true);
+                    LOG.warn("Conch SSH: connect worker interrupted host="
+                        + host.host() + ":" + host.port(), e);
+                    client.shutdown();
+                    outcome.cancelled = true;
+                    return;
+                } catch (ExecutionException e) {
+                    Throwable cause = e.getCause() == null ? e : e.getCause();
+                    LOG.warn("Conch SSH: connect worker failed host="
+                        + host.host() + ":" + host.port() + " -> " + cause.getMessage(), cause);
+                    failureRef.compareAndSet(null, new SshConnectException(
                         SshConnectException.Kind.UNKNOWN,
-                        "Unexpected failure: " + e.getMessage(),
-                        e);
+                        "Unexpected failure: " + cause.getMessage(),
+                        cause));
                 }
+
+                outcome.connection = connectionRef.get();
+                outcome.failure = failureRef.get();
             }
         });
 
@@ -284,5 +351,6 @@ public final class SshSessionProvider implements TerminalSessionProvider {
     private static final class ConnectOutcome {
         @Nullable SshConnection connection;
         @Nullable SshConnectException failure;
+        boolean cancelled;
     }
 }

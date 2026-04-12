@@ -119,4 +119,24 @@ class HostsFileTest {
         assertTrue(contents.contains("\n"),
             "expected pretty-printed output, got compact JSON");
     }
+
+    @Test
+    void save_proxySettings_roundTrip(@TempDir Path tmp) throws Exception {
+        Path file = tmp.resolve("ssh-hosts.json");
+        SshHost host = SshHost.create(
+            "through-bastion",
+            "db.internal",
+            22,
+            "deploy",
+            new VaultAuth(null),
+            null,
+            "jump-host");
+
+        HostsFile.save(file, List.of(host));
+        List<SshHost> loaded = HostsFile.load(file);
+
+        assertEquals(1, loaded.size());
+        assertNull(loaded.get(0).proxyCommand());
+        assertEquals("jump-host", loaded.get(0).proxyJump());
+    }
 }

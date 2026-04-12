@@ -75,6 +75,37 @@ class SshHostTest {
     }
 
     @Test
+    void withEdited_includesProxySettings() {
+        SshHost original = SshHost.create("prod", "example.com", 22, "root", new VaultAuth(null));
+        SshHost edited = original.withEdited(
+            "prod",
+            "example.com",
+            22,
+            "root",
+            new VaultAuth(null),
+            "ssh -W %h:%p bastion",
+            null);
+
+        assertEquals("ssh -W %h:%p bastion", edited.proxyCommand());
+        assertNull(edited.proxyJump());
+    }
+
+    @Test
+    void create_trimsBlankProxyValuesToNull() {
+        SshHost created = SshHost.create(
+            "prod",
+            "example.com",
+            22,
+            "root",
+            new VaultAuth(null),
+            "   ",
+            "   ");
+
+        assertNull(created.proxyCommand());
+        assertNull(created.proxyJump());
+    }
+
+    @Test
     void defaultPortMatchesOpenSsh() {
         assertEquals(22, SshHost.DEFAULT_PORT);
     }

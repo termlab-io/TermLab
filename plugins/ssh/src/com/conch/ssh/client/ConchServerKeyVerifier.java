@@ -4,13 +4,17 @@ import com.conch.ssh.persistence.HostPaths;
 import com.conch.ssh.persistence.KnownHostsFile;
 import com.conch.ssh.ui.HostKeyPromptDialog;
 import com.intellij.openapi.application.ApplicationManager;
+import com.intellij.openapi.application.ModalityState;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.ui.Messages;
 import org.apache.sshd.client.keyverifier.ServerKeyVerifier;
 import org.apache.sshd.client.session.ClientSession;
+import org.apache.sshd.client.session.ClientSessionCreator;
+import org.apache.sshd.common.util.net.SshdSocketAddress;
 import org.jetbrains.annotations.NotNull;
 
 import java.io.IOException;
+import java.net.InetSocketAddress;
 import java.net.SocketAddress;
 import java.nio.file.Path;
 import java.security.PublicKey;
@@ -65,22 +69,10 @@ public final class ConchServerKeyVerifier implements ServerKeyVerifier {
         SocketAddress remoteAddress,
         PublicKey serverKey
     ) {
-        // MINA gives us the session's connection address, which is always
-        // what we asked for (MINA does DNS-resolution internally but still
-        // reports the originally-requested host). Fall back to the socket
-        // string only if the session's metadata is missing.
-        String host = session.getConnectAddress() != null
-            ? session.getConnectAddress().toString()
-            : String.valueOf(remoteAddress);
-        int port = 22;
-
-        // MINA stores the originally-requested "host:port" as the
-        // session's connect-address, typed as an InetSocketAddress in
-        // practice. Peel the fields back out when we can.
-        if (session.getConnectAddress() instanceof java.net.InetSocketAddress inet) {
-            host = inet.getHostString();
-            port = inet.getPort();
-        }
+        VerificationTarget target = resolveVerificationTarget(session, remoteAddress);
+        String host = target.host();
+        int port = target.port();
+        LOG.info("Conch SSH: host key verify target=" + host + ":" + port + " source=" + target.source());
 
         KnownHostsFile.Match match;
         try {
@@ -89,6 +81,7 @@ public final class ConchServerKeyVerifier implements ServerKeyVerifier {
             LOG.warn("Conch: failed to read known_hosts at " + knownHostsPath, e);
             return false;
         }
+        LOG.info("Conch SSH: host key verify result target=" + host + ":" + port + " match=" + match);
 
         return switch (match) {
             case MATCH -> true;
@@ -123,6 +116,35 @@ public final class ConchServerKeyVerifier implements ServerKeyVerifier {
         };
     }
 
+    private static @NotNull VerificationTarget resolveVerificationTarget(
+        @NotNull ClientSession session,
+        @NotNull SocketAddress remoteAddress
+    ) {
+        SshdSocketAddress targetServer = session.getAttribute(ClientSessionCreator.TARGET_SERVER);
+        if (targetServer != null) {
+            return new VerificationTarget(targetServer.getHostName(), targetServer.getPort(), "proxy-jump-target");
+        }
+
+        SocketAddress connectAddress = session.getConnectAddress();
+        if (connectAddress instanceof InetSocketAddress inet) {
+            return new VerificationTarget(inet.getHostString(), inet.getPort(), "session-connect-address");
+        }
+        if (connectAddress instanceof SshdSocketAddress sshd) {
+            return new VerificationTarget(sshd.getHostName(), sshd.getPort(), "session-connect-address");
+        }
+        if (remoteAddress instanceof InetSocketAddress inet) {
+            return new VerificationTarget(inet.getHostString(), inet.getPort(), "remote-address");
+        }
+        if (remoteAddress instanceof SshdSocketAddress sshd) {
+            return new VerificationTarget(sshd.getHostName(), sshd.getPort(), "remote-address");
+        }
+
+        return new VerificationTarget(String.valueOf(remoteAddress), 22, "remote-address-string");
+    }
+
+    private record VerificationTarget(@NotNull String host, int port, @NotNull String source) {
+    }
+
     /**
      * Seam so tests can assert on verifier behavior without spinning up
      * a real {@link javax.swing.JDialog} or requiring an IDE application.
@@ -148,12 +170,17 @@ public final class ConchServerKeyVerifier implements ServerKeyVerifier {
             // run on the EDT. invokeAndWait blocks the caller (MINA's IO
             // thread) until the user chooses, which is the correct
             // semantics — we want the handshake to block here.
+            //
+            // ModalityState.any() is critical: the connect runs inside a
+            // Task.Modal whose nested event loop only processes runnables
+            // that match its modality context. Without .any(), the prompt
+            // is queued but never shown, causing the handshake to time out.
             HostKeyPromptDialog.Decision[] holder = { HostKeyPromptDialog.Decision.REJECT };
             ApplicationManager.getApplication().invokeAndWait(() -> {
                 HostKeyPromptDialog dlg = new HostKeyPromptDialog(
                     null, hostSpec, keyType, fingerprint);
                 holder[0] = dlg.showAndDecide();
-            });
+            }, ModalityState.any());
             return holder[0];
         }
 
@@ -165,7 +192,7 @@ public final class ConchServerKeyVerifier implements ServerKeyVerifier {
                     + "(man-in-the-middle attack).\n\n"
                     + "If the key legitimately changed, remove the entry from "
                     + "~/.config/conch/known_hosts manually and try again.",
-                "Host Key Mismatch"));
+                "Host Key Mismatch"), ModalityState.any());
         }
     }
 }

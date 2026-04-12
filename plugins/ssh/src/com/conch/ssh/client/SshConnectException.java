@@ -30,6 +30,8 @@ public final class SshConnectException extends Exception {
          * sessions for this user).
          */
         CHANNEL_OPEN_FAILED,
+        /** Proxy command / jump host configuration is invalid. */
+        INVALID_PROXY_CONFIG,
         /** Everything else. */
         UNKNOWN
     }

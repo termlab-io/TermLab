@@ -185,7 +185,9 @@ public final class HostsToolWindow extends JPanel {
             selected.host(),
             selected.port(),
             selected.username(),
-            selected.auth()
+            selected.auth(),
+            selected.proxyCommand(),
+            selected.proxyJump()
         );
         store.addHost(copy);
         saveAndRefresh();

@@ -33,7 +33,15 @@ BAZEL := cd $(INTELLIJ_ROOT) && bash bazel.cmd
 #   make conch CONCH_WORKSPACE=/path/to/workspace
 CONCH_WORKSPACE ?= $(HOME)
 
-.PHONY: conch conch-build conch-clean check-intellij
+# Perf harness defaults. Override as needed, for example:
+#   make conch-perf-benchmark CONCH_PERF_WARMUP_SEC=120 CONCH_PERF_DURATION_SEC=600
+CONCH_PERF_OUT ?= $(WORKBENCH_DIR)/perf-results
+CONCH_PERF_WORKSPACE ?= $(WORKBENCH_DIR)/.perf-workspace
+CONCH_PERF_WARMUP_SEC ?= 90
+CONCH_PERF_SAMPLE_SEC ?= 5
+CONCH_PERF_DURATION_SEC ?= 300
+
+.PHONY: conch conch-build conch-clean check-intellij conch-perf-benchmark conch-perf-budget
 
 check-intellij:
 	@test -f "$(INTELLIJ_ROOT)/bazel.cmd" || { \
@@ -50,3 +58,17 @@ conch-build: check-intellij
 
 conch-clean: check-intellij
 	$(BAZEL) clean
+
+conch-perf-benchmark: check-intellij
+	mkdir -p "$(CONCH_PERF_WORKSPACE)"
+	bash $(WORKBENCH_DIR)/scripts/perf/benchmark_idle.sh \
+		--intellij-root "$(INTELLIJ_ROOT)" \
+		--workspace "$(CONCH_PERF_WORKSPACE)" \
+		--warmup-sec "$(CONCH_PERF_WARMUP_SEC)" \
+		--sample-sec "$(CONCH_PERF_SAMPLE_SEC)" \
+		--duration-sec "$(CONCH_PERF_DURATION_SEC)" \
+		--out "$(CONCH_PERF_OUT)"
+
+conch-perf-budget:
+	bash $(WORKBENCH_DIR)/scripts/perf/check_perf_budget.sh \
+		--summary "$(CONCH_PERF_OUT)/latest_summary.env"

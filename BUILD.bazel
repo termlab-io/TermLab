@@ -29,12 +29,7 @@ java_binary(
 
         # IntelliJ-platform bundled plugins — ONLY these exist in Conch
         "//plugins/classic-ui",
-        "//plugins/sh/plugin",
-        "//plugins/textmate",
-        "//plugins/yaml",
-        "//plugins/toml",
         "//json",
-        "//plugins/search-everywhere-ml",
     ],
     main_class = "com.intellij.idea.Main",
     jvm_flags = [
@@ -91,10 +86,15 @@ java_binary(
         "--add-opens=jdk.internal.jvmstat/sun.jvmstat.monitor=ALL-UNNAMED",
         "--add-opens=jdk.jdi/com.sun.tools.jdi=ALL-UNNAMED",
         "-Didea.home.path=$${BUILD_WORKSPACE_DIRECTORY}",
-        "-Xmx2g",
+        # Cap heap for terminal-first idle footprint and keep initial heap
+        # small so idle RSS doesn't start oversized.
+        "-Xms128m",
+        "-Xmx1024m",
+        # Default code cache tends to be large for a terminal-first product.
+        # Keep enough room for JIT without over-reserving native memory.
+        "-XX:ReservedCodeCacheSize=240m",
         "-XX:MaxJavaStackTraceDepth=10000",
         "-XX:+IgnoreUnrecognizedVMOptions",
-        "-ea",
         "-Dsun.io.useCanonCaches=false",
         "-Dsun.awt.disablegrab=true",
         "-Dsun.java2d.metal=true",
@@ -104,8 +104,6 @@ java_binary(
         "-Djdk.module.illegalAccess.silent=true",
         "-DjbScreenMenuBar.enabled=true",
         "-Didea.jre.check=true",
-        "-Didea.is.internal=true",
-        "-Didea.debug.mode=true",
         # Disable file indexing globally in Conch (terminal-first product).
         "-Didea.indexes.pretendNoFiles=true",
         # Never auto-open Project View during startup in Conch.
@@ -116,7 +114,12 @@ java_binary(
         "-Didea.trust.all.projects=true",
         "-Dsplash=true",
         "-Dide.no.tips.dialog=true",
-        "-Dfus.internal.test.mode=true",
+        # Disable telemetry metric exporters and statistics collection for
+        # terminal-first Conch dev sessions to reduce idle CPU/background work.
+        "-Didea.diagnostic.opentelemetry.metrics.file=",
+        "-Didea.diagnostic.opentelemetry.meters.file.json=",
+        "-Didea.disable.collect.statistics=true",
+        "-Didea.suppress.statistics.report=true",
         # Use Classic UI by default (disable new UI)
         "-Dide.experimental.ui=false",
         # Default to Darcula (dark) theme for new installations

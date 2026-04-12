@@ -2,6 +2,8 @@ package com.conch.ssh.ui;
 
 import com.conch.sdk.CredentialProvider;
 import com.conch.sdk.CredentialProvider.CredentialDescriptor;
+import com.conch.ssh.client.ConchSshClient;
+import com.conch.ssh.model.HostStore;
 import com.conch.ssh.model.KeyFileAuth;
 import com.conch.ssh.model.PromptPasswordAuth;
 import com.conch.ssh.model.SshAuth;
@@ -16,18 +18,22 @@ import com.intellij.openapi.ui.TextBrowseFolderListener;
 import com.intellij.openapi.ui.TextFieldWithBrowseButton;
 import com.intellij.openapi.ui.ValidationInfo;
 import com.intellij.util.ui.JBUI;
+import org.apache.sshd.client.config.hosts.HostConfigEntry;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import javax.swing.*;
 import java.awt.*;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.TreeMap;
 import java.util.UUID;
 
 /**
@@ -78,6 +84,16 @@ public final class HostEditDialog extends DialogWrapper {
     private final JComboBox<CredentialEntry> credentialCombo = new JComboBox<>();
     private final TextFieldWithBrowseButton keyPathField = new TextFieldWithBrowseButton();
 
+    private final JToggleButton advancedToggle = new JToggleButton("Advanced >", false);
+    private final JPanel advancedBody = new JPanel(new GridBagLayout());
+
+    private final JRadioButton noProxyRadio = new JRadioButton("No proxy", true);
+    private final JRadioButton proxyCommandRadio = new JRadioButton("Proxy command");
+    private final JRadioButton proxyJumpRadio = new JRadioButton("Proxy jump host");
+
+    private final JTextField proxyCommandField = new JTextField(24);
+    private final JComboBox<ProxyJumpEntry> proxyJumpCombo = new JComboBox<>();
+
     private SshHost result;
 
     public HostEditDialog(@Nullable Project project, @Nullable SshHost existing) {
@@ -87,6 +103,7 @@ public final class HostEditDialog extends DialogWrapper {
         setOKButtonText(existing == null ? "Add" : "Save");
         wireKeyPathChooser();
         populateCredentialCombo();
+        populateProxyJumpCombo();
         init();
         populateFromExisting();
         updateEnablement();
@@ -119,12 +136,64 @@ public final class HostEditDialog extends DialogWrapper {
         for (CredentialEntry e : entries) credentialCombo.addItem(e);
     }
 
+    private void populateProxyJumpCombo() {
+        proxyJumpCombo.removeAllItems();
+        proxyJumpCombo.addItem(ProxyJumpEntry.NONE);
+
+        Map<String, ProxyJumpEntry> byValue = new TreeMap<>(String.CASE_INSENSITIVE_ORDER);
+
+        HostStore store = ApplicationManager.getApplication() == null
+            ? null
+            : ApplicationManager.getApplication().getService(HostStore.class);
+        if (store != null) {
+            for (SshHost host : store.getHosts()) {
+                if (existing != null && existing.id().equals(host.id())) continue;
+                String jumpSpec = buildProxyJumpSpec(host);
+                byValue.putIfAbsent(jumpSpec,
+                    new ProxyJumpEntry(jumpSpec, host.label() + "  ->  " + jumpSpec));
+            }
+        }
+
+        Path configPath = HostConfigEntry.getDefaultHostConfigFile();
+        if (Files.isRegularFile(configPath)) {
+            try {
+                List<HostConfigEntry> entries = HostConfigEntry.readHostConfigEntries(configPath);
+                for (HostConfigEntry entry : entries) {
+                    String patterns = entry.getHost();
+                    if (patterns == null) continue;
+                    for (String token : HostConfigEntry.parseConfigValue(patterns)) {
+                        String alias = token.trim();
+                        if (alias.isEmpty()) continue;
+                        if (alias.startsWith("!")) continue;
+                        if (alias.contains("*") || alias.contains("?")) continue;
+                        byValue.putIfAbsent(alias, new ProxyJumpEntry(alias, alias + "  (.ssh/config)"));
+                    }
+                }
+            } catch (Exception ignored) {
+                // Best effort: a malformed ~/.ssh/config should not block editing hosts.
+            }
+        }
+
+        for (ProxyJumpEntry entry : byValue.values()) {
+            proxyJumpCombo.addItem(entry);
+        }
+    }
+
+    private static @NotNull String buildProxyJumpSpec(@NotNull SshHost host) {
+        String userPrefix = host.username().isBlank() ? "" : host.username() + "@";
+        String portSuffix = host.port() == SshHost.DEFAULT_PORT ? "" : ":" + host.port();
+        return userPrefix + host.host() + portSuffix;
+    }
+
     private void populateFromExisting() {
         if (existing == null) {
             vaultRadio.setSelected(true);
             credentialCombo.setSelectedItem(CredentialEntry.NONE);
+            noProxyRadio.setSelected(true);
+            setAdvancedExpanded(false);
             return;
         }
+
         labelField.setText(existing.label());
         hostField.setText(existing.host());
         portSpinner.setValue(existing.port());
@@ -141,6 +210,33 @@ public final class HostEditDialog extends DialogWrapper {
                 keyPathField.setText(k.keyFilePath());
             }
         }
+
+        if (existing.proxyCommand() != null) {
+            proxyCommandRadio.setSelected(true);
+            proxyCommandField.setText(existing.proxyCommand());
+            setAdvancedExpanded(true);
+        } else if (existing.proxyJump() != null) {
+            proxyJumpRadio.setSelected(true);
+            selectProxyJumpEntry(existing.proxyJump());
+            setAdvancedExpanded(true);
+        } else {
+            noProxyRadio.setSelected(true);
+            setAdvancedExpanded(false);
+        }
+    }
+
+    private void selectProxyJumpEntry(@NotNull String jump) {
+        for (int i = 0; i < proxyJumpCombo.getItemCount(); i++) {
+            ProxyJumpEntry item = proxyJumpCombo.getItemAt(i);
+            if (item != null && item.matches(jump)) {
+                proxyJumpCombo.setSelectedIndex(i);
+                return;
+            }
+        }
+
+        ProxyJumpEntry custom = ProxyJumpEntry.custom(jump);
+        proxyJumpCombo.addItem(custom);
+        proxyJumpCombo.setSelectedItem(custom);
     }
 
     private void selectVaultEntry(@Nullable UUID savedId) {
@@ -164,68 +260,183 @@ public final class HostEditDialog extends DialogWrapper {
     protected @NotNull JComponent createCenterPanel() {
         JPanel panel = new JPanel(new GridBagLayout());
         panel.setBorder(JBUI.Borders.empty(8));
-        panel.setPreferredSize(new Dimension(520, 320));
+        panel.setPreferredSize(new Dimension(560, 460));
 
         GridBagConstraints c = new GridBagConstraints();
         c.insets = JBUI.insets(4);
         c.anchor = GridBagConstraints.WEST;
         c.fill = GridBagConstraints.HORIZONTAL;
 
-        c.gridx = 0; c.gridy = 0; c.weightx = 0;
+        c.gridx = 0;
+        c.gridy = 0;
+        c.weightx = 0;
         panel.add(new JLabel("Label:"), c);
-        c.gridx = 1; c.weightx = 1;
+        c.gridx = 1;
+        c.weightx = 1;
         panel.add(labelField, c);
 
-        c.gridy++; c.gridx = 0; c.weightx = 0;
+        c.gridy++;
+        c.gridx = 0;
+        c.weightx = 0;
         panel.add(new JLabel("Host:"), c);
-        c.gridx = 1; c.weightx = 1;
+        c.gridx = 1;
+        c.weightx = 1;
         panel.add(hostField, c);
 
-        c.gridy++; c.gridx = 0; c.weightx = 0;
+        c.gridy++;
+        c.gridx = 0;
+        c.weightx = 0;
         panel.add(new JLabel("Port:"), c);
-        c.gridx = 1; c.weightx = 1;
+        c.gridx = 1;
+        c.weightx = 1;
         panel.add(portSpinner, c);
 
-        c.gridy++; c.gridx = 0; c.weightx = 0;
+        c.gridy++;
+        c.gridx = 0;
+        c.weightx = 0;
         panel.add(new JLabel("Username:"), c);
-        c.gridx = 1; c.weightx = 1;
+        c.gridx = 1;
+        c.weightx = 1;
         panel.add(usernameField, c);
 
-        ButtonGroup group = new ButtonGroup();
-        group.add(vaultRadio);
-        group.add(promptRadio);
-        group.add(keyFileRadio);
+        ButtonGroup authGroup = new ButtonGroup();
+        authGroup.add(vaultRadio);
+        authGroup.add(promptRadio);
+        authGroup.add(keyFileRadio);
 
-        c.gridy++; c.gridx = 0; c.gridwidth = 2; c.weightx = 1;
+        c.gridy++;
+        c.gridx = 0;
+        c.gridwidth = 2;
+        c.weightx = 1;
         panel.add(new JLabel("Auth method:"), c);
 
-        c.gridy++; c.gridx = 0; c.gridwidth = 2;
+        c.gridy++;
+        c.gridx = 0;
+        c.gridwidth = 2;
         panel.add(vaultRadio, c);
-        c.gridy++; c.gridx = 0; c.gridwidth = 1; c.weightx = 0;
+
+        c.gridy++;
+        c.gridx = 0;
+        c.gridwidth = 1;
+        c.weightx = 0;
         panel.add(Box.createHorizontalStrut(24), c);
-        c.gridx = 1; c.weightx = 1;
+        c.gridx = 1;
+        c.weightx = 1;
         panel.add(credentialCombo, c);
 
-        c.gridy++; c.gridx = 0; c.gridwidth = 2; c.weightx = 1;
+        c.gridy++;
+        c.gridx = 0;
+        c.gridwidth = 2;
+        c.weightx = 1;
         panel.add(promptRadio, c);
 
-        c.gridy++; c.gridx = 0; c.gridwidth = 2;
+        c.gridy++;
+        c.gridx = 0;
+        c.gridwidth = 2;
         panel.add(keyFileRadio, c);
-        c.gridy++; c.gridx = 0; c.gridwidth = 1; c.weightx = 0;
+
+        c.gridy++;
+        c.gridx = 0;
+        c.gridwidth = 1;
+        c.weightx = 0;
         panel.add(Box.createHorizontalStrut(24), c);
-        c.gridx = 1; c.weightx = 1;
+        c.gridx = 1;
+        c.weightx = 1;
         panel.add(keyPathField, c);
+
+        c.gridy++;
+        c.gridx = 0;
+        c.gridwidth = 2;
+        c.weightx = 1;
+        panel.add(advancedToggle, c);
+
+        c.gridy++;
+        c.gridx = 0;
+        c.gridwidth = 2;
+        c.weightx = 1;
+        panel.add(createAdvancedBody(), c);
 
         vaultRadio.addActionListener(e -> updateEnablement());
         promptRadio.addActionListener(e -> updateEnablement());
         keyFileRadio.addActionListener(e -> updateEnablement());
 
+        noProxyRadio.addActionListener(e -> updateEnablement());
+        proxyCommandRadio.addActionListener(e -> updateEnablement());
+        proxyJumpRadio.addActionListener(e -> updateEnablement());
+
+        advancedToggle.addActionListener(e -> {
+            setAdvancedExpanded(advancedToggle.isSelected());
+            updateEnablement();
+        });
+
         return panel;
+    }
+
+    private @NotNull JPanel createAdvancedBody() {
+        advancedBody.setBorder(JBUI.Borders.empty(0, 14, 0, 0));
+
+        ButtonGroup proxyGroup = new ButtonGroup();
+        proxyGroup.add(noProxyRadio);
+        proxyGroup.add(proxyCommandRadio);
+        proxyGroup.add(proxyJumpRadio);
+
+        GridBagConstraints c = new GridBagConstraints();
+        c.insets = JBUI.insets(3);
+        c.anchor = GridBagConstraints.WEST;
+        c.fill = GridBagConstraints.HORIZONTAL;
+
+        c.gridx = 0;
+        c.gridy = 0;
+        c.gridwidth = 2;
+        c.weightx = 1;
+        advancedBody.add(noProxyRadio, c);
+
+        c.gridy++;
+        c.gridx = 0;
+        c.gridwidth = 2;
+        advancedBody.add(proxyCommandRadio, c);
+
+        c.gridy++;
+        c.gridx = 0;
+        c.gridwidth = 1;
+        c.weightx = 0;
+        advancedBody.add(Box.createHorizontalStrut(24), c);
+        c.gridx = 1;
+        c.weightx = 1;
+        advancedBody.add(proxyCommandField, c);
+
+        c.gridy++;
+        c.gridx = 0;
+        c.gridwidth = 2;
+        c.weightx = 1;
+        advancedBody.add(proxyJumpRadio, c);
+
+        c.gridy++;
+        c.gridx = 0;
+        c.gridwidth = 1;
+        c.weightx = 0;
+        advancedBody.add(Box.createHorizontalStrut(24), c);
+        c.gridx = 1;
+        c.weightx = 1;
+        advancedBody.add(proxyJumpCombo, c);
+
+        return advancedBody;
+    }
+
+    private void setAdvancedExpanded(boolean expanded) {
+        advancedToggle.setSelected(expanded);
+        advancedToggle.setText(expanded ? "Advanced v" : "Advanced >");
+        advancedBody.setVisible(expanded);
     }
 
     private void updateEnablement() {
         credentialCombo.setEnabled(vaultRadio.isSelected());
         keyPathField.setEnabled(keyFileRadio.isSelected());
+
+        proxyCommandField.setEnabled(proxyCommandRadio.isSelected());
+        proxyJumpCombo.setEnabled(proxyJumpRadio.isSelected());
+
+        advancedBody.setVisible(advancedToggle.isSelected());
     }
 
     @Override
@@ -253,6 +464,26 @@ public final class HostEditDialog extends DialogWrapper {
                 return new ValidationInfo("Key file does not exist", keyPathField.getTextField());
             }
         }
+
+        if (proxyCommandRadio.isSelected()) {
+            String command = proxyCommandField.getText().trim();
+            if (command.isEmpty()) {
+                return new ValidationInfo("Proxy command is required", proxyCommandField);
+            }
+            if (ConchSshClient.proxyJumpFromProxyCommand(command) == null) {
+                return new ValidationInfo(
+                    "Supported form: ssh -W %h:%p <jump-host>",
+                    proxyCommandField);
+            }
+        }
+
+        if (proxyJumpRadio.isSelected()) {
+            ProxyJumpEntry selected = (ProxyJumpEntry) proxyJumpCombo.getSelectedItem();
+            if (selected == null || selected.value() == null) {
+                return new ValidationInfo("Select a proxy jump host", proxyJumpCombo);
+            }
+        }
+
         return null;
     }
 
@@ -274,13 +505,28 @@ public final class HostEditDialog extends DialogWrapper {
             auth = new VaultAuth(credentialId);
         }
 
+        String proxyCommand = null;
+        String proxyJump = null;
+        if (proxyCommandRadio.isSelected()) {
+            proxyCommand = trimToNull(proxyCommandField.getText());
+        } else if (proxyJumpRadio.isSelected()) {
+            ProxyJumpEntry selected = (ProxyJumpEntry) proxyJumpCombo.getSelectedItem();
+            proxyJump = selected == null ? null : trimToNull(selected.value());
+        }
+
         if (existing == null) {
-            result = SshHost.create(label, host, port, username, auth);
+            result = SshHost.create(label, host, port, username, auth, proxyCommand, proxyJump);
         } else {
-            result = existing.withEdited(label, host, port, username, auth);
+            result = existing.withEdited(label, host, port, username, auth, proxyCommand, proxyJump);
         }
 
         super.doOKAction();
+    }
+
+    private static @Nullable String trimToNull(@Nullable String value) {
+        if (value == null) return null;
+        String trimmed = value.trim();
+        return trimmed.isEmpty() ? null : trimmed;
     }
 
     // -- combo entry ---------------------------------------------------------
@@ -315,5 +561,34 @@ public final class HostEditDialog extends DialogWrapper {
         boolean matches(@NotNull UUID other) { return Objects.equals(id, other); }
 
         @Override public String toString() { return label; }
+    }
+
+    private static final class ProxyJumpEntry {
+        static final ProxyJumpEntry NONE = new ProxyJumpEntry(null, "<select jump host>");
+
+        private final @Nullable String value;
+        private final @NotNull String label;
+
+        ProxyJumpEntry(@Nullable String value, @NotNull String label) {
+            this.value = value;
+            this.label = label;
+        }
+
+        static @NotNull ProxyJumpEntry custom(@NotNull String value) {
+            return new ProxyJumpEntry(value, value + "  (custom)");
+        }
+
+        @Nullable String value() {
+            return value;
+        }
+
+        boolean matches(@NotNull String other) {
+            return Objects.equals(value, other);
+        }
+
+        @Override
+        public String toString() {
+            return label;
+        }
     }
 }
