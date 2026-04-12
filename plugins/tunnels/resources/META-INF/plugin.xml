@@ -33,5 +33,8 @@
                     anchor="right"
                     icon="AllIcons.Nodes.SecurityRole"
                     factoryClass="com.conch.tunnels.toolwindow.TunnelsToolWindowFactory"/>
+
+        <searchEverywhereContributor
+            implementation="com.conch.tunnels.palette.TunnelsSearchEverywhereContributor$Factory"/>
     </extensions>
 </idea-plugin>
