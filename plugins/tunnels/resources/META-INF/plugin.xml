@@ -1,0 +1,12 @@
+<idea-plugin>
+    <id>com.conch.tunnels</id>
+    <name>Conch Tunnels</name>
+    <vendor>Conch</vendor>
+    <description>SSH tunnel manager. Creates local and remote port
+    forwarding tunnels through hosts managed by the Conch SSH plugin
+    or defined in ~/.ssh/config.</description>
+
+    <depends>com.conch.core</depends>
+    <depends>com.conch.ssh</depends>
+    <depends>com.conch.vault</depends>
+</idea-plugin>
