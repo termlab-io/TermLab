@@ -192,6 +192,74 @@ public final class ConchSshClient {
     }
 
     /**
+     * Connect and authenticate without opening a shell channel. Returns
+     * the raw {@link ClientSession} for callers that need to do something
+     * other than a terminal — port forwarding, SFTP, etc.
+     *
+     * <p>The caller owns the returned session and MUST close it when done.
+     */
+    public @NotNull ClientSession connectSession(
+        @NotNull SshHost host,
+        @NotNull SshResolvedCredential credential,
+        @NotNull ServerKeyVerifier verifier
+    ) throws SshConnectException {
+        SshClient mina = ensureStarted();
+        LOG.info("Conch SSH: connectSession (no shell) host=" + host.host() + ":" + host.port());
+
+        mina.setServerKeyVerifier(verifier);
+
+        ClientSession session;
+        try {
+            ConnectFuture connectFuture = connectFutureFor(mina, host, credential);
+            session = connectFuture.verify(CONNECT_TIMEOUT).getSession();
+        } catch (IllegalArgumentException e) {
+            throw new SshConnectException(
+                SshConnectException.Kind.INVALID_PROXY_CONFIG,
+                "Invalid SSH proxy configuration: " + e.getMessage(), e);
+        } catch (IOException e) {
+            throw new SshConnectException(
+                SshConnectException.Kind.HOST_UNREACHABLE,
+                "Could not reach " + host.host() + ":" + host.port() + " — " + e.getMessage(), e);
+        }
+
+        session.setServerKeyVerifier(verifier);
+
+        try {
+            attachIdentities(session, credential);
+        } catch (IOException | GeneralSecurityException e) {
+            safeClose(session);
+            throw new SshConnectException(
+                SshConnectException.Kind.AUTH_FAILED,
+                "Could not load key material: " + e.getMessage(), e);
+        }
+
+        configureSessionAuthPreferences(session, credential);
+
+        try {
+            AuthFuture auth = session.auth();
+            auth.verify(AUTH_TIMEOUT);
+            if (!auth.isSuccess()) {
+                safeClose(session);
+                Throwable cause = auth.getException();
+                throw new SshConnectException(
+                    SshConnectException.Kind.AUTH_FAILED,
+                    "SSH authentication failed",
+                    cause != null ? cause : new IOException("auth future did not succeed"));
+            }
+        } catch (IOException e) {
+            safeClose(session);
+            String msg = e.getMessage() == null ? "" : e.getMessage().toLowerCase();
+            SshConnectException.Kind kind =
+                msg.contains("server key") || msg.contains("host key") || msg.contains("rejected")
+                    ? SshConnectException.Kind.HOST_KEY_REJECTED
+                    : SshConnectException.Kind.AUTH_FAILED;
+            throw new SshConnectException(kind, "Authentication failed: " + e.getMessage(), e);
+        }
+
+        return session;
+    }
+
+    /**
      * Tear down the underlying MINA client. After this call, {@link #connect}
      * will re-create the client on next use. Safe to call when no client
      * has been started.
