@@ -42,7 +42,8 @@ public final class TerminalPaletteContributor implements SearchEverywhereContrib
         for (VirtualFile file : manager.getOpenFiles()) {
             if (progressIndicator.isCanceled()) return;
             if (file instanceof ConchTerminalVirtualFile termFile) {
-                String title = termFile.getName().toLowerCase();
+                String displayName = termFile.getTerminalTitle();
+                String title = (displayName != null ? displayName : termFile.getName()).toLowerCase();
                 String cwd = termFile.getCurrentWorkingDirectory();
                 String cwdLower = cwd != null ? cwd.toLowerCase() : "";
 
@@ -72,7 +73,8 @@ public final class TerminalPaletteContributor implements SearchEverywhereContrib
                 JList<?> list, Object value, int index, boolean selected, boolean focus) {
                 super.getListCellRendererComponent(list, value, index, selected, focus);
                 if (value instanceof ConchTerminalVirtualFile termFile) {
-                    String label = termFile.getName();
+                    String displayName = termFile.getTerminalTitle();
+                    String label = displayName != null ? displayName : termFile.getName();
                     String cwd = termFile.getCurrentWorkingDirectory();
                     if (cwd != null) label += "  \u2014  " + cwd;
                     setText(label);
