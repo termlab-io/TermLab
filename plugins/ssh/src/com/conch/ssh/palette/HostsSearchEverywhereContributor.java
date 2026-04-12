@@ -15,7 +15,6 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import javax.swing.*;
-import java.awt.Component;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
@@ -55,12 +54,12 @@ public final class HostsSearchEverywhereContributor implements SearchEverywhereC
         if (store == null) return;
 
         String q = pattern.toLowerCase();
-        List<SshHost> matches = store.getHosts().stream()
+        List<SshHost> hits = store.getHosts().stream()
             .filter(h -> q.isEmpty() || matches(h, q))
             .sorted(Comparator.comparing(SshHost::label, String.CASE_INSENSITIVE_ORDER))
             .toList();
 
-        for (SshHost host : matches) {
+        for (SshHost host : hits) {
             if (progressIndicator.isCanceled()) return;
             if (!consumer.process(host)) return;
         }
@@ -80,16 +79,7 @@ public final class HostsSearchEverywhereContributor implements SearchEverywhereC
 
     @Override
     public @NotNull ListCellRenderer<? super SshHost> getElementsRenderer() {
-        HostCellRenderer inner = new HostCellRenderer();
-        return new ListCellRenderer<SshHost>() {
-            @Override
-            public Component getListCellRendererComponent(
-                JList<? extends SshHost> list, SshHost value,
-                int index, boolean isSelected, boolean cellHasFocus
-            ) {
-                return inner.getListCellRendererComponent(list, value, index, isSelected, cellHasFocus);
-            }
-        };
+        return new HostCellRenderer();
     }
 
     @Override
