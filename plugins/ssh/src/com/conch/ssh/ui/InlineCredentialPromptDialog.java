@@ -68,7 +68,7 @@ public final class InlineCredentialPromptDialog extends DialogWrapper {
             "SSH Key Passphrase",
             "Passphrase for " + keyFilePath
                 + " (" + host.username() + "@" + host.host() + ")",
-            "Leave blank if the key is unencrypted.");
+            null);
         return dlg.showAndGet() ? dlg.result : null;
     }
 
