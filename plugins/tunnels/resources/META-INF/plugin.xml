@@ -9,4 +9,29 @@
     <depends>com.conch.core</depends>
     <depends>com.conch.ssh</depends>
     <depends>com.conch.vault</depends>
+
+    <extensions defaultExtensionNs="com.intellij">
+        <!--
+          TunnelStore is the single source of truth for saved tunnels.
+          Registered as an application service so the tool window and
+          future contributors share one instance; loads from disk on
+          first access.
+        -->
+        <applicationService serviceImplementation="com.conch.tunnels.model.TunnelStore"/>
+
+        <!--
+          TunnelConnectionManager tracks active tunnel sessions.
+          Application-scoped so connections persist across project windows.
+        -->
+        <applicationService serviceImplementation="com.conch.tunnels.client.TunnelConnectionManager"/>
+
+        <!--
+          Tunnels tool window — right sidebar. Icon reuses SecurityRole to
+          visually distinguish it from the SSH Hosts tool window.
+        -->
+        <toolWindow id="Tunnels"
+                    anchor="right"
+                    icon="AllIcons.Nodes.SecurityRole"
+                    factoryClass="com.conch.tunnels.toolwindow.TunnelsToolWindowFactory"/>
+    </extensions>
 </idea-plugin>
