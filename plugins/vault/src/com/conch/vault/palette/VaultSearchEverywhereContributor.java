@@ -20,6 +20,7 @@ import org.jetbrains.annotations.Nullable;
 import javax.swing.*;
 import java.awt.Component;
 import java.util.Comparator;
+import java.util.List;
 import java.util.Objects;
 
 /**
@@ -68,19 +69,23 @@ public final class VaultSearchEverywhereContributor implements SearchEverywhereC
 
         String q = pattern.toLowerCase();
 
-        vault.accounts.stream()
+        List<VaultAccount> accountHits = vault.accounts.stream()
             .filter(a -> q.isEmpty() || matchesAccount(a, q))
             .sorted(Comparator.comparing(VaultAccount::displayName, String.CASE_INSENSITIVE_ORDER))
-            .forEach(a -> {
-                if (!progressIndicator.isCanceled()) consumer.process(a);
-            });
+            .toList();
+        for (VaultAccount a : accountHits) {
+            if (progressIndicator.isCanceled()) return;
+            if (!consumer.process(a)) return;
+        }
 
-        vault.keys.stream()
+        List<VaultKey> keyHits = vault.keys.stream()
             .filter(k -> q.isEmpty() || matchesKey(k, q))
             .sorted(Comparator.comparing(VaultKey::name, String.CASE_INSENSITIVE_ORDER))
-            .forEach(k -> {
-                if (!progressIndicator.isCanceled()) consumer.process(k);
-            });
+            .toList();
+        for (VaultKey k : keyHits) {
+            if (progressIndicator.isCanceled()) return;
+            if (!consumer.process(k)) return;
+        }
     }
 
     private static boolean matchesAccount(@NotNull VaultAccount a, @NotNull String q) {
