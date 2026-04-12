@@ -7,5 +7,8 @@
   <names product="Conch" fullname="Conch Terminal Workstation" script="conch"
          motto="Terminal-Driven Workstation"/>
   <essential-plugin>com.conch.core</essential-plugin>
+  <essential-plugin>com.conch.ssh</essential-plugin>
+  <essential-plugin>com.conch.vault</essential-plugin>
+  <essential-plugin>com.intellij.classic.ui</essential-plugin>
   <essential-plugin>com.intellij.modules.json</essential-plugin>
 </component>

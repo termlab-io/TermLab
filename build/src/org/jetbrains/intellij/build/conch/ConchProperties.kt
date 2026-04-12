@@ -23,6 +23,9 @@ class ConchProperties(private val communityHomeDir: Path) : JetBrainsProductProp
 
     productLayout.bundledPluginModules = persistentListOf(
       "intellij.conch.core",
+      "intellij.conch.ssh",
+      "intellij.conch.vault",
+      "intellij.classic.ui",
       "intellij.sh.plugin",
       "intellij.textmate.plugin",
       "intellij.yaml",
