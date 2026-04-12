@@ -38,10 +38,12 @@
           in practice. Icon uses AllIcons.Webreferences.Server to match
           the SSH provider icon in the terminal editor.
         -->
-        <toolWindow id="ConchHosts"
-                    anchor="left"
+        <toolWindow id="Hosts"
+                    anchor="right"
                     icon="AllIcons.Webreferences.Server"
                     factoryClass="com.conch.ssh.toolwindow.HostsToolWindowFactory"/>
+        <searchEverywhereContributor
+            implementation="com.conch.ssh.palette.HostsSearchEverywhereContributor$Factory"/>
     </extensions>
 
     <!--
@@ -50,7 +52,6 @@
     -->
     <extensions defaultExtensionNs="com.conch.core">
         <terminalSessionProvider implementation="com.conch.ssh.provider.SshSessionProvider"/>
-        <commandPaletteContributor implementation="com.conch.ssh.palette.HostsPaletteContributor"/>
     </extensions>
 
     <actions>
