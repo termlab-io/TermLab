@@ -9,6 +9,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.security.KeyPair;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
@@ -65,7 +66,7 @@ public final class KeyFileInspector {
 
         try (InputStream in = Files.newInputStream(keyPath)) {
             try {
-                Iterable<java.security.KeyPair> pairs = SecurityUtils.loadKeyPairIdentities(
+                Iterable<KeyPair> pairs = SecurityUtils.loadKeyPairIdentities(
                     null,
                     NamedResource.ofName(keyPath.toString()),
                     in,
@@ -75,7 +76,7 @@ public final class KeyFileInspector {
                         "Could not parse key file " + keyPath + ": no key pairs found");
                 }
                 // Materialize the iterable — MINA may defer parsing to iteration time.
-                for (java.security.KeyPair ignored : pairs) {
+                for (KeyPair ignored : pairs) {
                     // just iterate; side-effects (password probe) happen here
                 }
             } catch (IOException e) {
