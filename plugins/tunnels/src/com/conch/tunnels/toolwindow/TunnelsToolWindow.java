@@ -173,6 +173,10 @@ public final class TunnelsToolWindow extends JPanel {
 
         menu.addSeparator();
 
+        JMenuItem viewDetails = new JMenuItem("View Details…");
+        viewDetails.addActionListener(e -> viewDetails(selected));
+        menu.add(viewDetails);
+
         JMenuItem edit = new JMenuItem("Edit…");
         edit.addActionListener(e -> editSelected());
         menu.add(edit);
@@ -428,6 +432,38 @@ public final class TunnelsToolWindow extends JPanel {
     private void disconnectTunnel(@NotNull SshTunnel tunnel) {
         connectionManager.disconnect(tunnel.id());
         refreshFromStore();
+    }
+
+    private void viewDetails(@NotNull SshTunnel tunnel) {
+        TunnelState state = connectionManager.getState(tunnel.id());
+        String direction = tunnel.type() == TunnelType.LOCAL ? "Local (-L)" : "Remote (-R)";
+        String hostRef = switch (tunnel.host()) {
+            case InternalHost ih -> {
+                HostStore hs = ApplicationManager.getApplication().getService(HostStore.class);
+                SshHost found = hs != null ? hs.findById(ih.hostId()) : null;
+                yield found != null
+                    ? found.label() + " (" + found.host() + ":" + found.port() + ")"
+                    : "Unknown host (" + ih.hostId().toString().substring(0, 8) + "…)";
+            }
+            case SshConfigHost sh -> sh.alias() + " (~/.ssh/config)";
+        };
+
+        String details = "Label:         " + tunnel.label() + "\n"
+            + "Type:          " + direction + "\n"
+            + "Host:          " + hostRef + "\n"
+            + "Bind address:  " + tunnel.bindAddress() + ":" + tunnel.bindPort() + "\n"
+            + "Target:        " + tunnel.targetHost() + ":" + tunnel.targetPort() + "\n"
+            + "Status:        " + state;
+
+        var conn = connectionManager.getConnection(tunnel.id());
+        if (conn != null && conn.errorMessage() != null) {
+            details += "\nError:         " + conn.errorMessage();
+        }
+        if (conn != null && conn.boundAddress() != null) {
+            details += "\nBound to:      " + conn.boundAddress();
+        }
+
+        Messages.showInfoMessage(project, details, "Tunnel Details — " + tunnel.label());
     }
 
     // -- CRUD helpers ---------------------------------------------------------

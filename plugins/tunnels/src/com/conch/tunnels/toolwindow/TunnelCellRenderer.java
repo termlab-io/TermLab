@@ -1,11 +1,8 @@
 package com.conch.tunnels.toolwindow;
 
 import com.conch.tunnels.client.TunnelConnectionManager;
-import com.conch.tunnels.model.InternalHost;
-import com.conch.tunnels.model.SshConfigHost;
 import com.conch.tunnels.model.SshTunnel;
 import com.conch.tunnels.model.TunnelState;
-import com.conch.tunnels.model.TunnelType;
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.util.ui.JBUI;
 
@@ -13,11 +10,9 @@ import javax.swing.*;
 import java.awt.*;
 
 /**
- * Two-line {@link JBList} cell renderer for {@link SshTunnel}.
- *
- * <p>Top line: status icon + label.
- * <br>Bottom line: direction ({@code L} or {@code R}) +
- * {@code bindAddress:bindPort → targetHost:targetPort}.
+ * Single-line {@link JBList} cell renderer for {@link SshTunnel}.
+ * Shows only a status icon + label. Users click "View Details"
+ * in the context menu for full tunnel info.
  *
  * <p>Status icons:
  * <ul>
@@ -33,25 +28,12 @@ public final class TunnelCellRenderer extends JPanel implements ListCellRenderer
 
     private final JLabel statusLabel = new JLabel();
     private final JLabel nameLabel   = new JLabel();
-    private final JLabel subtitle    = new JLabel();
 
     public TunnelCellRenderer() {
-        super(new BorderLayout());
+        super(new FlowLayout(FlowLayout.LEFT, 4, 0));
         setBorder(JBUI.Borders.empty(4, 8));
-
-        JPanel topLine = new JPanel(new FlowLayout(FlowLayout.LEFT, 4, 0));
-        topLine.setOpaque(false);
-        topLine.add(statusLabel);
-        topLine.add(nameLabel);
-
-        JPanel lines = new JPanel(new GridLayout(2, 1));
-        lines.setOpaque(false);
-        lines.add(topLine);
-        lines.add(subtitle);
-        add(lines, BorderLayout.CENTER);
-
-        subtitle.setFont(subtitle.getFont().deriveFont(subtitle.getFont().getSize() - 1f));
-        subtitle.setForeground(UIManager.getColor("Label.disabledForeground"));
+        add(statusLabel);
+        add(nameLabel);
     }
 
     @Override
@@ -61,27 +43,17 @@ public final class TunnelCellRenderer extends JPanel implements ListCellRenderer
         if (value == null) {
             statusLabel.setText("");
             nameLabel.setText("");
-            subtitle.setText("");
             return this;
         }
 
         TunnelState state = resolveState(value);
         applyStatusIcon(state, isSelected);
-
         nameLabel.setText(value.label());
-
-        String direction = value.type() == TunnelType.LOCAL ? "L" : "R";
-        String hostDisplay = hostDisplayName(value);
-        String subtitleText = direction + "  " + hostDisplay
-            + "  " + value.bindAddress() + ":" + value.bindPort()
-            + " → " + value.targetHost() + ":" + value.targetPort();
-        subtitle.setText(subtitleText);
 
         Color bg = isSelected ? list.getSelectionBackground() : list.getBackground();
         Color fg = isSelected ? list.getSelectionForeground() : list.getForeground();
         setBackground(bg);
         nameLabel.setForeground(fg);
-        subtitle.setForeground(isSelected ? fg : UIManager.getColor("Label.disabledForeground"));
         return this;
     }
 
@@ -112,12 +84,4 @@ public final class TunnelCellRenderer extends JPanel implements ListCellRenderer
         }
     }
 
-    private static @org.jetbrains.annotations.NotNull String hostDisplayName(
-        @org.jetbrains.annotations.NotNull SshTunnel tunnel
-    ) {
-        return switch (tunnel.host()) {
-            case InternalHost h -> "host:" + h.hostId().toString().substring(0, 8) + "…";
-            case SshConfigHost s -> s.alias();
-        };
-    }
 }
