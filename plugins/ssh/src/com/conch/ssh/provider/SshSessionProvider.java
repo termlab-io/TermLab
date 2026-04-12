@@ -3,6 +3,7 @@ package com.conch.ssh.provider;
 import com.conch.sdk.TerminalSessionProvider;
 import com.conch.ssh.client.ConchServerKeyVerifier;
 import com.conch.ssh.client.ConchSshClient;
+import com.conch.ssh.client.KeyFileInspector;
 import com.conch.ssh.client.SshConnectException;
 import com.conch.ssh.client.SshConnection;
 import com.conch.ssh.client.SshResolvedCredential;
@@ -26,6 +27,7 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import javax.swing.*;
+import java.io.IOException;
 import java.nio.file.Path;
 
 /**
@@ -154,18 +156,26 @@ public final class SshSessionProvider implements TerminalSessionProvider {
         @NotNull SshHost host,
         @NotNull KeyFileAuth auth
     ) {
+        Path keyPath = Path.of(auth.keyFilePath());
+
+        KeyFileInspector.Encryption encryption;
+        try {
+            encryption = KeyFileInspector.inspect(keyPath);
+        } catch (IOException e) {
+            Messages.showErrorDialog(
+                "Could not read SSH key file:\n" + keyPath + "\n\n" + e.getMessage(),
+                "SSH Key File Unreadable");
+            return null;
+        }
+
+        if (encryption == KeyFileInspector.Encryption.NONE) {
+            return SshResolvedCredential.key(host.username(), keyPath, null);
+        }
+
         char[] passphrase = InlineCredentialPromptDialog.promptPassphrase(
             null, host, auth.keyFilePath());
         if (passphrase == null) return null;
-        // Empty input means "no passphrase" — MINA's key loader skips
-        // decryption when we pass null. A zero-length char[] carries no
-        // secret, so we don't bother zeroing it.
-        char[] phraseOrNull = passphrase.length == 0 ? null : passphrase;
-        return SshResolvedCredential.key(
-            host.username(),
-            Path.of(auth.keyFilePath()),
-            phraseOrNull
-        );
+        return SshResolvedCredential.key(host.username(), keyPath, passphrase);
     }
 
     // -- connect loop ---------------------------------------------------------
