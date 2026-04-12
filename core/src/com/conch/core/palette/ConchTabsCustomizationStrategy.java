@@ -16,12 +16,16 @@ public final class ConchTabsCustomizationStrategy implements TabsCustomizationSt
 
     /**
      * Provider IDs for tabs that should remain visible.
-     * "ActionSearchEverywhereContributor" is the Actions tab from the platform.
-     * "ConchTerminals" is our custom Terminals tab.
+     * "ActionSearchEverywhereContributor" is the Actions tab from the
+     * platform. "ConchTerminals" / "ConchHosts" / "ConchVault" are our
+     * custom tabs contributed by the core, SSH, and vault plugins
+     * respectively.
      */
     private static final Set<String> ALLOWED_TAB_IDS = Set.of(
         "ActionSearchEverywhereContributor",
-        "ConchTerminals"
+        "ConchTerminals",
+        "ConchHosts",
+        "ConchVault"
     );
 
     @Override

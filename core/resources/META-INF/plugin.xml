@@ -12,9 +12,6 @@
         <extensionPoint name="terminalSessionProvider"
                         interface="com.conch.sdk.TerminalSessionProvider"
                         dynamic="true"/>
-        <extensionPoint name="commandPaletteContributor"
-                        interface="com.conch.sdk.CommandPaletteContributor"
-                        dynamic="true"/>
         <extensionPoint name="credentialProvider"
                         interface="com.conch.sdk.CredentialProvider"
                         dynamic="true"/>
