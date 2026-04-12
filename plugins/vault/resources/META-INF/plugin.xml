@@ -28,6 +28,9 @@
             id="com.conch.vault.lockWidget"
             implementation="com.conch.vault.ui.VaultLockStatusBarWidgetFactory"
             order="last"/>
+
+        <searchEverywhereContributor
+            implementation="com.conch.vault.palette.VaultSearchEverywhereContributor$Factory"/>
     </extensions>
 
     <!--
@@ -37,7 +40,6 @@
     -->
     <extensions defaultExtensionNs="com.conch.core">
         <credentialProvider implementation="com.conch.vault.credentials.VaultCredentialProvider"/>
-        <commandPaletteContributor implementation="com.conch.vault.palette.VaultPaletteContributor"/>
     </extensions>
 
     <actions>
@@ -49,5 +51,15 @@
             <keyboard-shortcut keymap="$default" first-keystroke="meta shift V"/>
             <keyboard-shortcut keymap="$default" first-keystroke="ctrl shift V"/>
         </action>
+
+        <action id="com.conch.vault.LockVault"
+                class="com.conch.vault.actions.LockVaultAction"
+                text="Lock Vault"
+                description="Seal the Conch credential vault and drop cached credentials"/>
+
+        <action id="com.conch.vault.GenerateSshKey"
+                class="com.conch.vault.actions.GenerateSshKeyAction"
+                text="Generate SSH Key…"
+                description="Create a new Ed25519, ECDSA, or RSA key pair in the vault"/>
     </actions>
 </idea-plugin>
