@@ -121,6 +121,18 @@
     <projectListeners>
         <listener class="com.conch.core.terminal.ConchTerminalOnlyFileEditorListener"
                   topic="com.intellij.openapi.fileEditor.FileEditorManagerListener"/>
+
+        <!--
+          Reactive stripper for dynamically-registered tool windows
+          (Run, Debug, Hierarchy, Services). These don't use the static
+          <toolWindow> extension point — they're registered by service
+          constructors at project-open time. ConchToolWindowStripper
+          catches them as they register via toolWindowRegistered() and
+          immediately unregisters them. Also sweeps any that registered
+          before the listener wired up.
+        -->
+        <listener class="com.conch.core.ConchToolWindowStripper"
+                  topic="com.intellij.openapi.wm.ex.ToolWindowManagerListener"/>
     </projectListeners>
 
     <actions>

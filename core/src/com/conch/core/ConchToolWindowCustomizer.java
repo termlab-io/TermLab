@@ -16,6 +16,14 @@ import java.util.Set;
  * {@link AppLifecycleListener#appFrameCreated(List)}, before any project
  * is opened and before the stripe buttons can be painted.
  *
+ * <p>This handles <b>statically-registered</b> tool windows (declared via
+ * {@code <toolWindow>} in platform XML). Dynamically-registered ones
+ * (Run, Debug, Hierarchy, Services — registered at project-open time by
+ * service constructors) are handled by the companion
+ * {@link ConchToolWindowStripper}, a project-level
+ * {@code ToolWindowManagerListener} that intercepts registrations as they
+ * happen and unregisters unwanted ones immediately.
+ *
  * <p>Conch deliberately follows the Android-Studio-style "vendored platform"
  * model where we bundle whole modules rather than reaching in to delete
  * individual XML entries. That gives us broad stability across upstream
@@ -27,14 +35,11 @@ public final class ConchToolWindowCustomizer implements AppLifecycleListener {
     private static final Logger LOG = Logger.getInstance(ConchToolWindowCustomizer.class);
 
     /**
-     * Tool window ids to unregister. These come from the {@code id} attribute
-     * of {@code <toolWindow>} extensions in the bundled modules' plugin XMLs.
-     * Add new entries here as we discover more IDE-only tool windows that
-     * shouldn't exist in Conch.
+     * Tool window ids to unregister from the static extension point.
+     * These come from the {@code id} attribute of {@code <toolWindow>}
+     * extensions in the bundled modules' plugin XMLs.
      */
     private static final Set<String> UNWANTED_TOOL_WINDOW_IDS = Set.of(
-        // From platform-resources/LangExtensions.xml — IDE analysis-results
-        // panel. Conch has no analysis, so this window is always empty.
         "Problems View"
     );
 
@@ -51,7 +56,7 @@ public final class ConchToolWindowCustomizer implements AppLifecycleListener {
 
         for (ToolWindowEP extension : toRemove) {
             ep.unregisterExtension(extension);
-            LOG.info("Conch: unregistered tool window '" + extension.id + "'");
+            LOG.info("Conch: unregistered static tool window '" + extension.id + "'");
         }
     }
 }

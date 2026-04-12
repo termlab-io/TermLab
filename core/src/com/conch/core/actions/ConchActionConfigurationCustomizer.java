@@ -57,6 +57,56 @@ public final class ConchActionConfigurationCustomizer implements ActionConfigura
     };
 
     /**
+     * Hierarchy and run-configuration actions. Conch is a terminal
+     * workstation — no source code hierarchies, no run configurations.
+     * These would show up in the Actions tab of the command palette if
+     * left registered.
+     */
+    private static final String[] IDE_CENTRIC_ACTION_IDS = {
+        // Hierarchy
+        "TypeHierarchy",
+        "MethodHierarchy",
+        "CallHierarchy",
+        "TypeHierarchy.Class",
+        "TypeHierarchy.Subtypes",
+        "TypeHierarchy.Supertypes",
+        "TypeHierarchyBase.BaseOnThisType",
+        "MethodHierarchy.BaseOnThisMethod",
+        "CallHierarchy.BaseOnThisMethod",
+        // Run/Debug configuration
+        "ChooseRunConfiguration",
+        "editRunConfigurations",
+        "CreateRunConfiguration",
+        "SaveTemporaryRunConfiguration",
+        "DeleteRunConfiguration",
+        "ShowLiveRunConfigurations",
+        "AllRunConfigurationsToggle",
+        // Run toolbar (new UI)
+        "NewUiRunWidget",
+        "RunToolbarMainActionGroup",
+        "MoreRunToolbarActions",
+        // Activate tool window actions (even if the window itself is
+        // stripped, the action can appear in the palette)
+        "ActivateRunToolWindow",
+        "ActivateDebugToolWindow",
+        "ActivateHierarchyToolWindow",
+        "ActivateServicesToolWindow",
+    };
+
+    /**
+     * Action groups that should be hidden entirely. These wrap related
+     * IDE-centric actions into menus/popups that have no place in Conch.
+     */
+    private static final String[] IDE_CENTRIC_GROUP_IDS = {
+        "HierarchyGroup",
+        "TypeHierarchyPopupMenu",
+        "MethodHierarchyPopupMenu",
+        "CallHierarchyPopupMenu",
+        "RunContextGroup",
+        "RunConfigurationsActionGroup",
+    };
+
+    /**
      * Actions whose implementation classes live in modules Conch strips
      * (e.g. test framework modules). Their {@code <action>} declarations
      * are loaded via PlatformActions.xml / ExecutionActions.xml, but the
@@ -96,6 +146,12 @@ public final class ConchActionConfigurationCustomizer implements ActionConfigura
 
         for (String actionId : FILE_ORIENTED_ACTION_IDS) {
             unregisterIfPresent(actionManager, actionId);
+        }
+        for (String actionId : IDE_CENTRIC_ACTION_IDS) {
+            unregisterIfPresent(actionManager, actionId);
+        }
+        for (String groupId : IDE_CENTRIC_GROUP_IDS) {
+            replaceWithHiddenGroup(actionManager, groupId);
         }
         for (String actionId : MISSING_CLASS_ACTION_IDS) {
             unregisterIfPresent(actionManager, actionId);
