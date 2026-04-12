@@ -21,6 +21,7 @@ java_binary(
         # Conch bundled plugins (first-party, always enabled)
         "//conch/plugins/vault",
         "//conch/plugins/ssh",
+        "//conch/plugins/tunnels",
         # Runtime implementation of PasswordSafe — required by the vault
         # plugin so it can store the device secret in the cross-platform
         # credential store (Keychain / Credential Manager / KWallet /
