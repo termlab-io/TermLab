@@ -101,6 +101,16 @@
         -->
         <listener class="com.conch.core.ConchToolWindowCustomizer"
                   topic="com.intellij.ide.AppLifecycleListener"/>
+
+        <!--
+          Clears Search Everywhere's persisted popup location before each
+          SearchEverywhereAction invocation, so the platform's fresh-install
+          "upper-half center" positioning runs on every open. Without this,
+          a user who drags the popup once would have the dragged position
+          persisted forever. See ConchSearchEverywhereLocationPinner.
+        -->
+        <listener class="com.conch.core.palette.ConchSearchEverywhereLocationPinner"
+                  topic="com.intellij.openapi.actionSystem.ex.AnActionListener"/>
     </applicationListeners>
 
     <projectListeners>
