@@ -102,6 +102,20 @@
         <listener class="com.conch.core.ConchToolWindowCustomizer"
                   topic="com.intellij.ide.AppLifecycleListener"/>
 
+        <!--
+          Pins Search Everywhere to the upper-half-center of the Conch
+          frame on every invocation, instead of the platform's default
+          of remembering the user's drag position across opens. See
+          ConchSearchEverywhereLocationPinner.
+
+          Known caveat: with this listener active, the first Cmd+Shift+P
+          press after moving the Conch window currently requires a
+          second press to render the popup. Verified unrelated to this
+          listener (bug reproduces with it removed entirely); documented
+          here as a trade-off we're accepting for now.
+        -->
+        <listener class="com.conch.core.palette.ConchSearchEverywhereLocationPinner"
+                  topic="com.intellij.openapi.actionSystem.ex.AnActionListener"/>
     </applicationListeners>
 
     <projectListeners>
