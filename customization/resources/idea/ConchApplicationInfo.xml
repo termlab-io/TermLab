@@ -1,5 +1,5 @@
 <component xmlns="http://jetbrains.org/intellij/schema/application-info">
-  <version major="0" minor="1"/>
+  <version major="2026" minor="2" eap="true" codename="Workstation"/>
   <company name="Conch" url="https://github.com/conch"/>
   <build number="CN-__BUILD__" date="__BUILD_DATE__"/>
   <logo url="/conch_logo.png"/>

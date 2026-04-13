@@ -30,3 +30,7 @@ Thumbs.db
 # Local perf harness artifacts
 perf-results/
 /.perf-workspace/
+
+# Scratch log files shared back from Windows/Linux VMs for debugging
+/idea.log
+/exceptions

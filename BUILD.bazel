@@ -1,4 +1,35 @@
 load("@rules_java//java:defs.bzl", "java_binary")
+load("@rules_jvm//:jvm.bzl", "jvm_library")
+
+# Roll-up module matching intellij.conch.main.iml. No own sources —
+# it exists so the JPS-to-Bazel targets mapping can resolve
+# @community//conch:conch-main.jar, which the platform installer
+# build pipeline references via ALL_COMMUNITY_TARGETS.
+jvm_library(
+    name = "conch-main",
+    module_name = "intellij.conch.main",
+    visibility = ["//visibility:public"],
+    srcs = glob([], allow_empty = True),
+    runtime_deps = [
+        "//platform/main/intellij.platform.monolith.main:monolith-main",
+        "//platform/bootstrap",
+        "//platform/starter",
+        "//conch/customization",
+        "//conch/core",
+        "//conch/sdk",
+        "//plugins/classic-ui",
+    ],
+)
+
+jvm_library(
+    name = "conch-main_test_lib",
+    module_name = "intellij.conch.main",
+    visibility = ["//visibility:public"],
+    srcs = glob([], allow_empty = True),
+    runtime_deps = [":conch-main"],
+)
+
+exports_files(["intellij.conch.main.iml"])
 
 # Run Conch from the command line.
 # Depends on the platform monolith (no product plugins) plus only

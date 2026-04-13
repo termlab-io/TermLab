@@ -2,6 +2,7 @@ package com.conch.core.terminal;
 
 import com.conch.core.settings.ConchTerminalConfig;
 import com.conch.sdk.TerminalSessionProvider;
+import com.intellij.openapi.util.SystemInfo;
 import com.jediterm.core.util.TermSize;
 import com.jediterm.terminal.TtyConnector;
 import com.pty4j.PtyProcess;
@@ -9,6 +10,9 @@ import com.pty4j.PtyProcessBuilder;
 import com.pty4j.WinSize;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
 
 import javax.swing.*;
 import java.io.*;
@@ -35,7 +39,7 @@ public final class LocalPtySessionProvider implements TerminalSessionProvider {
                 shell = normalize(System.getenv("SHELL"));
             }
             if (shell.isEmpty()) {
-                shell = "/bin/zsh";
+                shell = defaultShellForPlatform();
             }
 
             String rawArgs = normalize(settings.shellArguments);
@@ -123,6 +127,33 @@ public final class LocalPtySessionProvider implements TerminalSessionProvider {
 
     private static @NotNull String normalize(@Nullable String value) {
         return value == null ? "" : value.trim();
+    }
+
+    /**
+     * Platform-aware default shell when neither the user setting nor
+     * {@code $SHELL} is available.
+     * <ul>
+     *   <li><b>Windows</b>: prefer {@code %COMSPEC%} (usually {@code cmd.exe}).
+     *       PowerShell is not the default — users who want it can set it
+     *       explicitly in Terminal settings.</li>
+     *   <li><b>macOS</b>: {@code /bin/zsh} (Apple's default since 10.15).</li>
+     *   <li><b>Linux/BSD</b>: {@code /bin/bash} if present, else
+     *       {@code /bin/sh} (POSIX guaranteed).</li>
+     * </ul>
+     */
+    private static @NotNull String defaultShellForPlatform() {
+        if (SystemInfo.isWindows) {
+            String comspec = normalize(System.getenv("COMSPEC"));
+            return comspec.isEmpty() ? "cmd.exe" : comspec;
+        }
+        if (SystemInfo.isMac) {
+            return "/bin/zsh";
+        }
+        // Linux / BSD / other Unix: pick bash if it exists, fall back to sh.
+        if (Files.isExecutable(Path.of("/bin/bash"))) {
+            return "/bin/bash";
+        }
+        return "/bin/sh";
     }
 
     /**

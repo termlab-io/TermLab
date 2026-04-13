@@ -1,0 +1,39 @@
+load("@rules_java//java:defs.bzl", "java_binary")
+load("@rules_jvm//:jvm.bzl", "jvm_library")
+load("//build:intellij_dev.bzl", "INTELLIJ_ADD_OPENS")
+load("@jps_dynamic_deps_community//:targets.bzl", "ALL_LIBRARY_COMMUNITY_TARGETS", "ALL_PRODUCTION_COMMUNITY_TARGETS", "BAZEL_TARGETS_JSON_COMMUNITY")
+
+# Conch installers build — produces cross-platform distributions
+# (.dmg/.sit for macOS, .win.zip for Windows, .tar.gz for Linux) by
+# delegating to the JetBrains platform build pipeline with ConchProperties.
+#
+# Mirrors //build:i_build_target (OpenSourceCommunityInstallersBuildTarget).
+
+jvm_library(
+    name = "conch_build_lib",
+    module_name = "intellij.conch.build",
+    visibility = ["//visibility:public"],
+    srcs = glob(["src/**/*.kt", "src/**/*.java"], allow_empty = True),
+    deps = [
+        "//platform/build-scripts",
+        "//platform/build-scripts/api",
+        "//platform/build-scripts/downloader",
+        "//platform/pluginSystem/parser/impl",
+        "@lib//:kotlin-stdlib",
+        "//platform/util",
+        "//platform/util/base",
+        "//libraries/kotlinx/collections-immutable:libraries-kotlinx-collections-immutable",
+        "//libraries/kotlinx/coroutines/core",
+    ],
+)
+
+java_binary(
+    name = "conch_installers",
+    runtime_deps = [":conch_build_lib"],
+    main_class = "ConchInstallersBuildTarget",
+    add_opens = INTELLIJ_ADD_OPENS,
+    jvm_flags = [
+        "-Dintellij.build.bazel.targets.json.file=$(rlocationpath %s)" % BAZEL_TARGETS_JSON_COMMUNITY,
+    ],
+    data = ALL_PRODUCTION_COMMUNITY_TARGETS + ALL_LIBRARY_COMMUNITY_TARGETS + [BAZEL_TARGETS_JSON_COMMUNITY],
+)

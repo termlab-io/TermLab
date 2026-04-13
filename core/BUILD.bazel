@@ -10,7 +10,7 @@ jvm_library(
     name = "core",
     module_name = "intellij.conch.core",
     visibility = ["//visibility:public"],
-    srcs = glob(["src/**/*.java"]),
+    srcs = glob(["src/**/*.java", "src/**/*.kt"]),
     resources = [":core_resources"],
     deps = [
         "//conch/sdk",
@@ -27,6 +27,7 @@ jvm_library(
         "//platform/editor-ui-api:editor-ui",
         "//platform/project-frame",
         "//platform/projectModel-api:projectModel",
+        "//platform/welcome-screen",
         "//platform/util:util-ui",
         "//libraries/jediterm-core:jediterm-core",
         "//libraries/jediterm-ui:jediterm-ui",
@@ -36,3 +37,5 @@ jvm_library(
         "@lib//:kotlin-stdlib",
     ],
 )
+
+exports_files(["intellij.conch.core.iml"], visibility = ["//visibility:public"])

@@ -44,6 +44,17 @@
         <search.optionContributor
             implementation="com.conch.core.settings.ConchSearchableOptionContributor"/>
 
+        <!--
+          Skip the platform welcome frame entirely and open ~ as the
+          default workspace on every cold launch. Conch has no concept
+          of picking a "project" — the user's home directory is the
+          base the terminal launches shells from. See
+          ConchHomeDirNoProjectHandler for the hook point (IdeStarter
+          calls this before showWelcomeFrame).
+        -->
+        <noProjectStateHandler
+            implementation="com.conch.core.ConchHomeDirNoProjectHandler"/>
+
         <fileEditorProvider
             implementation="com.conch.core.terminal.ConchTerminalEditorProvider"/>
 
@@ -103,6 +114,33 @@
                   topic="com.intellij.ide.AppLifecycleListener"/>
 
         <!--
+          Unregisters the platform's refactoring actions and group so the
+          Ctrl+T "Refactor This" popup and top-level Refactor menu vanish.
+          See ConchRefactoringStripper for the list and the rationale.
+        -->
+        <listener class="com.conch.core.ConchRefactoringStripper"
+                  topic="com.intellij.ide.AppLifecycleListener"/>
+
+        <!--
+          Strips IDE-oriented Settings pages under Editor/ that don't affect
+          the terminal view. Keeps Font, Color Scheme, and General/Appearance.
+          Project-scoped pages are stripped from ConchStartupActivity per
+          project open. See ConchEditorSettingsStripper for details.
+        -->
+        <listener class="com.conch.core.ConchEditorSettingsStripper"
+                  topic="com.intellij.ide.AppLifecycleListener"/>
+
+        <!--
+          Overrides the macOS Dock icon with a full-res 1024x1024 PNG.
+          IntelliJ's AppUIUtil.updateAppWindowIcon loads the app SVG at
+          size=32 and calls Taskbar.setIconImage with that, so the dock
+          icon otherwise appears blurry in dev mode. See
+          ConchMacDockIconCustomizer for the detailed rationale.
+        -->
+        <listener class="com.conch.core.ConchMacDockIconCustomizer"
+                  topic="com.intellij.ide.AppLifecycleListener"/>
+
+        <!--
           Pins Search Everywhere to the upper-half-center of the Conch
           frame on every invocation, instead of the platform's default
           of remembering the user's drag position across opens. See
@@ -153,7 +191,11 @@
                 class="com.intellij.ide.actions.SearchEverywhereAction"
                 text="Command Palette"
                 description="Open the Conch command palette">
-            <keyboard-shortcut keymap="$default" first-keystroke="meta shift P"/>
+            <!-- $default = Linux/Windows: Ctrl+Shift+P (VS Code convention).
+                 Mac overrides use Cmd+Shift+P via `meta`. -->
+            <keyboard-shortcut keymap="$default" first-keystroke="control shift P"/>
+            <keyboard-shortcut keymap="Mac OS X 10.5+" first-keystroke="meta shift P" replace-all="true"/>
+            <keyboard-shortcut keymap="Mac OS X" first-keystroke="meta shift P" replace-all="true"/>
         </action>
 
         <!--
@@ -174,11 +216,15 @@
         <group id="Conch.TerminalActions" text="Terminal" popup="true">
             <add-to-group group-id="MainMenu" anchor="before" relative-to-action="HelpMenu"/>
 
+            <!-- $default (Linux/Windows) uses ctrl+shift+<key> to avoid
+                 colliding with terminal key bindings (ctrl+T / ctrl+W /
+                 ctrl+D are common emacs/readline bindings). Mac keeps
+                 plain meta+<key> per native convention. -->
             <action id="Conch.NewTerminalTab"
                     class="com.conch.core.actions.NewTerminalTabAction"
                     text="New Terminal Tab"
                     description="Open a new local terminal tab">
-                <keyboard-shortcut keymap="$default" first-keystroke="meta T"/>
+                <keyboard-shortcut keymap="$default" first-keystroke="control shift T"/>
                 <keyboard-shortcut keymap="Mac OS X 10.5+" first-keystroke="meta T" replace-all="true"/>
                 <keyboard-shortcut keymap="Mac OS X" first-keystroke="meta T" replace-all="true"/>
             </action>
@@ -187,21 +233,27 @@
                     class="com.conch.core.actions.CloseTerminalTabAction"
                     text="Close Terminal Tab"
                     description="Close the active terminal tab">
-                <keyboard-shortcut keymap="$default" first-keystroke="meta W"/>
+                <keyboard-shortcut keymap="$default" first-keystroke="control shift W"/>
+                <keyboard-shortcut keymap="Mac OS X 10.5+" first-keystroke="meta W" replace-all="true"/>
+                <keyboard-shortcut keymap="Mac OS X" first-keystroke="meta W" replace-all="true"/>
             </action>
 
             <action id="Conch.SplitHorizontal"
                     class="com.conch.core.actions.SplitTerminalHorizontalAction"
                     text="Split Terminal Right"
                     description="Split and open a new terminal to the right">
-                <keyboard-shortcut keymap="$default" first-keystroke="meta D"/>
+                <keyboard-shortcut keymap="$default" first-keystroke="control shift E"/>
+                <keyboard-shortcut keymap="Mac OS X 10.5+" first-keystroke="meta D" replace-all="true"/>
+                <keyboard-shortcut keymap="Mac OS X" first-keystroke="meta D" replace-all="true"/>
             </action>
 
             <action id="Conch.SplitVertical"
                     class="com.conch.core.actions.SplitTerminalVerticalAction"
                     text="Split Terminal Down"
                     description="Split and open a new terminal below">
-                <keyboard-shortcut keymap="$default" first-keystroke="meta shift D"/>
+                <keyboard-shortcut keymap="$default" first-keystroke="control shift O"/>
+                <keyboard-shortcut keymap="Mac OS X 10.5+" first-keystroke="meta shift D" replace-all="true"/>
+                <keyboard-shortcut keymap="Mac OS X" first-keystroke="meta shift D" replace-all="true"/>
             </action>
 
             <separator/>
@@ -248,7 +300,9 @@
                     class="com.conch.core.actions.SaveWorkspaceAction"
                     text="Save Workspace As..."
                     description="Save the current workspace layout">
-                <keyboard-shortcut keymap="$default" first-keystroke="meta shift S"/>
+                <keyboard-shortcut keymap="$default" first-keystroke="control alt S"/>
+                <keyboard-shortcut keymap="Mac OS X 10.5+" first-keystroke="meta shift S" replace-all="true"/>
+                <keyboard-shortcut keymap="Mac OS X" first-keystroke="meta shift S" replace-all="true"/>
             </action>
 
             <action id="Conch.LoadWorkspace"

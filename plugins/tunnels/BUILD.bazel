@@ -62,3 +62,5 @@ java_binary(
         "//libraries/junit5-launcher",
     ],
 )
+
+exports_files(["intellij.conch.tunnels.iml"], visibility = ["//visibility:public"])

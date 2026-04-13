@@ -16,6 +16,13 @@ public final class ConchStartupActivity implements ProjectActivity {
     @Override
     public @Nullable Object execute(@NotNull Project project,
                                      @NotNull Continuation<? super Unit> continuation) {
+        // Strip IDE-oriented project-level Editor settings pages (Code Style,
+        // Inspections, File Templates, Inlay Hints, Reader Mode, File
+        // Encodings, Auto Import). Project configurables live in the
+        // project's extension area, so the app-level stripper in
+        // ConchEditorSettingsStripper can't reach them — do it here.
+        ConchEditorSettingsStripper.stripProjectConfigurables(project);
+
         WorkspaceManager.getInstance(project).restore();
 
         // Conch suppresses plugin/IDE suggestion notifications to keep the

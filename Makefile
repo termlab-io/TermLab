@@ -5,9 +5,15 @@
 # from the workbench dir delegates Bazel commands up to the intellij root.
 #
 # Usage:
-#   make conch       — build and run Conch
-#   make conch-build — build only (no run)
-#   make conch-clean — clean build artifacts
+#   make conch                    — build and run Conch
+#   make conch-build              — build only (no run)
+#   make conch-clean              — clean build artifacts
+#   make conch-installers         — build all-platform distributions
+#   make conch-installers-mac     — build macOS distributions only (.sit)
+#   make conch-installers-linux   — build Linux distributions only (.tar.gz)
+#   make conch-installers-windows — build Windows distributions only (.win.zip)
+#
+# Installer artifacts land in: $(INTELLIJ_ROOT)/out/conch/artifacts/
 #
 # INTELLIJ_ROOT resolution order:
 #   1. Environment variable / `make INTELLIJ_ROOT=...`
@@ -41,7 +47,7 @@ CONCH_PERF_WARMUP_SEC ?= 90
 CONCH_PERF_SAMPLE_SEC ?= 5
 CONCH_PERF_DURATION_SEC ?= 300
 
-.PHONY: conch conch-build conch-clean check-intellij conch-perf-benchmark conch-perf-budget
+.PHONY: conch conch-build conch-clean conch-installers conch-installers-mac conch-installers-linux conch-installers-windows check-intellij conch-perf-benchmark conch-perf-budget
 
 check-intellij:
 	@test -f "$(INTELLIJ_ROOT)/bazel.cmd" || { \
@@ -58,6 +64,22 @@ conch-build: check-intellij
 
 conch-clean: check-intellij
 	$(BAZEL) clean
+
+conch-installers: check-intellij
+	$(BAZEL) run //conch/build:conch_installers
+	@echo "→ Installer artifacts in $(INTELLIJ_ROOT)/out/conch/artifacts/"
+
+conch-installers-mac: check-intellij
+	CONCH_TARGET_OS=mac $(BAZEL) run //conch/build:conch_installers
+	@echo "→ Installer artifacts in $(INTELLIJ_ROOT)/out/conch/artifacts/"
+
+conch-installers-linux: check-intellij
+	CONCH_TARGET_OS=linux $(BAZEL) run //conch/build:conch_installers
+	@echo "→ Installer artifacts in $(INTELLIJ_ROOT)/out/conch/artifacts/"
+
+conch-installers-windows: check-intellij
+	CONCH_TARGET_OS=windows $(BAZEL) run //conch/build:conch_installers
+	@echo "→ Installer artifacts in $(INTELLIJ_ROOT)/out/conch/artifacts/"
 
 conch-perf-benchmark: check-intellij
 	mkdir -p "$(CONCH_PERF_WORKSPACE)"

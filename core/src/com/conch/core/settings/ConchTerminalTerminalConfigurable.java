@@ -43,7 +43,7 @@ public final class ConchTerminalTerminalConfigurable implements SearchableConfig
 
         shellProgramField = new JTextField();
         addLabeledRow(gbc, row++, "Program:", shellProgramField,
-            "(empty = use $SHELL, fallback /bin/zsh)");
+            "(empty = use $SHELL / %COMSPEC%, platform default otherwise)");
 
         shellArgumentsField = new JTextField();
         addLabeledRow(gbc, row++, "Arguments:", shellArgumentsField,

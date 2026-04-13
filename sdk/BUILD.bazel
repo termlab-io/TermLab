@@ -10,3 +10,5 @@ jvm_library(
         "@lib//:jetbrains-annotations",
     ],
 )
+
+exports_files(["intellij.conch.sdk.iml"], visibility = ["//visibility:public"])

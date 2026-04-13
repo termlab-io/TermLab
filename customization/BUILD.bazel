@@ -10,6 +10,12 @@ jvm_library(
     name = "customization",
     module_name = "intellij.conch.customization",
     visibility = ["//visibility:public"],
-    srcs = glob([], allow_empty = True),
+    srcs = glob(["src/**/*.java"], allow_empty = True),
     resources = [":customization_resources"],
+    deps = [
+        "//platform/platform-api:ide",
+        "@lib//:jetbrains-annotations",
+    ],
 )
+
+exports_files(["intellij.conch.customization.iml"], visibility = ["//visibility:public"])
