@@ -127,6 +127,12 @@ java_binary(
         "-XX:ReservedCodeCacheSize=240m",
         "-XX:MaxJavaStackTraceDepth=10000",
         "-XX:+IgnoreUnrecognizedVMOptions",
+        # Pin UTF-8 for file / stdout / stderr. Mirrors
+        # ConchProperties.additionalVmOptions in the installer build
+        # so dev runs and shipped artifacts behave identically.
+        "-Dfile.encoding=UTF-8",
+        "-Dstdout.encoding=UTF-8",
+        "-Dstderr.encoding=UTF-8",
         "-Dsun.io.useCanonCaches=false",
         "-Dsun.awt.disablegrab=true",
         "-Dsun.java2d.metal=true",

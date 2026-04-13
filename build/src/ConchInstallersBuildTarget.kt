@@ -34,8 +34,10 @@ object ConchInstallersBuildTarget {
           // distributions are still valid for manual testing.
           BuildOptions.PROVIDED_MODULES_LIST_STEP,
           BuildOptions.SEARCHABLE_OPTIONS_INDEX_STEP,
-          // We want archives only, not platform installers.
-          BuildOptions.MAC_DMG_STEP,
+          // MAC_DMG_STEP is now enabled — ConchProperties supplies a
+          // dmgImagePath, and hdiutil is macOS-native. We only skip
+          // Windows's .exe installer, which needs NSIS or WiX and
+          // isn't appropriate for an unsigned local dev artifact.
           BuildOptions.WINDOWS_EXE_INSTALLER_STEP,
           // License-list generation requires every bundled third-party
           // library to have an entry in the platform's libraries list.

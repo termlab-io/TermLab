@@ -71,6 +71,19 @@ class ConchProperties(private val communityHomeDir: Path) : JetBrainsProductProp
     )
 
     productLayout.skipUnresolvedContentModules = true
+
+    // JVM-level encoding defaults. Java 18+ already picks UTF-8 for
+    // file.encoding, but Finder-launched Mac apps inherit a minimal
+    // launchd env that can confuse stdout/stderr encoding detection.
+    // Pin them so the terminal, log files, and any child process
+    // output are always decoded as UTF-8 regardless of how the app
+    // was launched. Deliberately NOT forcing user.language /
+    // user.country so non-US locales aren't overridden.
+    additionalVmOptions = persistentListOf(
+      "-Dfile.encoding=UTF-8",
+      "-Dstdout.encoding=UTF-8",
+      "-Dstderr.encoding=UTF-8",
+    )
   }
 
   override val baseFileName: String
@@ -142,8 +155,8 @@ class ConchProperties(private val communityHomeDir: Path) : JetBrainsProductProp
   override fun createWindowsCustomizer(projectHome: Path): WindowsDistributionCustomizer =
     windowsCustomizer(projectHome) {
       icoPath = "conch/customization/resources/conch.ico"
-      fullName { "Conch Terminal Workstation" }
-      fullNameAndVendor { "Conch Terminal Workstation" }
+      fullName { "Conch Workbench" }
+      fullNameAndVendor { "Conch Workbench" }
     }
 
   override fun createLinuxCustomizer(projectHome: String): LinuxDistributionCustomizer =
@@ -155,6 +168,11 @@ class ConchProperties(private val communityHomeDir: Path) : JetBrainsProductProp
     macCustomizer(projectHome) {
       icnsPath = "conch/customization/resources/conch.icns"
       bundleIdentifier = "com.conch.terminal"
+      // Multi-resolution TIFF (455x296 1x + 910x592 2x retina) with
+      // the Conch palette + "Drag to Applications" hint. Required for
+      // MAC_DMG_STEP — without it the DMG build fails with
+      // "Path to background image for DMG is not specified".
+      dmgImagePath = "conch/customization/resources/mac/dmg_background.tiff"
     }
 
   override fun getSystemSelector(appInfo: ApplicationInfoProperties, buildNumber: String): String {

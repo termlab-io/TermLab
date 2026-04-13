@@ -43,9 +43,22 @@ public final class LocalPtySessionProvider implements TerminalSessionProvider {
             }
 
             String rawArgs = normalize(settings.shellArguments);
+            List<String> parsedArgs = parseCommandArgs(rawArgs);
+
+            // Default to a login shell on Unix when the user hasn't
+            // specified arguments, so .zprofile / .bash_profile runs
+            // and seeds PATH / LANG / aliases — the same behavior
+            // Terminal.app, iTerm2, and Alacritty default to. Without
+            // this, a Finder-launched Conch gets launchd's stripped
+            // env (no Homebrew on PATH, no LANG, etc.) and the shell
+            // inside never gets a chance to fix it.
+            if (parsedArgs.isEmpty() && !SystemInfo.isWindows && isLoginCapableShell(shell)) {
+                parsedArgs = List.of("-l");
+            }
+
             List<String> command = new ArrayList<>();
             command.add(shell);
-            command.addAll(parseCommandArgs(rawArgs));
+            command.addAll(parsedArgs);
 
             String workDir = context.getWorkingDirectory();
             if (workDir == null) workDir = System.getProperty("user.home");
@@ -54,6 +67,7 @@ public final class LocalPtySessionProvider implements TerminalSessionProvider {
             env.put("TERM", "xterm-256color");
             env.put("COLORTERM", "truecolor");
             env.put("TERM_PROGRAM", "Conch");
+            applyFinderLaunchFallbacks(env);
 
             PtyProcess process = new PtyProcessBuilder()
                 .setCommand(command.toArray(String[]::new))
@@ -67,6 +81,110 @@ public final class LocalPtySessionProvider implements TerminalSessionProvider {
         } catch (IOException e) {
             throw new RuntimeException("Failed to start local PTY: " + e.getMessage(), e);
         }
+    }
+
+    /**
+     * Finder-launched macOS apps (and .desktop-launched Linux apps)
+     * inherit a minimal env from launchd / the desktop session: no
+     * {@code LANG}, no {@code LC_CTYPE}, and a PATH reduced to
+     * {@code /usr/bin:/bin:/usr/sbin:/sbin}. Terminal-launched runs
+     * inherit the user's full shell env. This method papers over the
+     * difference by filling in sensible defaults when something is
+     * missing, without clobbering anything the user has set.
+     *
+     * <ul>
+     *   <li><b>Locale:</b> default {@code LANG} / {@code LC_ALL} /
+     *     {@code LC_CTYPE} to {@code en_US.UTF-8} if absent. Matches
+     *     what Terminal.app does when its "Set locale environment
+     *     variables on startup" option is enabled (default on).</li>
+     *   <li><b>PATH:</b> on macOS, prepend the common user-install
+     *     directories (Homebrew x86 + Apple Silicon, ~/.local/bin,
+     *     ~/.cargo/bin) so `which brew`, `which git` etc. work even
+     *     before the login shell's profile runs. The user's
+     *     .zprofile / .bash_profile (which `-l` triggers) will then
+     *     further extend this.</li>
+     * </ul>
+     */
+    private static void applyFinderLaunchFallbacks(@NotNull Map<String, String> env) {
+        env.computeIfAbsent("LANG", k -> "en_US.UTF-8");
+        env.computeIfAbsent("LC_ALL", k -> env.getOrDefault("LANG", "en_US.UTF-8"));
+        env.computeIfAbsent("LC_CTYPE", k -> env.getOrDefault("LANG", "en_US.UTF-8"));
+
+        if (SystemInfo.isMac || SystemInfo.isLinux) {
+            String currentPath = env.getOrDefault("PATH", "");
+            String augmented = augmentPathWithUserBinDirs(currentPath);
+            if (!augmented.equals(currentPath)) {
+                env.put("PATH", augmented);
+            }
+        }
+    }
+
+    /**
+     * Prepend common user tool directories to {@code PATH} if they
+     * exist on disk and aren't already present. Only directories that
+     * actually exist are added, so this stays minimal for users who
+     * don't have Homebrew / Cargo installed.
+     */
+    private static @NotNull String augmentPathWithUserBinDirs(@NotNull String currentPath) {
+        String home = System.getProperty("user.home");
+        List<String> candidates = new ArrayList<>();
+        if (SystemInfo.isMac) {
+            // Apple Silicon Homebrew lives under /opt, Intel Homebrew
+            // under /usr/local. Both get checked; whichever exists
+            // gets added.
+            candidates.add("/opt/homebrew/bin");
+            candidates.add("/opt/homebrew/sbin");
+            candidates.add("/usr/local/bin");
+            candidates.add("/usr/local/sbin");
+        }
+        if (home != null) {
+            candidates.add(home + "/.local/bin");
+            candidates.add(home + "/.cargo/bin");
+        }
+
+        // Baseline POSIX paths, always safe to include.
+        candidates.add("/usr/bin");
+        candidates.add("/bin");
+        candidates.add("/usr/sbin");
+        candidates.add("/sbin");
+
+        StringBuilder prepended = new StringBuilder();
+        for (String dir : candidates) {
+            if (!Files.isDirectory(Path.of(dir))) continue;
+            if (pathContains(currentPath, dir)) continue;
+            if (prepended.length() > 0) prepended.append(':');
+            prepended.append(dir);
+        }
+
+        if (prepended.length() == 0) {
+            return currentPath;
+        }
+        if (currentPath.isEmpty()) {
+            return prepended.toString();
+        }
+        return prepended + ":" + currentPath;
+    }
+
+    private static boolean pathContains(@NotNull String pathVar, @NotNull String candidate) {
+        if (pathVar.isEmpty()) return false;
+        for (String entry : pathVar.split(":")) {
+            if (entry.equals(candidate)) return true;
+        }
+        return false;
+    }
+
+    /**
+     * True when the shell binary looks like one that understands the
+     * {@code -l} login flag. Covers bash, zsh, sh, fish, dash, tcsh,
+     * ksh. Excludes non-shell binaries and Windows cmd / PowerShell
+     * (neither of which accepts {@code -l}).
+     */
+    private static boolean isLoginCapableShell(@NotNull String shellPath) {
+        String name = Path.of(shellPath).getFileName().toString().toLowerCase();
+        return switch (name) {
+            case "bash", "zsh", "sh", "fish", "dash", "tcsh", "csh", "ksh" -> true;
+            default -> false;
+        };
     }
 
     private static @NotNull List<String> parseCommandArgs(@NotNull String raw) {
