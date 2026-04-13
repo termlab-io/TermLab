@@ -3,20 +3,13 @@ package com.conch.ssh.provider;
 import com.conch.sdk.TerminalSessionProvider;
 import com.conch.ssh.client.ConchServerKeyVerifier;
 import com.conch.ssh.client.ConchSshClient;
-import com.conch.ssh.client.KeyFileInspector;
 import com.conch.ssh.client.SshConnectException;
 import com.conch.ssh.client.SshConnection;
 import com.conch.ssh.client.SshResolvedCredential;
-import com.conch.ssh.credentials.SshCredentialPicker;
-import com.conch.ssh.credentials.SshCredentialResolver;
-import com.conch.ssh.model.HostStore;
-import com.conch.ssh.model.KeyFileAuth;
-import com.conch.ssh.model.PromptPasswordAuth;
+import com.conch.ssh.credentials.HostCredentialBundle;
 import com.conch.ssh.model.SshAuth;
 import com.conch.ssh.model.SshHost;
-import com.conch.ssh.model.VaultAuth;
 import com.conch.ssh.persistence.KnownHostsFile;
-import com.conch.ssh.ui.InlineCredentialPromptDialog;
 import com.intellij.icons.AllIcons;
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.diagnostic.Logger;
@@ -30,8 +23,6 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import javax.swing.*;
-import java.io.IOException;
-import java.nio.file.Path;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
@@ -111,7 +102,7 @@ public final class SshSessionProvider implements TerminalSessionProvider {
         }
         SshHost host = sshContext.host();
 
-        AuthSource source = authSourceFor(host);
+        HostCredentialBundle.AuthSource source = HostCredentialBundle.authSourceFor(host);
         SshResolvedCredential initial = source.fetch(host);
         if (initial == null) return null;
 
@@ -120,174 +111,9 @@ public final class SshSessionProvider implements TerminalSessionProvider {
         // prompt) rather than whatever happens to be in ~/.ssh/id_*.
         // The bastion credential lives for the entire connect (including
         // any target-auth retry) and is closed in connectWithRetry.
-        ResolvedBastion bastion = null;
-        if (host.proxyJump() != null && !host.proxyJump().isBlank()) {
-            bastion = resolveBastionForTarget(host);
-        }
+        ConchSshClient.BastionAuth bastion = HostCredentialBundle.resolveBastionFor(host);
 
         return connectWithRetry(host, initial, source, bastion);
-    }
-
-    /**
-     * Pair of {@link ConchSshClient.BastionAuth} plus the parsed
-     * bastion host/port, kept together so {@code connectWithRetry} can
-     * pass the auth to MINA and log useful diagnostics.
-     */
-    private record ResolvedBastion(
-        @NotNull ConchSshClient.BastionAuth auth,
-        @NotNull SshHost storedHost
-    ) {}
-
-    /**
-     * Resolve a bastion credential for the target host's {@code proxyJump}.
-     * Returns {@code null} when the bastion isn't in HostStore (fall
-     * back to client-level defaults), the user cancelled a prompt, or
-     * credential resolution otherwise failed — the caller then runs
-     * the existing behavior, which may still succeed if a default key
-     * happens to authenticate the bastion.
-     *
-     * <p>This runs on the EDT because credential sources may prompt
-     * (password dialog, key passphrase, vault picker). Do NOT move it
-     * inside the connect Task.Modal.
-     */
-    private @Nullable ResolvedBastion resolveBastionForTarget(@NotNull SshHost target) {
-        String proxyJump = target.proxyJump();
-        if (proxyJump == null) return null;
-
-        // proxyJump may be user@host[:port] or host[:port] or an alias.
-        // Strip any user@ prefix — we only use the host:port part to
-        // find the matching SshHost in HostStore.
-        String spec = proxyJump;
-        int at = spec.indexOf('@');
-        if (at > 0) spec = spec.substring(at + 1);
-
-        String bastionHost = spec;
-        int bastionPort = SshHost.DEFAULT_PORT;
-        int colon = spec.lastIndexOf(':');
-        if (colon > 0 && colon < spec.length() - 1) {
-            try {
-                bastionPort = Integer.parseInt(spec.substring(colon + 1));
-                bastionHost = spec.substring(0, colon);
-            } catch (NumberFormatException ignored) {
-                // not a port number; treat the whole spec as hostname
-            }
-        }
-
-        HostStore store = ApplicationManager.getApplication() == null
-            ? null
-            : ApplicationManager.getApplication().getService(HostStore.class);
-        if (store == null) return null;
-
-        SshHost stored = null;
-        for (SshHost candidate : store.getHosts()) {
-            if (candidate.host().equalsIgnoreCase(bastionHost)
-                && candidate.port() == bastionPort) {
-                stored = candidate;
-                break;
-            }
-        }
-        if (stored == null) {
-            LOG.info("Conch SSH: no HostStore entry for bastion "
-                + bastionHost + ":" + bastionPort
-                + " (proxy-jump will use ~/.ssh/id_* fallback)");
-            return null;
-        }
-
-        // Reuse the same AuthSource dispatch the target uses, so vault /
-        // keyfile / prompt auth all work identically for bastion hosts.
-        AuthSource bastionSource = authSourceFor(stored);
-        SshResolvedCredential bastionCred;
-        try {
-            bastionCred = bastionSource.fetch(stored);
-        } catch (Throwable t) {
-            LOG.warn("Conch SSH: failed to resolve bastion credential for "
-                + stored.host() + ":" + stored.port() + ": " + t.getMessage(), t);
-            return null;
-        }
-        if (bastionCred == null) {
-            LOG.info("Conch SSH: bastion credential resolution cancelled or failed for "
-                + stored.host() + ":" + stored.port()
-                + " (proxy-jump will use ~/.ssh/id_* fallback)");
-            return null;
-        }
-
-        ConchSshClient.BastionAuth auth = new ConchSshClient.BastionAuth(
-            stored.host(), stored.port(), bastionCred);
-        LOG.info("Conch SSH: resolved bastion credential "
-            + stored.host() + ":" + stored.port()
-            + " user=" + bastionCred.username()
-            + " mode=" + bastionCred.mode());
-        return new ResolvedBastion(auth, stored);
-    }
-
-    // -- dispatch -------------------------------------------------------------
-
-    /**
-     * Encapsulates "how to produce an {@link SshResolvedCredential} for
-     * this host", including the retry case after an auth failure. The
-     * three {@link SshAuth} variants map to three different sources —
-     * never cross-contaminate (e.g. a PromptPassword host should never
-     * trigger a vault picker on retry).
-     */
-    private interface AuthSource {
-        @Nullable SshResolvedCredential fetch(@NotNull SshHost host);
-    }
-
-    private @NotNull AuthSource authSourceFor(@NotNull SshHost host) {
-        SshCredentialResolver resolver = new SshCredentialResolver();
-        SshCredentialPicker picker = new SshCredentialPicker();
-
-        return switch (host.auth()) {
-            case VaultAuth v -> vaultSource(resolver, picker, v);
-            case PromptPasswordAuth p -> h -> promptPasswordSource(h);
-            case KeyFileAuth k -> h -> keyFileSource(h, k);
-        };
-    }
-
-    private static @NotNull AuthSource vaultSource(
-        @NotNull SshCredentialResolver resolver,
-        @NotNull SshCredentialPicker picker,
-        @NotNull VaultAuth vault
-    ) {
-        return host -> {
-            if (vault.credentialId() != null) {
-                SshResolvedCredential saved = resolver.resolve(vault.credentialId(), host.username());
-                if (saved != null) return saved;
-            }
-            return picker.pick(host);
-        };
-    }
-
-    private static @Nullable SshResolvedCredential promptPasswordSource(@NotNull SshHost host) {
-        char[] pw = InlineCredentialPromptDialog.promptPassword(null, host);
-        if (pw == null) return null;
-        return SshResolvedCredential.password(host.username(), pw);
-    }
-
-    private static @Nullable SshResolvedCredential keyFileSource(
-        @NotNull SshHost host,
-        @NotNull KeyFileAuth auth
-    ) {
-        Path keyPath = Path.of(auth.keyFilePath());
-
-        KeyFileInspector.Encryption encryption;
-        try {
-            encryption = KeyFileInspector.inspect(keyPath);
-        } catch (IOException e) {
-            Messages.showErrorDialog(
-                "Could not read SSH key file:\n" + keyPath + "\n\n" + e.getMessage(),
-                "SSH Key File Unreadable");
-            return null;
-        }
-
-        if (encryption == KeyFileInspector.Encryption.NONE) {
-            return SshResolvedCredential.key(host.username(), keyPath, null);
-        }
-
-        char[] passphrase = InlineCredentialPromptDialog.promptPassphrase(
-            null, host, auth.keyFilePath());
-        if (passphrase == null) return null;
-        return SshResolvedCredential.key(host.username(), keyPath, passphrase);
     }
 
     // -- connect loop ---------------------------------------------------------
@@ -295,8 +121,8 @@ public final class SshSessionProvider implements TerminalSessionProvider {
     private @Nullable TtyConnector connectWithRetry(
         @NotNull SshHost host,
         @NotNull SshResolvedCredential initialCredential,
-        @NotNull AuthSource source,
-        @Nullable ResolvedBastion bastion
+        @NotNull HostCredentialBundle.AuthSource source,
+        @Nullable ConchSshClient.BastionAuth bastion
     ) {
         ConchSshClient client = getClient();
         SshResolvedCredential current = initialCredential;
@@ -365,7 +191,7 @@ public final class SshSessionProvider implements TerminalSessionProvider {
             // it was resolved upstream in createSession and handed down
             // to us. Clear it once we're done, regardless of outcome.
             if (bastion != null) {
-                bastion.auth().credential().close();
+                bastion.credential().close();
             }
         }
     }
@@ -374,7 +200,7 @@ public final class SshSessionProvider implements TerminalSessionProvider {
         @NotNull ConchSshClient client,
         @NotNull SshHost host,
         @NotNull SshResolvedCredential credential,
-        @Nullable ResolvedBastion bastion
+        @Nullable ConchSshClient.BastionAuth bastion
     ) {
         ConnectOutcome outcome = new ConnectOutcome();
         LOG.info("Conch SSH: opening connect modal host=" + host.host() + ":" + host.port());
@@ -390,12 +216,10 @@ public final class SshSessionProvider implements TerminalSessionProvider {
 
                 AtomicReference<SshConnection> connectionRef = new AtomicReference<>();
                 AtomicReference<SshConnectException> failureRef = new AtomicReference<>();
-                ConchSshClient.BastionAuth bastionAuth =
-                    bastion == null ? null : bastion.auth();
                 Future<?> job = AppExecutorUtil.getAppExecutorService().submit(() -> {
                     try {
                         connectionRef.set(client.connect(
-                            host, credential, bastionAuth, new ConchServerKeyVerifier()));
+                            host, credential, bastion, new ConchServerKeyVerifier()));
                     } catch (SshConnectException e) {
                         failureRef.set(e);
                     } catch (Exception e) {

@@ -34,6 +34,7 @@ class ConchProperties(private val communityHomeDir: Path) : JetBrainsProductProp
       "intellij.conch.ssh",
       "intellij.conch.vault",
       "intellij.conch.tunnels",
+      "intellij.conch.sftp",
       "intellij.classic.ui",
       "intellij.sh.plugin",
       "intellij.textmate.plugin",

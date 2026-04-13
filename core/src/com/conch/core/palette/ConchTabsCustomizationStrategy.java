@@ -26,7 +26,8 @@ public final class ConchTabsCustomizationStrategy implements TabsCustomizationSt
         "ConchTerminals",
         "ConchHosts",
         "ConchVault",
-        "ConchTunnels"
+        "ConchTunnels",
+        "ConchSftp"
     );
 
     @Override

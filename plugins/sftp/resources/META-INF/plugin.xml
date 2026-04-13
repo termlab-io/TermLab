@@ -1,0 +1,50 @@
+<idea-plugin>
+    <id>com.conch.sftp</id>
+    <name>Conch SFTP</name>
+    <version>0.1.0</version>
+    <vendor>Conch</vendor>
+    <description>
+        Dual-pane SFTP browser for Conch Workbench. Browse local files
+        alongside a remote SSH host's filesystem, reusing Conch's existing
+        SSH host credentials (vault / keyfile / prompt), proxy-jump, and
+        host-key verifier.
+    </description>
+
+    <depends>com.intellij.modules.platform</depends>
+    <depends>com.conch.core</depends>
+    <depends>com.conch.ssh</depends>
+
+    <extensions defaultExtensionNs="com.intellij">
+        <notificationGroup
+            id="Conch SFTP"
+            displayType="BALLOON"
+            toolWindowId="Conch SFTP"/>
+
+        <applicationService
+            serviceImplementation="com.conch.sftp.persistence.ConchSftpConfig"/>
+
+        <toolWindow
+            id="Conch SFTP"
+            anchor="bottom"
+            icon="AllIcons.Nodes.ExtractedFolder"
+            factoryClass="com.conch.sftp.toolwindow.SftpToolWindowFactory"/>
+
+        <searchEverywhereContributor
+            implementation="com.conch.sftp.palette.SftpSearchEverywhereContributor$Factory"/>
+    </extensions>
+
+    <actions>
+        <!--
+          "New SFTP Session…" — Cmd+Shift+K on macOS, Ctrl+Shift+K on
+          Linux/Windows. Mirrors the SSH plugin's Cmd+K popup: pick a
+          saved host, open the SFTP tool window, connect on select.
+        -->
+        <action id="Conch.NewSftpSession"
+                class="com.conch.sftp.actions.NewSftpSessionAction"
+                text="New SFTP Session…"
+                description="Open the host picker and start a new SFTP session">
+            <keyboard-shortcut keymap="$default" first-keystroke="meta shift K"/>
+            <keyboard-shortcut keymap="$default" first-keystroke="ctrl shift K"/>
+        </action>
+    </actions>
+</idea-plugin>
