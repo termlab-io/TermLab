@@ -359,6 +359,7 @@ public final class HostEditDialog extends DialogWrapper {
         vaultRadio.addActionListener(e -> updateEnablement());
         promptRadio.addActionListener(e -> updateEnablement());
         keyFileRadio.addActionListener(e -> updateEnablement());
+        credentialCombo.addActionListener(e -> updateEnablement());
 
         noProxyRadio.addActionListener(e -> updateEnablement());
         proxyCommandRadio.addActionListener(e -> updateEnablement());
@@ -437,6 +438,30 @@ public final class HostEditDialog extends DialogWrapper {
         proxyJumpCombo.setEnabled(proxyJumpRadio.isSelected());
 
         advancedBody.setVisible(advancedToggle.isSelected());
+
+        // Leave the username field enabled so the user can still type
+        // an override, but update the tooltip to hint that it's
+        // optional when a vault credential will supply one.
+        usernameField.setToolTipText(vaultCredentialSuppliesUsername()
+            ? "Optional — the selected vault credential supplies the username."
+            : "Required — used to log in (or as a fallback for standalone SSH keys).");
+    }
+
+    /**
+     * True when the currently-selected auth path is guaranteed to carry
+     * its own username, so the host's username field can be left blank.
+     *
+     * <p>Only a concrete account-style vault credential qualifies. The
+     * {@code <no credential>} entry triggers a picker at connect time
+     * that may still return a standalone key needing a fallback
+     * username, so we conservatively keep the field required then.
+     */
+    private boolean vaultCredentialSuppliesUsername() {
+        if (!vaultRadio.isSelected()) return false;
+        CredentialEntry selected = (CredentialEntry) credentialCombo.getSelectedItem();
+        if (selected == null || selected.id() == null) return false;
+        CredentialProvider.Kind kind = selected.kind();
+        return kind != null && kind != CredentialProvider.Kind.SSH_KEY;
     }
 
     @Override
@@ -452,8 +477,14 @@ public final class HostEditDialog extends DialogWrapper {
         if (hostField.getText().trim().isEmpty()) {
             return new ValidationInfo("Host is required", hostField);
         }
-        if (usernameField.getText().trim().isEmpty()) {
-            return new ValidationInfo("Username is required", usernameField);
+        // Username is required UNLESS the user picked a vault credential
+        // that carries its own username (all ACCOUNT_* kinds do — only
+        // standalone SSH_KEY credentials and the <no credential> entry
+        // still need a fallback username on the host).
+        if (usernameField.getText().trim().isEmpty() && !vaultCredentialSuppliesUsername()) {
+            return new ValidationInfo(
+                "Username is required (unless the selected vault credential provides one)",
+                usernameField);
         }
         if (keyFileRadio.isSelected()) {
             String path = keyPathField.getText().trim();
@@ -558,6 +589,7 @@ public final class HostEditDialog extends DialogWrapper {
 
         @Nullable UUID id() { return id; }
         @NotNull String label() { return label; }
+        @Nullable CredentialProvider.Kind kind() { return kind; }
         boolean matches(@NotNull UUID other) { return Objects.equals(id, other); }
 
         @Override public String toString() { return label; }

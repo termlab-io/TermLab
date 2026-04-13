@@ -9,6 +9,7 @@ import com.conch.ssh.client.SshConnection;
 import com.conch.ssh.client.SshResolvedCredential;
 import com.conch.ssh.credentials.SshCredentialPicker;
 import com.conch.ssh.credentials.SshCredentialResolver;
+import com.conch.ssh.model.HostStore;
 import com.conch.ssh.model.KeyFileAuth;
 import com.conch.ssh.model.PromptPasswordAuth;
 import com.conch.ssh.model.SshAuth;
@@ -114,7 +115,109 @@ public final class SshSessionProvider implements TerminalSessionProvider {
         SshResolvedCredential initial = source.fetch(host);
         if (initial == null) return null;
 
-        return connectWithRetry(host, initial, source);
+        // Resolve bastion credentials up front so proxy-jump auth uses
+        // the bastion's own configured credentials (vault, key file,
+        // prompt) rather than whatever happens to be in ~/.ssh/id_*.
+        // The bastion credential lives for the entire connect (including
+        // any target-auth retry) and is closed in connectWithRetry.
+        ResolvedBastion bastion = null;
+        if (host.proxyJump() != null && !host.proxyJump().isBlank()) {
+            bastion = resolveBastionForTarget(host);
+        }
+
+        return connectWithRetry(host, initial, source, bastion);
+    }
+
+    /**
+     * Pair of {@link ConchSshClient.BastionAuth} plus the parsed
+     * bastion host/port, kept together so {@code connectWithRetry} can
+     * pass the auth to MINA and log useful diagnostics.
+     */
+    private record ResolvedBastion(
+        @NotNull ConchSshClient.BastionAuth auth,
+        @NotNull SshHost storedHost
+    ) {}
+
+    /**
+     * Resolve a bastion credential for the target host's {@code proxyJump}.
+     * Returns {@code null} when the bastion isn't in HostStore (fall
+     * back to client-level defaults), the user cancelled a prompt, or
+     * credential resolution otherwise failed — the caller then runs
+     * the existing behavior, which may still succeed if a default key
+     * happens to authenticate the bastion.
+     *
+     * <p>This runs on the EDT because credential sources may prompt
+     * (password dialog, key passphrase, vault picker). Do NOT move it
+     * inside the connect Task.Modal.
+     */
+    private @Nullable ResolvedBastion resolveBastionForTarget(@NotNull SshHost target) {
+        String proxyJump = target.proxyJump();
+        if (proxyJump == null) return null;
+
+        // proxyJump may be user@host[:port] or host[:port] or an alias.
+        // Strip any user@ prefix — we only use the host:port part to
+        // find the matching SshHost in HostStore.
+        String spec = proxyJump;
+        int at = spec.indexOf('@');
+        if (at > 0) spec = spec.substring(at + 1);
+
+        String bastionHost = spec;
+        int bastionPort = SshHost.DEFAULT_PORT;
+        int colon = spec.lastIndexOf(':');
+        if (colon > 0 && colon < spec.length() - 1) {
+            try {
+                bastionPort = Integer.parseInt(spec.substring(colon + 1));
+                bastionHost = spec.substring(0, colon);
+            } catch (NumberFormatException ignored) {
+                // not a port number; treat the whole spec as hostname
+            }
+        }
+
+        HostStore store = ApplicationManager.getApplication() == null
+            ? null
+            : ApplicationManager.getApplication().getService(HostStore.class);
+        if (store == null) return null;
+
+        SshHost stored = null;
+        for (SshHost candidate : store.getHosts()) {
+            if (candidate.host().equalsIgnoreCase(bastionHost)
+                && candidate.port() == bastionPort) {
+                stored = candidate;
+                break;
+            }
+        }
+        if (stored == null) {
+            LOG.info("Conch SSH: no HostStore entry for bastion "
+                + bastionHost + ":" + bastionPort
+                + " (proxy-jump will use ~/.ssh/id_* fallback)");
+            return null;
+        }
+
+        // Reuse the same AuthSource dispatch the target uses, so vault /
+        // keyfile / prompt auth all work identically for bastion hosts.
+        AuthSource bastionSource = authSourceFor(stored);
+        SshResolvedCredential bastionCred;
+        try {
+            bastionCred = bastionSource.fetch(stored);
+        } catch (Throwable t) {
+            LOG.warn("Conch SSH: failed to resolve bastion credential for "
+                + stored.host() + ":" + stored.port() + ": " + t.getMessage(), t);
+            return null;
+        }
+        if (bastionCred == null) {
+            LOG.info("Conch SSH: bastion credential resolution cancelled or failed for "
+                + stored.host() + ":" + stored.port()
+                + " (proxy-jump will use ~/.ssh/id_* fallback)");
+            return null;
+        }
+
+        ConchSshClient.BastionAuth auth = new ConchSshClient.BastionAuth(
+            stored.host(), stored.port(), bastionCred);
+        LOG.info("Conch SSH: resolved bastion credential "
+            + stored.host() + ":" + stored.port()
+            + " user=" + bastionCred.username()
+            + " mode=" + bastionCred.mode());
+        return new ResolvedBastion(auth, stored);
     }
 
     // -- dispatch -------------------------------------------------------------
@@ -192,75 +295,86 @@ public final class SshSessionProvider implements TerminalSessionProvider {
     private @Nullable TtyConnector connectWithRetry(
         @NotNull SshHost host,
         @NotNull SshResolvedCredential initialCredential,
-        @NotNull AuthSource source
+        @NotNull AuthSource source,
+        @Nullable ResolvedBastion bastion
     ) {
         ConchSshClient client = getClient();
         SshResolvedCredential current = initialCredential;
         int attemptsLeft = 2;  // initial + one retry after AUTH_FAILED
 
-        while (attemptsLeft > 0) {
-            attemptsLeft--;
-            ConnectOutcome outcome = runConnect(client, host, current);
+        try {
+            while (attemptsLeft > 0) {
+                attemptsLeft--;
+                ConnectOutcome outcome = runConnect(client, host, current, bastion);
 
-            if (outcome.connection != null) {
+                if (outcome.connection != null) {
+                    current.close();
+                    return outcome.connection.getTtyConnector();
+                }
+
                 current.close();
-                return outcome.connection.getTtyConnector();
-            }
 
-            current.close();
+                if (outcome.cancelled) return null;
 
-            if (outcome.cancelled) return null;
+                if (outcome.failure == null) return null;  // user cancelled mid-connect
 
-            if (outcome.failure == null) return null;  // user cancelled mid-connect
+                SshConnectException.Kind kind = outcome.failure.kind();
+                if (kind == SshConnectException.Kind.AUTH_FAILED && attemptsLeft > 0) {
+                    SshResolvedCredential retry = source.fetch(host);
+                    if (retry == null) return null;
+                    current = retry;
+                    continue;
+                }
 
-            SshConnectException.Kind kind = outcome.failure.kind();
-            if (kind == SshConnectException.Kind.AUTH_FAILED && attemptsLeft > 0) {
-                SshResolvedCredential retry = source.fetch(host);
-                if (retry == null) return null;
-                current = retry;
-                continue;
-            }
+                if (kind == SshConnectException.Kind.HOST_KEY_REJECTED) {
+                    Messages.showErrorDialog(
+                        "Host key mismatch for " + host.host() + ":" + host.port() + ".\n\n"
+                            + "The remote host presented a different key than the one Conch "
+                            + "has on file. This may mean someone is intercepting your "
+                            + "connection (man-in-the-middle attack).\n\n"
+                            + "If the key legitimately changed, remove the entry from "
+                            + "~/.config/conch/known_hosts manually and try again.",
+                        "Host Key Rejected");
+                    return null;
+                }
 
-            if (kind == SshConnectException.Kind.HOST_KEY_REJECTED) {
+                if (kind == SshConnectException.Kind.HOST_UNREACHABLE) {
+                    Messages.showErrorDialog(
+                        "Could not reach " + host.host() + ":" + host.port() + ":\n"
+                            + outcome.failure.getMessage(),
+                        "SSH Connection Failed");
+                    return null;
+                }
+
+                if (kind == SshConnectException.Kind.INVALID_PROXY_CONFIG) {
+                    Messages.showErrorDialog(
+                        outcome.failure.getMessage(),
+                        "Invalid SSH Proxy Configuration");
+                    return null;
+                }
+
                 Messages.showErrorDialog(
-                    "Host key mismatch for " + host.host() + ":" + host.port() + ".\n\n"
-                        + "The remote host presented a different key than the one Conch "
-                        + "has on file. This may mean someone is intercepting your "
-                        + "connection (man-in-the-middle attack).\n\n"
-                        + "If the key legitimately changed, remove the entry from "
-                        + "~/.config/conch/known_hosts manually and try again.",
-                    "Host Key Rejected");
-                return null;
-            }
-
-            if (kind == SshConnectException.Kind.HOST_UNREACHABLE) {
-                Messages.showErrorDialog(
-                    "Could not reach " + host.host() + ":" + host.port() + ":\n"
-                        + outcome.failure.getMessage(),
+                    "SSH connection failed: " + outcome.failure.getMessage(),
                     "SSH Connection Failed");
                 return null;
             }
 
-            if (kind == SshConnectException.Kind.INVALID_PROXY_CONFIG) {
-                Messages.showErrorDialog(
-                    outcome.failure.getMessage(),
-                    "Invalid SSH Proxy Configuration");
-                return null;
-            }
-
-            Messages.showErrorDialog(
-                "SSH connection failed: " + outcome.failure.getMessage(),
-                "SSH Connection Failed");
             return null;
+        } finally {
+            // Bastion credential lives only for this connect cycle —
+            // it was resolved upstream in createSession and handed down
+            // to us. Clear it once we're done, regardless of outcome.
+            if (bastion != null) {
+                bastion.auth().credential().close();
+            }
         }
-
-        return null;
     }
 
     private @NotNull ConnectOutcome runConnect(
         @NotNull ConchSshClient client,
         @NotNull SshHost host,
-        @NotNull SshResolvedCredential credential
+        @NotNull SshResolvedCredential credential,
+        @Nullable ResolvedBastion bastion
     ) {
         ConnectOutcome outcome = new ConnectOutcome();
         LOG.info("Conch SSH: opening connect modal host=" + host.host() + ":" + host.port());
@@ -276,10 +390,12 @@ public final class SshSessionProvider implements TerminalSessionProvider {
 
                 AtomicReference<SshConnection> connectionRef = new AtomicReference<>();
                 AtomicReference<SshConnectException> failureRef = new AtomicReference<>();
+                ConchSshClient.BastionAuth bastionAuth =
+                    bastion == null ? null : bastion.auth();
                 Future<?> job = AppExecutorUtil.getAppExecutorService().submit(() -> {
                     try {
                         connectionRef.set(client.connect(
-                            host, credential, new ConchServerKeyVerifier()));
+                            host, credential, bastionAuth, new ConchServerKeyVerifier()));
                     } catch (SshConnectException e) {
                         failureRef.set(e);
                     } catch (Exception e) {

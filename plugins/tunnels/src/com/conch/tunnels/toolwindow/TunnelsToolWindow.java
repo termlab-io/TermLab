@@ -224,59 +224,135 @@ public final class TunnelsToolWindow extends JPanel {
         SshResolvedCredential initialCredential = resolveCredential(host);
         if (initialCredential == null) return;
 
+        // Resolve bastion credentials upfront for proxy-jump tunnels so
+        // MINA can auth the bastion with its own configured credential
+        // rather than falling back to ~/.ssh/id_* client-level keys.
+        // Mirrors SshSessionProvider.resolveBastionForTarget.
+        ConchSshClient.BastionAuth bastionAuth = null;
+        if (host.proxyJump() != null && !host.proxyJump().isBlank()) {
+            bastionAuth = resolveBastionAuthForTarget(host);
+        }
+
         ConchSshClient client = getClient();
         int attemptsLeft = 2;
         SshResolvedCredential current = initialCredential;
 
-        while (attemptsLeft > 0) {
-            attemptsLeft--;
-            ConnectOutcome outcome = runConnectModal(client, tunnel, host, current);
+        try {
+            while (attemptsLeft > 0) {
+                attemptsLeft--;
+                ConnectOutcome outcome = runConnectModal(client, tunnel, host, current, bastionAuth);
 
-            if (outcome.session != null) {
-                current.close();
-                // Hand the authenticated session to the connection manager
-                try {
-                    connectionManager.connect(tunnel, outcome.session);
-                } catch (IOException e) {
-                    Messages.showErrorDialog(project,
-                        "Failed to start port forwarding:\n" + e.getMessage(),
-                        "Tunnel Error");
+                if (outcome.session != null) {
+                    current.close();
+                    // Hand the authenticated session to the connection manager
+                    try {
+                        connectionManager.connect(tunnel, outcome.session);
+                    } catch (IOException e) {
+                        Messages.showErrorDialog(project,
+                            "Failed to start port forwarding:\n" + e.getMessage(),
+                            "Tunnel Error");
+                    }
+                    refreshFromStore();
+                    return;
                 }
-                refreshFromStore();
-                return;
-            }
 
-            current.close();
+                current.close();
 
-            if (outcome.cancelled) return;
-            if (outcome.failure == null) return;
+                if (outcome.cancelled) return;
+                if (outcome.failure == null) return;
 
-            SshConnectException.Kind kind = outcome.failure.kind();
+                SshConnectException.Kind kind = outcome.failure.kind();
 
-            if (kind == SshConnectException.Kind.AUTH_FAILED && attemptsLeft > 0) {
-                SshResolvedCredential retry = resolveCredential(host);
-                if (retry == null) return;
-                current = retry;
-                continue;
-            }
+                if (kind == SshConnectException.Kind.AUTH_FAILED && attemptsLeft > 0) {
+                    SshResolvedCredential retry = resolveCredential(host);
+                    if (retry == null) return;
+                    current = retry;
+                    continue;
+                }
 
-            if (kind == SshConnectException.Kind.HOST_KEY_REJECTED) {
+                if (kind == SshConnectException.Kind.HOST_KEY_REJECTED) {
+                    Messages.showErrorDialog(project,
+                        "Host key mismatch for " + host.host() + ":" + host.port() + ".\n\n"
+                            + "The remote host presented a different key than the one Conch "
+                            + "has on file. This may mean someone is intercepting your "
+                            + "connection (man-in-the-middle attack).\n\n"
+                            + "If the key legitimately changed, remove the entry from "
+                            + "~/.config/conch/known_hosts manually and try again.",
+                        "Host Key Rejected");
+                    return;
+                }
+
                 Messages.showErrorDialog(project,
-                    "Host key mismatch for " + host.host() + ":" + host.port() + ".\n\n"
-                        + "The remote host presented a different key than the one Conch "
-                        + "has on file. This may mean someone is intercepting your "
-                        + "connection (man-in-the-middle attack).\n\n"
-                        + "If the key legitimately changed, remove the entry from "
-                        + "~/.config/conch/known_hosts manually and try again.",
-                    "Host Key Rejected");
+                    "SSH tunnel connection failed:\n" + outcome.failure.getMessage(),
+                    "Tunnel Connection Failed");
                 return;
             }
-
-            Messages.showErrorDialog(project,
-                "SSH tunnel connection failed:\n" + outcome.failure.getMessage(),
-                "Tunnel Connection Failed");
-            return;
+        } finally {
+            if (bastionAuth != null) {
+                bastionAuth.credential().close();
+            }
         }
+    }
+
+    /**
+     * Look up the bastion host in {@link HostStore} and resolve its
+     * credentials via the same dispatch as the tunnel's target host.
+     * Returns {@code null} if the bastion isn't in the store, the user
+     * cancelled a credential prompt, or resolution failed.
+     */
+    private @Nullable ConchSshClient.BastionAuth resolveBastionAuthForTarget(
+        @NotNull SshHost target
+    ) {
+        String proxyJump = target.proxyJump();
+        if (proxyJump == null) return null;
+
+        String spec = proxyJump;
+        int at = spec.indexOf('@');
+        if (at > 0) spec = spec.substring(at + 1);
+
+        String bastionHost = spec;
+        int bastionPort = SshHost.DEFAULT_PORT;
+        int colon = spec.lastIndexOf(':');
+        if (colon > 0 && colon < spec.length() - 1) {
+            try {
+                bastionPort = Integer.parseInt(spec.substring(colon + 1));
+                bastionHost = spec.substring(0, colon);
+            } catch (NumberFormatException ignored) {
+                // not a port number
+            }
+        }
+
+        HostStore store = ApplicationManager.getApplication() == null
+            ? null
+            : ApplicationManager.getApplication().getService(HostStore.class);
+        if (store == null) return null;
+
+        SshHost stored = null;
+        for (SshHost candidate : store.getHosts()) {
+            if (candidate.host().equalsIgnoreCase(bastionHost)
+                && candidate.port() == bastionPort) {
+                stored = candidate;
+                break;
+            }
+        }
+        if (stored == null) {
+            LOG.info("Conch tunnel: no HostStore entry for bastion "
+                + bastionHost + ":" + bastionPort
+                + " (proxy-jump will use ~/.ssh/id_* fallback)");
+            return null;
+        }
+
+        SshResolvedCredential cred = resolveCredential(stored);
+        if (cred == null) {
+            LOG.info("Conch tunnel: bastion credential resolution cancelled or failed for "
+                + stored.host() + ":" + stored.port());
+            return null;
+        }
+
+        LOG.info("Conch tunnel: resolved bastion credential "
+            + stored.host() + ":" + stored.port()
+            + " user=" + cred.username() + " mode=" + cred.mode());
+        return new ConchSshClient.BastionAuth(stored.host(), stored.port(), cred);
     }
 
     /**
@@ -361,7 +437,8 @@ public final class TunnelsToolWindow extends JPanel {
         @NotNull ConchSshClient client,
         @NotNull SshTunnel tunnel,
         @NotNull SshHost host,
-        @NotNull SshResolvedCredential credential
+        @NotNull SshResolvedCredential credential,
+        @Nullable ConchSshClient.BastionAuth bastionAuth
     ) {
         ConnectOutcome outcome = new ConnectOutcome();
         String title = "Connecting to " + host.label()
@@ -376,7 +453,7 @@ public final class TunnelsToolWindow extends JPanel {
                 AtomicReference<SshConnectException> failureRef = new AtomicReference<>();
                 Future<?> job = AppExecutorUtil.getAppExecutorService().submit(() -> {
                     try {
-                        sessionRef.set(client.connectSession(host, credential,
+                        sessionRef.set(client.connectSession(host, credential, bastionAuth,
                             new ConchServerKeyVerifier()));
                     } catch (SshConnectException e) {
                         failureRef.set(e);
