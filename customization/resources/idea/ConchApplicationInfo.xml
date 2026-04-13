@@ -4,7 +4,7 @@
   <build number="CN-__BUILD__" date="__BUILD_DATE__"/>
   <logo url="/conch_logo.png"/>
   <icon svg="/conch-icon.svg" svg-small="/conch-icon_16.svg"/>
-  <names product="Conch" fullname="Conch Terminal Workstation" script="conch"
+  <names product="Conch" fullname="Conch Workbench" script="conch"
          motto="Terminal-Driven Workstation"/>
   <!--
     Product default LaF. LafManagerImpl reads `dark-classic` via

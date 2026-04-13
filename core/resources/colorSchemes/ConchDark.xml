@@ -28,7 +28,7 @@
 <scheme name="Conch Dark" parent_scheme="Darcula" version="1">
   <metaInfo>
     <property name="created">2026-04-13T12:00:00</property>
-    <property name="ide">Conch Terminal Workstation</property>
+    <property name="ide">Conch Workbench</property>
     <property name="ideVersion">262.SNAPSHOT</property>
     <property name="originalScheme">Conch Dark</property>
   </metaInfo>

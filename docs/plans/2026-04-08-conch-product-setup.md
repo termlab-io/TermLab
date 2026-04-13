@@ -234,7 +234,7 @@ git commit -m "feat(conch): add module definitions and directory structure"
   <version major="0" minor="1"/>
   <company name="Conch" url="https://github.com/conch"/>
   <build number="CN-__BUILD__" date="__BUILD_DATE__"/>
-  <names product="Conch" fullname="Conch Terminal Workstation" script="conch"
+  <names product="Conch" fullname="Conch Workbench" script="conch"
          motto="Terminal-Driven Workstation"/>
   <essential-plugin>com.conch.core</essential-plugin>
   <essential-plugin>com.intellij.modules.json</essential-plugin>

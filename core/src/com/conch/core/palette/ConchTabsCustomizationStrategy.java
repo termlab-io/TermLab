@@ -10,7 +10,7 @@ import java.util.Set;
 /**
  * Limits Search Everywhere tabs to only Actions and Terminals.
  * Hides the Classes, Files, Symbols, Text, and other tabs that are
- * irrelevant to the Conch terminal workstation.
+ * irrelevant to the Conch Workbench.
  */
 public final class ConchTabsCustomizationStrategy implements TabsCustomizationStrategy {
 

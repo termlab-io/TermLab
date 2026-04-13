@@ -1,4 +1,4 @@
-# Conch Terminal Workstation — Build & Run
+# Conch Workbench — Build & Run
 #
 # This Makefile lives at the root of conch_workbench. After running setup.sh,
 # the workbench is symlinked into intellij-community/conch, so running `make`
