@@ -1,0 +1,200 @@
+<!--
+  Conch Dark editor color scheme.
+
+  Inherits Darcula for all syntax highlighting, then retargets the
+  editor backgrounds, selection, and the full 16-color console/ANSI
+  palette to the Conch brand palette. The Conch plugin.xml registers
+  this via `bundledColorScheme`, and Conch.theme.json references it as
+  its editor scheme so it gets applied when the Conch Dark UI theme is
+  active.
+
+  The 16 ANSI keys (CONSOLE_*_OUTPUT) are what drives terminal color in
+  Conch — ConchTerminalSettings.java reads them via the global editor
+  scheme at runtime. Without this file, the Conch terminal inherits
+  Darcula's default ANSI palette, which is washed-out and not great for
+  a terminal-first workstation.
+
+  Palette:
+    ConchBg1 #06090D  ConchBg5 #111823
+    ConchBg2 #080B10  ConchBg6 #131B27
+    ConchBg3 #0D131B  ConchBg7 #17202C
+    ConchBg4 #101720  ConchBg8 #1A2432
+    ConchText1 #D7E4F8 (foreground)
+    ConchText2 #E9F1FF (bright accent)
+
+  ANSI: One Dark-inspired accents (red/green/yellow/blue/magenta/cyan)
+  with Conch backgrounds for ANSI 0 (black) and ANSI 7/15 (white).
+-->
+<scheme name="Conch Dark" parent_scheme="Darcula" version="1">
+  <metaInfo>
+    <property name="created">2026-04-13T12:00:00</property>
+    <property name="ide">Conch Terminal Workstation</property>
+    <property name="ideVersion">262.SNAPSHOT</property>
+    <property name="originalScheme">Conch Dark</property>
+  </metaInfo>
+
+  <colors>
+    <!-- Editor + terminal background -->
+    <option name="CARET_COLOR" value="E9F1FF" />
+    <option name="CARET_ROW_COLOR" value="0D131B" />
+    <option name="CONSOLE_BACKGROUND_KEY" value="080B10" />
+    <option name="GUTTER_BACKGROUND" value="06090D" />
+    <option name="INDENT_GUIDE" value="131B27" />
+    <option name="SELECTED_INDENT_GUIDE" value="1A2432" />
+    <option name="LINE_NUMBERS_COLOR" value="4C6B8F" />
+    <option name="SELECTION_BACKGROUND" value="1A2432" />
+    <option name="SELECTION_FOREGROUND" value="E9F1FF" />
+    <option name="RIGHT_MARGIN_COLOR" value="131B27" />
+    <option name="WHITESPACES" value="1A2432" />
+    <option name="VISUAL_INDENT_GUIDE" value="131B27" />
+    <option name="TEARLINE_COLOR" value="131B27" />
+  </colors>
+
+  <attributes>
+    <!-- Normal body text (editor + terminal default foreground) -->
+    <option name="TEXT">
+      <value>
+        <option name="FOREGROUND" value="D7E4F8" />
+        <option name="BACKGROUND" value="080B10" />
+      </value>
+    </option>
+
+    <!--
+         ANSI 16-color terminal palette.
+
+         Indices 0 through 7 are the standard ANSI colors, 8 through 15
+         are the bright variants. One Dark-inspired accents so red,
+         green, yellow, blue, magenta, and cyan all look similar to the
+         One Dark palette the user is used to, but ANSI 0 (black) and
+         7 / 15 (white) are pulled to the Conch palette so `ls`, shell
+         prompts, tmux status lines, etc. all sit cleanly on the Conch
+         background.
+      -->
+
+    <!-- 0 BLACK -->
+    <option name="CONSOLE_BLACK_OUTPUT">
+      <value>
+        <option name="FOREGROUND" value="06090D" />
+      </value>
+    </option>
+    <!-- 1 RED -->
+    <option name="CONSOLE_RED_OUTPUT">
+      <value>
+        <option name="FOREGROUND" value="E06C75" />
+      </value>
+    </option>
+    <!-- 2 GREEN -->
+    <option name="CONSOLE_GREEN_OUTPUT">
+      <value>
+        <option name="FOREGROUND" value="98C379" />
+      </value>
+    </option>
+    <!-- 3 YELLOW -->
+    <option name="CONSOLE_YELLOW_OUTPUT">
+      <value>
+        <option name="FOREGROUND" value="E5C07B" />
+      </value>
+    </option>
+    <!-- 4 BLUE -->
+    <option name="CONSOLE_BLUE_OUTPUT">
+      <value>
+        <option name="FOREGROUND" value="61AFEF" />
+      </value>
+    </option>
+    <!-- 5 MAGENTA -->
+    <option name="CONSOLE_MAGENTA_OUTPUT">
+      <value>
+        <option name="FOREGROUND" value="C678DD" />
+      </value>
+    </option>
+    <!-- 6 CYAN -->
+    <option name="CONSOLE_CYAN_OUTPUT">
+      <value>
+        <option name="FOREGROUND" value="56B6C2" />
+      </value>
+    </option>
+    <!-- 7 GRAY (ISO "white") -->
+    <option name="CONSOLE_GRAY_OUTPUT">
+      <value>
+        <option name="FOREGROUND" value="ABB2BF" />
+      </value>
+    </option>
+
+    <!-- 8 DARKGRAY (bright black) -->
+    <option name="CONSOLE_DARKGRAY_OUTPUT">
+      <value>
+        <option name="FOREGROUND" value="5C6370" />
+      </value>
+    </option>
+    <!-- 9 BRIGHT RED -->
+    <option name="CONSOLE_RED_BRIGHT_OUTPUT">
+      <value>
+        <option name="FOREGROUND" value="E89299" />
+      </value>
+    </option>
+    <!-- 10 BRIGHT GREEN -->
+    <option name="CONSOLE_GREEN_BRIGHT_OUTPUT">
+      <value>
+        <option name="FOREGROUND" value="B5D99C" />
+      </value>
+    </option>
+    <!-- 11 BRIGHT YELLOW -->
+    <option name="CONSOLE_YELLOW_BRIGHT_OUTPUT">
+      <value>
+        <option name="FOREGROUND" value="EED49A" />
+      </value>
+    </option>
+    <!-- 12 BRIGHT BLUE -->
+    <option name="CONSOLE_BLUE_BRIGHT_OUTPUT">
+      <value>
+        <option name="FOREGROUND" value="82C1F5" />
+      </value>
+    </option>
+    <!-- 13 BRIGHT MAGENTA -->
+    <option name="CONSOLE_MAGENTA_BRIGHT_OUTPUT">
+      <value>
+        <option name="FOREGROUND" value="D497E4" />
+      </value>
+    </option>
+    <!-- 14 BRIGHT CYAN -->
+    <option name="CONSOLE_CYAN_BRIGHT_OUTPUT">
+      <value>
+        <option name="FOREGROUND" value="7BC7D0" />
+      </value>
+    </option>
+    <!-- 15 WHITE (ISO bright white) -->
+    <option name="CONSOLE_WHITE_OUTPUT">
+      <value>
+        <option name="FOREGROUND" value="D7E4F8" />
+      </value>
+    </option>
+
+    <!--
+         Semantic console / run-tool output types. Not directly used by
+         the terminal ANSI palette above, but keeps the Run tool
+         window, build logs, and any ConsoleViewImpl-rendered output on
+         the Conch palette too.
+      -->
+    <option name="CONSOLE_NORMAL_OUTPUT">
+      <value>
+        <option name="FOREGROUND" value="D7E4F8" />
+      </value>
+    </option>
+    <option name="CONSOLE_SYSTEM_OUTPUT">
+      <value>
+        <option name="FOREGROUND" value="56B6C2" />
+      </value>
+    </option>
+    <option name="CONSOLE_USER_INPUT">
+      <value>
+        <option name="FOREGROUND" value="98C379" />
+        <option name="FONT_TYPE" value="2" />
+      </value>
+    </option>
+    <option name="CONSOLE_ERROR_OUTPUT">
+      <value>
+        <option name="FOREGROUND" value="E06C75" />
+      </value>
+    </option>
+  </attributes>
+</scheme>

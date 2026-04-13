@@ -6,6 +6,14 @@
   <icon svg="/conch-icon.svg" svg-small="/conch-icon_16.svg"/>
   <names product="Conch" fullname="Conch Terminal Workstation" script="conch"
          motto="Terminal-Driven Workstation"/>
+  <!--
+    Product default LaF. LafManagerImpl reads `dark-classic` via
+    ApplicationInfoEx.defaultClassicDarkLaf because Conch ships with
+    classic UI (New UI is disabled via -Dide.experimental.ui=false).
+    The value is looked up first by theme id, then by display name —
+    "Conch Dark" matches the `name` field in Conch.theme.json.
+  -->
+  <default-laf dark-classic="Conch Dark"/>
   <essential-plugin>com.conch.core</essential-plugin>
   <essential-plugin>com.conch.ssh</essential-plugin>
   <essential-plugin>com.conch.vault</essential-plugin>

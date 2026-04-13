@@ -55,6 +55,27 @@
         <noProjectStateHandler
             implementation="com.conch.core.ConchHomeDirNoProjectHandler"/>
 
+        <!--
+          Conch Dark UI theme. Inherits Darcula and retargets the
+          background, panel, tab, list, and popup colors to the Conch
+          brand palette. Referenced as the product default LaF in
+          ConchApplicationInfo.xml via <default-laf dark-classic="Conch Dark"/>.
+        -->
+        <themeProvider id="conch.dark"
+                       path="/themes/Conch.theme.json"
+                       targetUi="classic"/>
+
+        <!--
+          Conch Dark editor + terminal color scheme. Inherits Darcula
+          and overrides the 16-color ANSI palette plus editor
+          background/selection/caret colors. ConchTerminalSettings
+          reads these ANSI keys at runtime to drive the terminal
+          palette; the .theme.json above references this scheme via
+          its `editorScheme` field.
+        -->
+        <bundledColorScheme id="Conch Dark"
+                            path="/colorSchemes/ConchDark"/>
+
         <fileEditorProvider
             implementation="com.conch.core.terminal.ConchTerminalEditorProvider"/>
 

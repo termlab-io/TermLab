@@ -154,7 +154,9 @@ java_binary(
         "-Didea.suppress.statistics.report=true",
         # Use Classic UI by default (disable new UI)
         "-Dide.experimental.ui=false",
-        # Default to Darcula (dark) theme for new installations
-        "-Dlaf.name.for.new.installation=Darcula",
+        # Default theme for new installations is wired via
+        # <default-laf dark-classic="Conch Dark"/> in
+        # ConchApplicationInfo.xml — LafManagerImpl reads
+        # ApplicationInfoEx.defaultClassicDarkLaf on first launch.
     ],
 )
