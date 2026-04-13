@@ -143,6 +143,20 @@
                   topic="com.intellij.ide.AppLifecycleListener"/>
 
         <!--
+          Unregisters main-toolbar actions that don't apply to a
+          terminal workstation: Save All, Synchronize, Back/Forward,
+          Add Configuration, Run, Stop, plus the top-level Run and
+          Build menus. Mirrors ConchRefactoringStripper's approach —
+          action-level removal kills the toolbar slot, the menu
+          entry, the Search Everywhere hit, and any keybinding in
+          one step. Run / Stop specifically get replaced with
+          NoopExecutorStubAction to defend against platform code
+          paths that unconditionally look them up by id.
+        -->
+        <listener class="com.conch.core.ConchToolbarStripper"
+                  topic="com.intellij.ide.AppLifecycleListener"/>
+
+        <!--
           Strips IDE-oriented Settings pages under Editor/ that don't affect
           the terminal view. Keeps Font, Color Scheme, and General/Appearance.
           Project-scoped pages are stripped from ConchStartupActivity per
@@ -159,6 +173,20 @@
           ConchMacDockIconCustomizer for the detailed rationale.
         -->
         <listener class="com.conch.core.ConchMacDockIconCustomizer"
+                  topic="com.intellij.ide.AppLifecycleListener"/>
+
+        <!--
+          Flips the ide.check.windows.defender.rules registry key
+          off at startup so the Windows Defender exclusion-check
+          post-startup activity bails out via
+          ExtensionNotApplicableException and never pops its "add
+          your project to Defender exclusions" notification. Conch
+          doesn't index files so the check has nothing to offer.
+          No-op on non-Windows hosts. See
+          ConchDefenderNotifierSuppressor for the registry key
+          lookup chain.
+        -->
+        <listener class="com.conch.core.ConchDefenderNotifierSuppressor"
                   topic="com.intellij.ide.AppLifecycleListener"/>
 
         <!--

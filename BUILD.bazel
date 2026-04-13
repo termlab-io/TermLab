@@ -144,6 +144,13 @@ java_binary(
         "-Didea.jre.check=true",
         # Disable file indexing globally in Conch (terminal-first product).
         "-Didea.indexes.pretendNoFiles=true",
+        # Disable the native file watcher entirely. Conch has no
+        # project indexing so fsnotifier provides zero value, and on
+        # Linux it trips an "inotify watch limit reached" balloon on
+        # any user whose fs.inotify.max_user_watches is at distro
+        # defaults. NativeFileWatcherImpl checks this property before
+        # starting fsnotifier and bails out when set.
+        "-Didea.filewatcher.disabled=true",
         # Never auto-open Project View during startup in Conch.
         "-Dide.open.project.view.on.startup=false",
         "-Didea.platform.prefix=Conch",

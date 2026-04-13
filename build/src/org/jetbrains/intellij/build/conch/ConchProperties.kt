@@ -83,6 +83,12 @@ class ConchProperties(private val communityHomeDir: Path) : JetBrainsProductProp
       "-Dfile.encoding=UTF-8",
       "-Dstdout.encoding=UTF-8",
       "-Dstderr.encoding=UTF-8",
+      // Disable the native fsnotifier. Conch has no project
+      // indexing so filewatcher events are useless overhead, and on
+      // Linux it pops an "inotify watch limit reached" balloon on
+      // any user at distro defaults. NativeFileWatcherImpl checks
+      // this property before starting fsnotifier.
+      "-Didea.filewatcher.disabled=true",
     )
   }
 
