@@ -6,6 +6,8 @@ import com.intellij.openapi.actionSystem.ActionUpdateThread;
 import com.intellij.openapi.actionSystem.AnAction;
 import com.intellij.openapi.actionSystem.AnActionEvent;
 import com.intellij.openapi.actionSystem.CommonDataKeys;
+import com.intellij.openapi.application.ApplicationManager;
+import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.fileEditor.FileEditorManager;
 import com.intellij.lang.Language;
 import com.intellij.openapi.fileTypes.FileType;
@@ -79,7 +81,66 @@ public final class NewScratchAction extends AnAction {
         int n = ScratchCounter.next();
         String filename = "scratch-" + n + option.extension();
 
-        FileType resolved = FileTypeManager.getInstance().getFileTypeByFileName(filename);
+        Logger log = Logger.getInstance(NewScratchAction.class);
+        log.warn("CONCH_EDITOR_DEBUG: createAndOpen for filename=" + filename);
+
+        FileTypeManager ftm = FileTypeManager.getInstance();
+        log.warn("CONCH_EDITOR_DEBUG: FileTypeManager class=" + ftm.getClass().getName());
+
+        FileType resolved = ftm.getFileTypeByFileName(filename);
+        log.warn("CONCH_EDITOR_DEBUG: resolved fileType class=" + resolved.getClass().getName()
+            + " name=" + resolved.getName()
+            + " description=" + resolved.getDescription()
+            + " isBinary=" + resolved.isBinary());
+
+        if (resolved instanceof LanguageFileType lft) {
+            log.warn("CONCH_EDITOR_DEBUG: is LanguageFileType; language=" + lft.getLanguage().getID()
+                + " languageClass=" + lft.getLanguage().getClass().getName());
+        } else {
+            log.warn("CONCH_EDITOR_DEBUG: NOT a LanguageFileType — will fall back to PlainTextLanguage");
+        }
+
+        // Dump ALL registered file types that mention "java" or "text" to see if TextMate registered anything
+        int count = 0;
+        for (FileType ft : ftm.getRegisteredFileTypes()) {
+            String fn = ft.getName().toLowerCase();
+            String cn = ft.getClass().getName().toLowerCase();
+            if (fn.contains("java") || fn.contains("text") || cn.contains("textmate")) {
+                log.warn("CONCH_EDITOR_DEBUG: registered fileType name=" + ft.getName()
+                    + " class=" + ft.getClass().getName());
+                if (++count > 15) break;
+            }
+        }
+
+        // Check whether TextMateServiceImpl is even on the classpath
+        try {
+            Class<?> tmService = Class.forName(
+                "org.jetbrains.plugins.textmate.TextMateService");
+            log.warn("CONCH_EDITOR_DEBUG: TextMateService class found: " + tmService.getName());
+            Object svc = ApplicationManager.getApplication().getService(tmService);
+            log.warn("CONCH_EDITOR_DEBUG: TextMateService instance=" + (svc == null ? "NULL" : svc.getClass().getName()));
+        } catch (ClassNotFoundException e) {
+            log.warn("CONCH_EDITOR_DEBUG: TextMateService class NOT FOUND on classpath: " + e.getMessage());
+        } catch (Throwable t) {
+            log.warn("CONCH_EDITOR_DEBUG: TextMateService lookup threw: " + t.getClass().getName() + ": " + t.getMessage());
+        }
+
+        // Check the bundles directory that TextMateServiceImpl expects
+        try {
+            String home = com.intellij.openapi.application.PathManager.getHomePath();
+            log.warn("CONCH_EDITOR_DEBUG: PathManager.getHomePath=" + home);
+            java.nio.file.Path bundlesPath = java.nio.file.Paths.get(home, "plugins", "textmate", "lib", "bundles");
+            log.warn("CONCH_EDITOR_DEBUG: computed bundles path=" + bundlesPath + " exists=" + java.nio.file.Files.exists(bundlesPath));
+            if (java.nio.file.Files.exists(bundlesPath)) {
+                try (java.util.stream.Stream<java.nio.file.Path> list = java.nio.file.Files.list(bundlesPath)) {
+                    long n2 = list.count();
+                    log.warn("CONCH_EDITOR_DEBUG: bundles path contains " + n2 + " entries");
+                }
+            }
+        } catch (Throwable t) {
+            log.warn("CONCH_EDITOR_DEBUG: bundles path check failed: " + t.getMessage());
+        }
+
         Language language = (resolved instanceof LanguageFileType lft)
                 ? lft.getLanguage()
                 : PlainTextLanguage.INSTANCE;

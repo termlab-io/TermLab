@@ -27,6 +27,9 @@
 
         <postStartupActivity
             implementation="com.conch.editor.remote.RemoteEditorStartupSweep"/>
+
+        <postStartupActivity
+            implementation="com.conch.editor.debug.EditorStartupDebug"/>
     </extensions>
 
     <extensions defaultExtensionNs="com.conch.sftp">
