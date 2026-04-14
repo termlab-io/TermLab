@@ -103,3 +103,11 @@ minecraft-admin-plugin:
 minecraft-admin-plugin-clean:
 	@rm -rf out/minecraft-admin-plugin out/minecraft-admin-plugin.zip
 	@echo "Removed out/minecraft-admin-plugin and out/minecraft-admin-plugin.zip"
+
+.PHONY: amp-probe
+
+amp-probe:
+	@AMP_USERNAME="$${AMP_USERNAME:-}" AMP_PASSWORD="$${AMP_PASSWORD:-}" \
+	 AMP_URL="$${AMP_URL:-http://localhost:8080}" \
+	 AMP_INSTANCE="$${AMP_INSTANCE:-}" \
+	 python3 scripts/amp-probe.py

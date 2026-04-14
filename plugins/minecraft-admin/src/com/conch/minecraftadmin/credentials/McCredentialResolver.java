@@ -3,6 +3,7 @@ package com.conch.minecraftadmin.credentials;
 import com.conch.sdk.CredentialProvider;
 import com.conch.sdk.CredentialProvider.Credential;
 import com.intellij.openapi.application.ApplicationManager;
+import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.extensions.ExtensionPointName;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -23,6 +24,8 @@ import java.util.UUID;
  * list (tests).
  */
 public final class McCredentialResolver {
+
+    private static final Logger LOG = Logger.getInstance(McCredentialResolver.class);
 
     private static final ExtensionPointName<CredentialProvider> EP_NAME =
         ExtensionPointName.create("com.conch.core.credentialProvider");
@@ -57,19 +60,34 @@ public final class McCredentialResolver {
         @NotNull UUID credentialId,
         @NotNull String fallbackUsername
     ) {
+        LOG.info("Conch Minecraft: resolve() credentialId=" + credentialId);
+        List<? extends CredentialProvider> providers = providerLookup.get();
+        LOG.info("Conch Minecraft: resolve() found " + providers.size() + " provider(s)");
+        if (providers.isEmpty()) {
+            LOG.warn("Conch Minecraft: resolve() no credentialProvider extensions registered");
+            return null;
+        }
         Credential sdkCredential = null;
-        for (CredentialProvider provider : providerLookup.get()) {
-            if (!provider.isAvailable()) continue;
+        for (CredentialProvider provider : providers) {
+            String name = provider.getDisplayName();
+            boolean available = provider.isAvailable();
+            LOG.info("Conch Minecraft: resolve() checking provider=" + name + " available=" + available);
+            if (!available) continue;
             Credential candidate = provider.getCredential(credentialId);
+            LOG.info("Conch Minecraft: resolve() provider=" + name + " getCredential returned=" + (candidate == null ? "null" : "present"));
             if (candidate != null) {
                 sdkCredential = candidate;
                 break;
             }
         }
-        if (sdkCredential == null) return null;
-
+        if (sdkCredential == null) {
+            LOG.warn("Conch Minecraft: resolve() id=" + credentialId + " — no provider produced a match. Vault may be locked, or credential was deleted, or the profile references a stale id.");
+            return null;
+        }
         try {
-            return convert(sdkCredential, fallbackUsername);
+            McCredential result = convert(sdkCredential, fallbackUsername);
+            LOG.info("Conch Minecraft: resolve() id=" + credentialId + " — converted to McCredential (result=" + (result == null ? "null" : "present") + ")");
+            return result;
         } finally {
             sdkCredential.destroy();
         }

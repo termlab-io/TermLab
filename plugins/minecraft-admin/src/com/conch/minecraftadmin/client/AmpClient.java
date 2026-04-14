@@ -64,16 +64,16 @@ public final class AmpClient {
         body.addProperty("rememberMe", false);
 
         JsonObject response = postRaw(baseUrl, "Core/Login", body);
-        if (!response.has("success") || !response.get("success").getAsBoolean()) {
-            LOG.warn("Conch Minecraft: AMP login rejected baseUrl=" + baseUrl
-                + " response=" + response.toString());
+        String sessionField = response.has("sessionID") ? response.get("sessionID").getAsString() : null;
+        String sessionFingerprint = sessionField == null ? "<null>"
+            : sessionField.substring(0, Math.min(8, sessionField.length())) + "…";
+        boolean success = response.has("success") && response.get("success").getAsBoolean();
+        LOG.info("Conch Minecraft: AMP login response success=" + success + " sessionId=" + sessionFingerprint);
+        if (!success) {
+            LOG.warn("Conch Minecraft: AMP login rejected baseUrl=" + baseUrl + " fullResponse=" + response.toString());
             throw new AmpAuthException("AMP login rejected");
         }
-        String sessionId = response.get("sessionID").getAsString();
-        String redactedSession = sessionId.substring(0, Math.min(8, sessionId.length())) + "…";
-        LOG.info("Conch Minecraft: AMP login success baseUrl=" + baseUrl
-            + " sessionId=" + redactedSession);
-        return new AmpSession(baseUrl, sessionId);
+        return new AmpSession(baseUrl, sessionField);
     }
 
     public @NotNull InstanceStatus getInstanceStatus(
@@ -263,7 +263,7 @@ public final class AmpClient {
 
     private JsonObject postRaw(String baseUrl, String apiCall, JsonObject body) throws IOException {
         String url = trimTrailingSlash(baseUrl) + "/API/" + apiCall;
-        LOG.debug("Conch Minecraft: AMP POST " + apiCall + " url=" + url
+        LOG.info("Conch Minecraft: AMP POST " + apiCall + " url=" + url
             + " body=" + redactSecrets(body));
         HttpRequest request = HttpRequest.newBuilder()
             .uri(URI.create(url))
@@ -281,17 +281,18 @@ public final class AmpClient {
             throw new IOException("AMP request interrupted", e);
         }
         int status = response.statusCode();
+        LOG.info("Conch Minecraft: AMP " + apiCall + " response status=" + status
+            + " bodyLength=" + response.body().length());
         if (status == 401) {
             LOG.warn("Conch Minecraft: AMP POST " + apiCall + " failed status=401");
             throw new AmpAuthException("AMP returned 401 for " + apiCall);
         }
         if (status < 200 || status >= 300) {
-            String truncatedPreview = response.body().substring(0, Math.min(500, response.body().length()));
             LOG.warn("Conch Minecraft: AMP POST " + apiCall
-                + " failed status=" + status + " bodyPreview=" + truncatedPreview);
+                + " failed status=" + status + " fullBody=" + response.body());
             throw new IOException("AMP " + apiCall + " returned HTTP " + status);
         }
-        // Log response — redact Login body entirely, truncate others
+        // Log response body preview at debug level — INFO already has status + length above
         if (apiCall.equals("Core/Login")) {
             LOG.debug("Conch Minecraft: AMP POST " + apiCall
                 + " status=" + status + " bodyPreview=<login response: length=" + response.body().length() + ">");
