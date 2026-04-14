@@ -17,6 +17,7 @@ jvm_library(
         "//conch/sdk",
         "//conch/core",
         "//conch/plugins/sftp",
+        "//conch/plugins/ssh",
         "//platform/analysis-api:analysis",
         "//platform/core-api:core",
         "//platform/core-ui",
