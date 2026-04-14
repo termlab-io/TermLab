@@ -1,6 +1,7 @@
 package com.conch.minecraftadmin.client;
 
 import com.conch.minecraftadmin.model.McServerStatus;
+import com.intellij.openapi.diagnostic.Logger;
 import org.jetbrains.annotations.NotNull;
 
 import java.time.Duration;
@@ -26,6 +27,8 @@ import java.time.Instant;
  * </ul>
  */
 public final class CrashDetector {
+
+    private static final Logger LOG = Logger.getInstance(CrashDetector.class);
 
     public static final Duration USER_STOP_GRACE = Duration.ofSeconds(10);
 
@@ -57,6 +60,8 @@ public final class CrashDetector {
         if (status == McServerStatus.CRASHED) {
             if (firedForCurrentTransition) return false;
             firedForCurrentTransition = true;
+            LOG.info("Conch Minecraft: CrashDetector firing: prev=" + prior
+                + " current=" + status + " sinceUserStop=n/a");
             return true;
         }
 
@@ -69,6 +74,8 @@ public final class CrashDetector {
                 return false;
             }
             firedForCurrentTransition = true;
+            LOG.info("Conch Minecraft: CrashDetector firing: prev=" + prior
+                + " current=" + status + " sinceUserStop=" + sinceUserStop);
             return true;
         }
 

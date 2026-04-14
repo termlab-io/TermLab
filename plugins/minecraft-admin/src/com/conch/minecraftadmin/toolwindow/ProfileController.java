@@ -40,6 +40,7 @@ public final class ProfileController implements AutoCloseable {
         @NotNull PlayersPanel playersPanel,
         @NotNull ConsolePanel consolePanel
     ) {
+        LOG.info("Conch Minecraft: ProfileController init profile=" + profile.label());
         this.profile = profile;
         this.statusStrip = statusStrip;
         this.lifecycleButtons = lifecycleButtons;
@@ -49,7 +50,11 @@ public final class ProfileController implements AutoCloseable {
         McCredentialResolver resolver = new McCredentialResolver();
         AmpClient amp = new AmpClient(baseUrl -> {
             McCredential cred = resolver.resolve(profile.ampCredentialId(), profile.ampUsername());
-            if (cred == null) throw new IllegalStateException("AMP credential not found for " + profile.label());
+            if (cred == null) {
+                LOG.warn("Conch Minecraft: AMP credential " + profile.ampCredentialId()
+                    + " not found in vault for profile=" + profile.label());
+                throw new IllegalStateException("AMP credential not found for " + profile.label());
+            }
             return new AmpClient.LoginPair(cred.username(), cred.password());
         });
         RconClient rconClient = new RconClient();
@@ -79,15 +84,22 @@ public final class ProfileController implements AutoCloseable {
             () -> {
                 UUID rconId = profile.rconCredentialId();
                 if (rconId == null) {
+                    LOG.info("Conch Minecraft: RCON credential is null for profile=" + profile.label()
+                        + " — using empty passwordless auth");
                     return new char[0];  // passwordless RCON — empty auth body
                 }
                 McCredential cred = resolver.resolve(rconId, "");
-                if (cred == null) throw new IllegalStateException("RCON credential not found for " + profile.label());
+                if (cred == null) {
+                    LOG.warn("Conch Minecraft: RCON credential " + rconId
+                        + " not found in vault for profile=" + profile.label());
+                    throw new IllegalStateException("RCON credential not found for " + profile.label());
+                }
                 return cred.password();
             });
     }
 
     public void start() {
+        LOG.info("Conch Minecraft: ProfileController starting poller for profile=" + profile.label());
         poller.start();
         // Render an immediate empty snapshot so the UI isn't blank while the first tick runs.
         ServerState initial = ServerState.unknown(Instant.now());
@@ -102,6 +114,7 @@ public final class ProfileController implements AutoCloseable {
 
     @Override
     public void close() {
+        LOG.info("Conch Minecraft: ProfileController closing for profile=" + profile.label());
         poller.stop();
     }
 }

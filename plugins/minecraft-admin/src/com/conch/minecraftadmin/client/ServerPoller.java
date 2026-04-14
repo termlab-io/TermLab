@@ -72,10 +72,18 @@ public final class ServerPoller implements AutoCloseable {
         });
         this.uiDispatcher = uiDispatcher;
         this.rconPasswordSupplier = rconPasswordSupplier;
+        LOG.info("Conch Minecraft: ServerPoller created for profile=" + profile.label()
+            + " ampUrl=" + profile.ampUrl()
+            + " ampInstanceName=" + profile.ampInstanceName()
+            + " rconHost=" + profile.rconHost()
+            + " rconPort=" + profile.rconPort()
+            + " rconCredentialId=" + (profile.rconCredentialId() != null ? "present" : "null (passwordless)"));
     }
 
     public void start() {
         if (scheduledTask.get() != null) return;
+        LOG.info("Conch Minecraft: ServerPoller starting for profile=" + profile.label()
+            + " tickMs=" + TICK.toMillis());
         ScheduledFuture<?> task = scheduler.scheduleWithFixedDelay(
             this::safeTick, 0, TICK.toMillis(), TimeUnit.MILLISECONDS);
         scheduledTask.set(task);
@@ -88,6 +96,7 @@ public final class ServerPoller implements AutoCloseable {
 
     public void stop() {
         stopped = true;
+        LOG.info("Conch Minecraft: ServerPoller stopping for profile=" + profile.label());
         ScheduledFuture<?> task = scheduledTask.getAndSet(null);
         if (task != null) task.cancel(false);
         commandExecutor.shutdownNow();
@@ -112,9 +121,11 @@ public final class ServerPoller implements AutoCloseable {
      */
     public void reconnect() {
         if (stopped) return;
+        LOG.info("Conch Minecraft: ServerPoller reconnect requested for profile=" + profile.label());
         commandExecutor.submit(() -> {
             closeRcon();
             ampSession = null;
+            LOG.info("Conch Minecraft: ServerPoller sessions invalidated for profile=" + profile.label());
         });
         ScheduledFuture<?> old = scheduledTask.getAndSet(null);
         if (old != null) old.cancel(false);
@@ -130,12 +141,17 @@ public final class ServerPoller implements AutoCloseable {
 
     /** Send an RCON command off the EDT. */
     public @NotNull CompletableFuture<String> sendCommand(@NotNull String cmd) {
+        LOG.debug("Conch Minecraft: sendCommand queued cmd='" + cmd + "' profile=" + profile.label());
         CompletableFuture<String> future = new CompletableFuture<>();
         commandExecutor.submit(() -> {
             try {
                 RconSession session = ensureRcon();
-                future.complete(rconClient.command(session, cmd));
+                String result = rconClient.command(session, cmd);
+                LOG.debug("Conch Minecraft: sendCommand success cmd='" + cmd + "'");
+                future.complete(result);
             } catch (IOException e) {
+                LOG.warn("Conch Minecraft: sendCommand failed cmd='" + cmd
+                    + "' error=" + e.getMessage());
                 closeRcon();
                 future.completeExceptionally(e);
             }
@@ -168,6 +184,7 @@ public final class ServerPoller implements AutoCloseable {
     }
 
     private void tickImpl() {
+        LOG.debug("Conch Minecraft: tick start profile=" + profile.label());
         Instant sampledAt = Instant.now();
 
         AmpTickResult ampResult;
@@ -175,9 +192,12 @@ public final class ServerPoller implements AutoCloseable {
             AmpSession session = ensureAmp();
             InstanceStatus status = ampClient.getInstanceStatus(session, profile.ampInstanceName());
             ampResult = AmpTickResult.ok(status);
+            LOG.debug("Conch Minecraft: tick AMP ok status=" + ampResult.status().status());
         } catch (IOException e) {
             ampSession = null;
             ampResult = AmpTickResult.error(e.getMessage() == null ? e.toString() : e.getMessage());
+            LOG.info("Conch Minecraft: tick AMP failed profile=" + profile.label()
+                + " error=" + ampResult.errorMessage());
         }
 
         RconTickResult rconResult;
@@ -188,13 +208,25 @@ public final class ServerPoller implements AutoCloseable {
             PaperListReplyParser.Result parsed = PaperListReplyParser.parse(listReply);
             double tps = PaperTpsReplyParser.parseMostRecent(tpsReply);
             rconResult = RconTickResult.ok(parsed.players(), parsed.online(), parsed.max(), tps);
+            LOG.debug("Conch Minecraft: tick RCON ok players=" + rconResult.playersOnline()
+                + "/" + rconResult.playersMax() + " tps=" + rconResult.tps());
         } catch (IOException e) {
             closeRcon();
             rconResult = RconTickResult.error(e.getMessage() == null ? e.toString() : e.getMessage());
+            LOG.info("Conch Minecraft: tick RCON failed profile=" + profile.label()
+                + " error=" + rconResult.errorMessage());
         }
 
         ServerState state = ServerStateMerger.merge(ampResult, rconResult, sampledAt);
         boolean crashFired = crashDetector.observe(state.status(), sampledAt);
+        LOG.debug("Conch Minecraft: tick end profile=" + profile.label()
+            + " status=" + state.status()
+            + " ampHealthy=" + state.isAmpHealthy()
+            + " rconHealthy=" + state.isRconHealthy());
+        if (crashFired) {
+            LOG.info("Conch Minecraft: crash detected for profile=" + profile.label()
+                + " — firing balloon");
+        }
         uiDispatcher.accept(() -> {
             listener.onStateUpdate(state);
             if (crashFired) listener.onCrashDetected(state);
@@ -203,18 +235,29 @@ public final class ServerPoller implements AutoCloseable {
 
     private AmpSession ensureAmp() throws IOException {
         AmpSession current = ampSession;
-        if (current != null) return current;
+        if (current != null) {
+            LOG.debug("Conch Minecraft: ensureAmp reusing existing session for profile=" + profile.label());
+            return current;
+        }
+        LOG.info("Conch Minecraft: ensureAmp no session, logging in for profile=" + profile.label());
         AmpSession fresh = ampClient.login(profile.ampUrl());
         ampSession = fresh;
+        LOG.info("Conch Minecraft: ensureAmp login success for profile=" + profile.label());
         return fresh;
     }
 
     private RconSession ensureRcon() throws IOException {
         RconSession current = rconSession;
-        if (current != null && !current.isClosed()) return current;
+        if (current != null && !current.isClosed()) {
+            LOG.debug("Conch Minecraft: ensureRcon reusing existing session for profile=" + profile.label());
+            return current;
+        }
+        LOG.info("Conch Minecraft: ensureRcon connecting for profile=" + profile.label()
+            + " host=" + profile.rconHost() + " port=" + profile.rconPort());
         char[] password = resolveRconPassword();
         RconSession fresh = rconClient.connect(profile.rconHost(), profile.rconPort(), password);
         rconSession = fresh;
+        LOG.info("Conch Minecraft: ensureRcon connected for profile=" + profile.label());
         return fresh;
     }
 
@@ -234,10 +277,12 @@ public final class ServerPoller implements AutoCloseable {
     }
 
     public void sendStart() {
+        LOG.info("Conch Minecraft: lifecycle start requested for profile=" + profile.label());
         commandExecutor.submit(() -> runLifecycle("start", () -> ampClient.startInstance(ensureAmp(), profile.ampInstanceName())));
     }
 
     public void sendStop() {
+        LOG.info("Conch Minecraft: lifecycle stop requested for profile=" + profile.label());
         commandExecutor.submit(() -> {
             crashDetector.recordUserStop(java.time.Instant.now());
             runLifecycle("stop", () -> ampClient.stopInstance(ensureAmp(), profile.ampInstanceName()));
@@ -245,6 +290,7 @@ public final class ServerPoller implements AutoCloseable {
     }
 
     public void sendRestart() {
+        LOG.info("Conch Minecraft: lifecycle restart requested for profile=" + profile.label());
         commandExecutor.submit(() -> {
             crashDetector.recordUserStop(java.time.Instant.now());
             runLifecycle("restart", () -> ampClient.restartInstance(ensureAmp(), profile.ampInstanceName()));
@@ -252,6 +298,7 @@ public final class ServerPoller implements AutoCloseable {
     }
 
     public void sendBackup() {
+        LOG.info("Conch Minecraft: lifecycle backup requested for profile=" + profile.label());
         commandExecutor.submit(() -> runLifecycle("backup", () -> ampClient.backupInstance(ensureAmp(), profile.ampInstanceName())));
     }
 
@@ -261,8 +308,9 @@ public final class ServerPoller implements AutoCloseable {
     private void runLifecycle(String label, IoAction action) {
         try {
             action.run();
+            LOG.info("Conch Minecraft: lifecycle " + label + " completed for profile=" + profile.label());
         } catch (IOException e) {
-            LOG.warn("Conch Minecraft: " + label + " failed for " + profile.label(), e);
+            LOG.warn("Conch Minecraft: lifecycle " + label + " failed for " + profile.label(), e);
             ampSession = null;
         }
     }

@@ -5,6 +5,7 @@ import com.conch.minecraftadmin.client.ServerPoller;
 import com.conch.minecraftadmin.model.ProfileStore;
 import com.conch.minecraftadmin.model.ServerProfile;
 import com.conch.minecraftadmin.ui.ServerEditDialog;
+import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.ui.Messages;
 import org.jetbrains.annotations.NotNull;
@@ -36,6 +37,8 @@ import java.util.UUID;
  */
 public final class McAdminToolWindow extends JPanel {
 
+    private static final Logger LOG = Logger.getInstance(McAdminToolWindow.class);
+
     private static final float DEFAULT_SPLIT_PROPORTION = 0.30f;
 
     private final Project project;
@@ -52,6 +55,7 @@ public final class McAdminToolWindow extends JPanel {
         super(new BorderLayout());
         this.project = project;
         this.profileStore = ProfileStore.getInstance();
+        LOG.info("Conch Minecraft: tool window initializing project=" + project.getName());
 
         this.lifecycleButtons = new LifecycleButtons(
             () -> invokeOnPoller(ServerPoller::sendStart),
@@ -104,6 +108,8 @@ public final class McAdminToolWindow extends JPanel {
 
     private void reloadProfiles() {
         List<ServerProfile> profiles = profileStore.getProfiles();
+        LOG.info("Conch Minecraft: reloadProfiles profiles=" + profiles.size()
+            + " currentSelected=" + (current == null ? "none" : current.profile().label()));
         ServerProfile toSelect = null;
         if (current != null) {
             UUID currentId = current.profile().id();
@@ -135,27 +141,32 @@ public final class McAdminToolWindow extends JPanel {
             if (current.profile().id().equals(profile.id())) return;
             current.close();
         }
+        LOG.info("Conch Minecraft: switching to profile=" + profile.label() + " id=" + profile.id());
         current = new ProfileController(profile, statusStrip, lifecycleButtons, playersPanel, consolePanel);
         current.start();
     }
 
     private void addProfile() {
+        LOG.info("Conch Minecraft: addProfile clicked for profile=new");
         Optional<ServerProfile> created = new ServerEditDialog(project, null).showAndGetResult();
         created.ifPresent(profileStore::add);
     }
 
     private void editProfile(ServerProfile existing) {
+        LOG.info("Conch Minecraft: editProfile clicked for profile=" + existing.label());
         Optional<ServerProfile> edited = new ServerEditDialog(project, existing).showAndGetResult();
         edited.ifPresent(profileStore::update);
     }
 
     private void duplicateProfile(ServerProfile source) {
+        LOG.info("Conch Minecraft: duplicateProfile clicked for profile=" + source.label());
         Optional<ServerProfile> created =
             ServerEditDialog.forCopyOf(project, source).showAndGetResult();
         created.ifPresent(profileStore::add);
     }
 
     private void deleteProfile(ServerProfile profile) {
+        LOG.info("Conch Minecraft: deleteProfile clicked for profile=" + profile.label());
         int choice = Messages.showYesNoDialog(
             project,
             "Delete server profile '" + profile.label() + "'? This cannot be undone.",

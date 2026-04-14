@@ -5,6 +5,7 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import com.intellij.openapi.diagnostic.Logger;
 import org.jetbrains.annotations.NotNull;
 
 import java.io.IOException;
@@ -27,6 +28,8 @@ import java.util.List;
  * owning {@link ServerPoller}.
  */
 public final class AmpClient {
+
+    private static final Logger LOG = Logger.getInstance(AmpClient.class);
 
     /** Network timeout for one request, in seconds. */
     public static final int TIMEOUT_SECONDS = 10;
@@ -51,6 +54,9 @@ public final class AmpClient {
 
     public @NotNull AmpSession login(@NotNull String baseUrl) throws IOException {
         LoginPair pair = credentials.lookup(baseUrl);
+        LOG.info("Conch Minecraft: AMP login attempt baseUrl=" + baseUrl
+            + " username=" + pair.username()
+            + " password.length=" + pair.password().length);
         JsonObject body = new JsonObject();
         body.addProperty("username", pair.username());
         body.addProperty("password", new String(pair.password()));
@@ -59,19 +65,36 @@ public final class AmpClient {
 
         JsonObject response = postRaw(baseUrl, "Core/Login", body);
         if (!response.has("success") || !response.get("success").getAsBoolean()) {
+            LOG.warn("Conch Minecraft: AMP login rejected baseUrl=" + baseUrl
+                + " response=" + response.toString());
             throw new AmpAuthException("AMP login rejected");
         }
-        return new AmpSession(baseUrl, response.get("sessionID").getAsString());
+        String sessionId = response.get("sessionID").getAsString();
+        String redactedSession = sessionId.substring(0, Math.min(8, sessionId.length())) + "…";
+        LOG.info("Conch Minecraft: AMP login success baseUrl=" + baseUrl
+            + " sessionId=" + redactedSession);
+        return new AmpSession(baseUrl, sessionId);
     }
 
     public @NotNull InstanceStatus getInstanceStatus(
         @NotNull AmpSession session,
         @NotNull String instanceName
     ) throws IOException {
+        LOG.debug("Conch Minecraft: AMP getInstanceStatus instanceName=" + instanceName);
         JsonObject body = new JsonObject();
         JsonObject response = post(session, "Core/GetInstances", body);
         JsonArray groups = response.getAsJsonArray("result");
         if (groups == null) return InstanceStatus.unknown();
+
+        int groupCount = groups.size();
+        int totalInstances = 0;
+        for (JsonElement g : groups) {
+            JsonArray av = g.getAsJsonObject().getAsJsonArray("AvailableInstances");
+            if (av != null) totalInstances += av.size();
+        }
+        LOG.debug("Conch Minecraft: AMP GetInstances returned " + groupCount
+            + " group(s), " + totalInstances + " instance(s)");
+
         for (JsonElement group : groups) {
             JsonArray instances = group.getAsJsonObject().getAsJsonArray("AvailableInstances");
             if (instances == null) continue;
@@ -79,35 +102,54 @@ public final class AmpClient {
                 JsonObject inst = e.getAsJsonObject();
                 String friendly = inst.has("FriendlyName") ? inst.get("FriendlyName").getAsString() : "";
                 String id = inst.has("InstanceName") ? inst.get("InstanceName").getAsString() : "";
+                boolean running = inst.has("Running") && inst.get("Running").getAsBoolean();
+                int appState = inst.has("AppState") ? inst.get("AppState").getAsInt() : -1;
+                LOG.debug("Conch Minecraft: AMP instance seen: FriendlyName=" + friendly
+                    + " InstanceName=" + id + " Running=" + running + " AppState=" + appState);
                 if (!instanceName.equals(friendly) && !instanceName.equals(id)) continue;
-                return toStatus(inst);
+                InstanceStatus mapped = toStatus(inst);
+                LOG.debug("Conch Minecraft: AMP instance '" + instanceName
+                    + "' mapped to status=" + mapped);
+                return mapped;
             }
         }
+        LOG.warn("Conch Minecraft: AMP instance '" + instanceName + "' not found in "
+            + totalInstances + " visible instance(s). Check that the 'ampInstanceName' field"
+            + " in the profile matches AMP's FriendlyName or InstanceName exactly.");
         return InstanceStatus.unknown();
     }
 
     public void startInstance(@NotNull AmpSession s, @NotNull String instanceName) throws IOException {
+        LOG.info("Conch Minecraft: AMP startInstance " + instanceName + " baseUrl=" + s.baseUrl());
         instanceLifecycle(s, instanceName, "Start");
+        LOG.info("Conch Minecraft: AMP startInstance " + instanceName + " succeeded");
     }
 
     public void stopInstance(@NotNull AmpSession s, @NotNull String instanceName) throws IOException {
+        LOG.info("Conch Minecraft: AMP stopInstance " + instanceName + " baseUrl=" + s.baseUrl());
         instanceLifecycle(s, instanceName, "Stop");
+        LOG.info("Conch Minecraft: AMP stopInstance " + instanceName + " succeeded");
     }
 
     public void restartInstance(@NotNull AmpSession s, @NotNull String instanceName) throws IOException {
+        LOG.info("Conch Minecraft: AMP restartInstance " + instanceName + " baseUrl=" + s.baseUrl());
         instanceLifecycle(s, instanceName, "Restart");
+        LOG.info("Conch Minecraft: AMP restartInstance " + instanceName + " succeeded");
     }
 
     public void backupInstance(@NotNull AmpSession s, @NotNull String instanceName) throws IOException {
+        LOG.info("Conch Minecraft: AMP backupInstance " + instanceName + " baseUrl=" + s.baseUrl());
         JsonObject body = new JsonObject();
         body.addProperty("InstanceName", instanceName);
         body.addProperty("BackupTitle", "Conch manual backup");
         body.addProperty("BackupDescription", "Triggered from the Conch Minecraft Admin plugin");
         body.addProperty("Sticky", false);
         post(s, "InstanceManagementPlugin/TakeBackup", body);
+        LOG.info("Conch Minecraft: AMP backupInstance " + instanceName + " succeeded");
     }
 
     public @NotNull ConsoleUpdate getConsoleUpdates(@NotNull AmpSession s, @NotNull String instanceName) throws IOException {
+        LOG.debug("Conch Minecraft: AMP getConsoleUpdates instanceName=" + instanceName);
         JsonObject body = new JsonObject();
         body.addProperty("InstanceName", instanceName);
         JsonObject response = post(s, "Core/GetUpdates", body);
@@ -121,10 +163,18 @@ public final class AmpClient {
             String contents = entry.has("Contents") ? entry.get("Contents").getAsString() : "";
             lines.add(contents);
         }
+        LOG.debug("Conch Minecraft: AMP getConsoleUpdates returned " + lines.size() + " line(s)");
         return new ConsoleUpdate(lines);
     }
 
     // -- internals ------------------------------------------------------------
+
+    private static String redactSecrets(JsonObject body) {
+        JsonObject copy = body.deepCopy();
+        if (copy.has("password")) copy.addProperty("password", "<redacted>");
+        if (copy.has("SESSIONID")) copy.addProperty("SESSIONID", "<redacted>");
+        return copy.toString();
+    }
 
     private void instanceLifecycle(AmpSession s, String instanceName, String action) throws IOException {
         JsonObject body = new JsonObject();
@@ -188,6 +238,8 @@ public final class AmpClient {
             return postRaw(session.baseUrl(), apiCall, body);
         } catch (AmpAuthException e) {
             // Session expired — re-login once and retry.
+            LOG.info("Conch Minecraft: AMP session expired, re-logging in baseUrl="
+                + session.baseUrl() + " apiCall=" + apiCall);
             LoginPair pair = credentials.lookup(session.baseUrl());
             JsonObject loginBody = new JsonObject();
             loginBody.addProperty("username", pair.username());
@@ -196,17 +248,25 @@ public final class AmpClient {
             loginBody.addProperty("rememberMe", false);
             JsonObject loginResponse = postRaw(session.baseUrl(), "Core/Login", loginBody);
             if (!loginResponse.has("success") || !loginResponse.get("success").getAsBoolean()) {
+                LOG.warn("Conch Minecraft: AMP re-login rejected baseUrl=" + session.baseUrl());
                 throw new AmpAuthException("AMP re-login after 401 rejected");
             }
             session.rotate(loginResponse.get("sessionID").getAsString());
+            String newSessionId = session.sessionId();
+            String redactedNewSession = newSessionId.substring(0, Math.min(8, newSessionId.length())) + "…";
+            LOG.info("Conch Minecraft: AMP re-login success, retrying " + apiCall
+                + " newSessionId=" + redactedNewSession);
             body.addProperty("SESSIONID", session.sessionId());
             return postRaw(session.baseUrl(), apiCall, body);
         }
     }
 
     private JsonObject postRaw(String baseUrl, String apiCall, JsonObject body) throws IOException {
+        String url = trimTrailingSlash(baseUrl) + "/API/" + apiCall;
+        LOG.debug("Conch Minecraft: AMP POST " + apiCall + " url=" + url
+            + " body=" + redactSecrets(body));
         HttpRequest request = HttpRequest.newBuilder()
-            .uri(URI.create(trimTrailingSlash(baseUrl) + "/API/" + apiCall))
+            .uri(URI.create(url))
             .timeout(Duration.ofSeconds(TIMEOUT_SECONDS))
             .header("Accept", "application/json")
             .header("Content-Type", "application/json")
@@ -217,20 +277,35 @@ public final class AmpClient {
             response = http.send(request, HttpResponse.BodyHandlers.ofString());
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
+            LOG.warn("Conch Minecraft: AMP POST " + apiCall + " interrupted", e);
             throw new IOException("AMP request interrupted", e);
         }
         int status = response.statusCode();
         if (status == 401) {
+            LOG.warn("Conch Minecraft: AMP POST " + apiCall + " failed status=401");
             throw new AmpAuthException("AMP returned 401 for " + apiCall);
         }
         if (status < 200 || status >= 300) {
+            String truncatedPreview = response.body().substring(0, Math.min(500, response.body().length()));
+            LOG.warn("Conch Minecraft: AMP POST " + apiCall
+                + " failed status=" + status + " bodyPreview=" + truncatedPreview);
             throw new IOException("AMP " + apiCall + " returned HTTP " + status);
+        }
+        // Log response — redact Login body entirely, truncate others
+        if (apiCall.equals("Core/Login")) {
+            LOG.debug("Conch Minecraft: AMP POST " + apiCall
+                + " status=" + status + " bodyPreview=<login response: length=" + response.body().length() + ">");
+        } else {
+            String preview = response.body().substring(0, Math.min(500, response.body().length()));
+            LOG.debug("Conch Minecraft: AMP POST " + apiCall
+                + " status=" + status + " bodyPreview=" + preview);
         }
         try {
             JsonElement parsed = JsonParser.parseString(response.body());
             if (!parsed.isJsonObject()) throw new IOException("AMP returned non-object JSON");
             return parsed.getAsJsonObject();
         } catch (com.google.gson.JsonSyntaxException e) {
+            LOG.warn("Conch Minecraft: AMP POST " + apiCall + " returned malformed JSON", e);
             throw new IOException("AMP returned malformed JSON: " + e.getMessage(), e);
         }
     }
