@@ -5,6 +5,7 @@ import com.conch.sftp.client.SshSftpSession;
 import com.conch.sftp.model.RemoteFileEntry;
 import com.conch.sftp.ops.RemoteFileOps;
 import com.conch.sftp.persistence.ConchSftpConfig;
+import com.conch.sftp.spi.RemoteFileOpener;
 import com.conch.ssh.client.SshConnectException;
 import com.conch.ssh.credentials.HostCredentialBundle;
 import com.conch.ssh.model.HostStore;
@@ -216,9 +217,18 @@ public final class RemoteFilePane extends JPanel {
         if (viewRow < 0 || activeSession == null || currentRemotePath == null) return;
         int modelRow = table.convertRowIndexToModel(viewRow);
         var entry = model.getEntryAt(modelRow);
-        if (entry instanceof RemoteFileEntry remote && remote.isDirectory()) {
+        if (!(entry instanceof RemoteFileEntry remote)) return;
+        if (remote.isDirectory()) {
             navigateRemote(joinPath(currentRemotePath, remote.name()));
+            return;
         }
+        SshHost host = currentHost;
+        SshSftpSession session = activeSession;
+        if (host == null) return;
+        String absolute = joinPath(currentRemotePath, remote.name());
+        var openers = RemoteFileOpener.EP_NAME.getExtensionList();
+        if (openers.isEmpty()) return;
+        openers.get(0).open(project, host, session, absolute, remote);
     }
 
     private void connect(@NotNull SshHost host) {
