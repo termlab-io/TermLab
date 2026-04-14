@@ -55,6 +55,23 @@ public record ServerState(
             sampledAt);
     }
 
+    /**
+     * Factory for the "waiting on vault unlock" state. Both halves are
+     * marked failed with a message telling the user to click Refresh,
+     * and the status is {@link McServerStatus#LOCKED} so the status
+     * strip and lifecycle buttons can render a distinct "🔒 Vault locked"
+     * state instead of the normal AMP/RCON offline pills.
+     */
+    public static @NotNull ServerState vaultLocked(@NotNull Instant sampledAt) {
+        return new ServerState(
+            McServerStatus.LOCKED,
+            0, 0, List.of(),
+            Double.NaN, Double.NaN, 0L, 0L, Duration.ZERO,
+            Optional.of("Vault is locked — click Refresh to unlock"),
+            Optional.of("Vault is locked — click Refresh to unlock"),
+            sampledAt);
+    }
+
     public boolean isAmpHealthy() {
         return ampError.isEmpty();
     }

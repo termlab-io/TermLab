@@ -64,4 +64,10 @@ class StatusStripPanelTest {
         StatusStripPanel panel = new StatusStripPanel();
         assertDoesNotThrow(() -> panel.update(ServerState.unknown(Instant.now())));
     }
+
+    @Test
+    void render_locked_doesNotThrow() {
+        StatusStripPanel panel = new StatusStripPanel();
+        assertDoesNotThrow(() -> panel.update(ServerState.vaultLocked(Instant.now())));
+    }
 }

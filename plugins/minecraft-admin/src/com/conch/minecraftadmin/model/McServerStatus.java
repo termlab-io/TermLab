@@ -18,5 +18,7 @@ public enum McServerStatus {
     /** AMP reports the instance exited abnormally. */
     CRASHED,
     /** State is unobservable right now (AMP unreachable, auth failed, etc.). */
-    UNKNOWN
+    UNKNOWN,
+    /** Precondition missing — vault is locked and no credentials can be resolved. */
+    LOCKED
 }

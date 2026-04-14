@@ -88,6 +88,7 @@ public final class StatusStripPanel extends JPanel {
             case STOPPED -> "○ Stopped";
             case CRASHED -> "✗ Crashed";
             case UNKNOWN -> "? Unknown";
+            case LOCKED -> "🔒 Vault locked";
         };
     }
 

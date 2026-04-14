@@ -94,6 +94,23 @@ public final class McCredentialResolver {
     }
 
     /**
+     * Passive check: does any registered provider currently report
+     * {@code isAvailable()}? Does NOT trigger any unlock UI — that's
+     * what {@link #ensureAnyProviderAvailable()} is for.
+     *
+     * <p>Use this to decide whether a locked vault should be surfaced
+     * as an empty UI state rather than popping an unlock dialog.
+     */
+    public boolean isAnyProviderAvailable() {
+        for (CredentialProvider provider : providerLookup.get()) {
+            if (provider.isAvailable()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
      * Ask every registered provider to become available (the vault
      * provider pops its unlock dialog). Returns {@code true} if at
      * least one provider reports {@link CredentialProvider#isAvailable()}

@@ -53,4 +53,16 @@ class ServerStateTest {
             .withRconError("auth failed");
         assertFalse(state.isRconHealthy());
     }
+
+    @Test
+    void vaultLocked_setsLockedStatusAndBothErrors() {
+        Instant now = Instant.now();
+        ServerState state = ServerState.vaultLocked(now);
+        assertEquals(McServerStatus.LOCKED, state.status());
+        assertTrue(state.ampError().isPresent());
+        assertTrue(state.rconError().isPresent());
+        assertTrue(state.ampError().get().toLowerCase().contains("vault"));
+        assertTrue(state.rconError().get().toLowerCase().contains("vault"));
+        assertEquals(now, state.sampledAt());
+    }
 }

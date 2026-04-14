@@ -44,6 +44,13 @@ public final class LifecycleButtons extends JPanel {
 
     public void update(@NotNull ServerState state) {
         McServerStatus s = state.status();
+        if (s == McServerStatus.LOCKED) {
+            start.setEnabled(false);
+            stop.setEnabled(false);
+            restart.setEnabled(false);
+            backup.setEnabled(false);
+            return;
+        }
         start.setEnabled(s == McServerStatus.STOPPED || s == McServerStatus.CRASHED || s == McServerStatus.UNKNOWN);
         stop.setEnabled(s == McServerStatus.RUNNING);
         restart.setEnabled(s == McServerStatus.RUNNING);

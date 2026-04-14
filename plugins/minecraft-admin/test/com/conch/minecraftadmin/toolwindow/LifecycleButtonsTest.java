@@ -58,4 +58,14 @@ class LifecycleButtonsTest {
         assertFalse(buttons.restartButton().isEnabled());
         assertTrue(buttons.backupButton().isEnabled());
     }
+
+    @Test
+    void locked_disablesAllButtons() {
+        LifecycleButtons buttons = new LifecycleButtons(() -> {}, () -> {}, () -> {}, () -> {});
+        buttons.update(ServerState.vaultLocked(Instant.now()));
+        assertFalse(buttons.startButton().isEnabled());
+        assertFalse(buttons.stopButton().isEnabled());
+        assertFalse(buttons.restartButton().isEnabled());
+        assertFalse(buttons.backupButton().isEnabled());
+    }
 }

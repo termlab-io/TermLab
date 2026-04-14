@@ -33,6 +33,7 @@ public final class ProfileController implements AutoCloseable {
     private final ConsolePanel consolePanel;
     private final McCredentialResolver resolver;
     private final ServerPoller poller;
+    private boolean pollerStarted = false;
 
     public ProfileController(
         @NotNull ServerProfile profile,
@@ -102,11 +103,19 @@ public final class ProfileController implements AutoCloseable {
     }
 
     public void start() {
-        LOG.info("Conch Minecraft: ProfileController starting poller for profile=" + profile.label());
-        boolean vaultAvailable = resolver.ensureAnyProviderAvailable();
-        LOG.info("Conch Minecraft: vault available after ensureAnyProviderAvailable=" + vaultAvailable);
+        LOG.info("Conch Minecraft: ProfileController starting for profile=" + profile.label());
+        if (!resolver.isAnyProviderAvailable()) {
+            LOG.info("Conch Minecraft: vault locked at startup — rendering locked state, deferring poller for profile=" + profile.label());
+            pollerStarted = false;
+            ServerState locked = ServerState.vaultLocked(Instant.now());
+            statusStrip.update(locked);
+            lifecycleButtons.update(locked);
+            playersPanel.update(locked);
+            return;
+        }
+        LOG.info("Conch Minecraft: vault available, starting poller for profile=" + profile.label());
         poller.start();
-        // Render an immediate empty snapshot so the UI isn't blank while the first tick runs.
+        pollerStarted = true;
         ServerState initial = ServerState.unknown(Instant.now());
         statusStrip.update(initial);
         lifecycleButtons.update(initial);
@@ -126,6 +135,26 @@ public final class ProfileController implements AutoCloseable {
         LOG.info("Conch Minecraft: ProfileController refresh requested for profile=" + profile.label());
         boolean vaultAvailable = resolver.ensureAnyProviderAvailable();
         LOG.info("Conch Minecraft: refresh vault available=" + vaultAvailable);
+        if (!vaultAvailable) {
+            // User dismissed the unlock dialog. Stay in locked state.
+            LOG.info("Conch Minecraft: refresh — vault still locked, staying in locked state");
+            ServerState locked = ServerState.vaultLocked(Instant.now());
+            statusStrip.update(locked);
+            lifecycleButtons.update(locked);
+            playersPanel.update(locked);
+            return;
+        }
+        if (!pollerStarted) {
+            LOG.info("Conch Minecraft: refresh — vault unlocked, starting poller for the first time");
+            poller.start();
+            pollerStarted = true;
+            ServerState initial = ServerState.unknown(Instant.now());
+            statusStrip.update(initial);
+            lifecycleButtons.update(initial);
+            playersPanel.update(initial);
+            return;
+        }
+        LOG.info("Conch Minecraft: refresh — poller already running, reconnecting");
         poller.reconnect();
     }
 
