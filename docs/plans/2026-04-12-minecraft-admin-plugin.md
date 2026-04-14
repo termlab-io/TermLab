@@ -4803,6 +4803,7 @@ import com.intellij.openapi.ui.Messages;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+import com.intellij.openapi.ui.Splitter;
 import javax.swing.BoxLayout;
 import javax.swing.JPanel;
 import java.awt.BorderLayout;
@@ -4813,8 +4814,21 @@ import java.util.Optional;
  * Root panel of the Minecraft Admin tool window. Holds one
  * {@link ProfileController} for the currently-selected profile and
  * rewires it when the user switches profiles.
+ *
+ * <p>Layout optimized for a bottom-anchored tool window:
+ * <ul>
+ *   <li>NORTH: a single-row toolbar with the server switcher, status
+ *       strip, and lifecycle buttons laid out left-to-right.</li>
+ *   <li>CENTER: a horizontal {@link Splitter} with the players table on
+ *       the left (30%) and the console panel on the right (70%).</li>
+ * </ul>
+ * No special docked/undocked code paths — IntelliJ's ToolWindow framework
+ * handles mode transitions, and BorderLayout + Splitter reflow naturally
+ * when the user undocks or resizes the window.
  */
 public final class McAdminToolWindow extends JPanel {
+
+    private static final float DEFAULT_SPLIT_PROPORTION = 0.30f;
 
     private final Project project;
     private final ProfileStore profileStore;
@@ -4846,19 +4860,22 @@ public final class McAdminToolWindow extends JPanel {
             cmd -> sendRconSync(cmd),
             msg -> sendRcon("say " + msg));
 
-        JPanel top = new JPanel();
-        top.setLayout(new BoxLayout(top, BoxLayout.Y_AXIS));
+        // Top toolbar — one horizontal row: switcher + status strip + lifecycle buttons
+        JPanel toolbar = new JPanel();
+        toolbar.setLayout(new BoxLayout(toolbar, BoxLayout.X_AXIS));
         this.switcher = new ServerSwitcher(this::switchTo, this::addProfile, this::editProfile);
-        top.add(switcher);
-        top.add(statusStrip);
-        top.add(lifecycleButtons);
-        add(top, BorderLayout.NORTH);
+        toolbar.add(switcher);
+        toolbar.add(javax.swing.Box.createHorizontalStrut(12));
+        toolbar.add(statusStrip);
+        toolbar.add(javax.swing.Box.createHorizontalGlue());
+        toolbar.add(lifecycleButtons);
+        add(toolbar, BorderLayout.NORTH);
 
-        // Center is the players table; console lives in a south split.
-        JPanel center = new JPanel(new BorderLayout());
-        center.add(playersPanel, BorderLayout.CENTER);
-        center.add(consolePanel, BorderLayout.SOUTH);
-        add(center, BorderLayout.CENTER);
+        // Main area — horizontal splitter: players on the left, console on the right
+        Splitter mainSplit = new Splitter(false, DEFAULT_SPLIT_PROPORTION);
+        mainSplit.setFirstComponent(playersPanel);
+        mainSplit.setSecondComponent(consolePanel);
+        add(mainSplit, BorderLayout.CENTER);
 
         reloadProfiles();
         profileStore.addListener(profiles -> reloadProfiles());
@@ -4992,9 +5009,10 @@ Replace the placeholder `plugin.xml` created in Task 1.1 with:
     <id>com.conch.minecraft-admin</id>
     <name>Conch Minecraft Admin</name>
     <vendor>Conch</vendor>
-    <description>Right-sidebar admin console for Paper servers behind
+    <description>Bottom-bar admin console for Paper servers behind
     Cube Coders AMP. Live status, player list, console tail, lifecycle
-    control, broadcast + RCON commands.</description>
+    control, broadcast + RCON commands. Supports IntelliJ's stock
+    undock / floating window modes via the tool window gear menu.</description>
 
     <depends>com.conch.core</depends>
     <depends>com.conch.vault</depends>
@@ -5002,7 +5020,7 @@ Replace the placeholder `plugin.xml` created in Task 1.1 with:
     <extensions defaultExtensionNs="com.intellij">
         <notificationGroup id="Conch Minecraft" displayType="BALLOON"/>
         <toolWindow id="Minecraft Admin"
-                    anchor="right"
+                    anchor="bottom"
                     secondary="false"
                     icon="AllIcons.Webreferences.Server"
                     factoryClass="com.conch.minecraftadmin.toolwindow.McAdminToolWindowFactory"/>
@@ -5028,9 +5046,12 @@ feat(minecraft-admin): phase 4.8 — tool window wiring
 ProfileController owns one ServerPoller per active profile, routing
 state updates to the four panels and turning crash detections into
 IntelliJ balloon notifications. ServerSwitcher renders the dropdown
-and gear/add buttons. McAdminToolWindow is the root panel with a
-north toolbar stack (switcher + status strip + lifecycle buttons)
-and a center body (players on top, console at the bottom).
+and gear/add buttons. McAdminToolWindow is the root panel optimized
+for a bottom-anchored tool window: a single-row north toolbar
+(switcher + status strip + lifecycle buttons) and a center
+JBSplitter with players on the left (30%) and console on the right
+(70%). Docked/undocked modes share the same layout — IntelliJ's
+ToolWindow framework handles the transitions for free.
 
 ServerPoller gets sendStart/sendStop/sendRestart/sendBackup helpers
 that run on the command executor and record user-stop hints into the
@@ -5047,12 +5068,174 @@ EOF
 
 ---
 
+### Task 4.9: Standalone plugin zip + `make minecraft-admin-plugin` target
+
+The plugin ships as a single `.zip` that your friend can install via IntelliJ's "Install Plugin from Disk…" dialog. This task adds a top-level Makefile target that builds the jar, stages it into the IntelliJ plugin directory layout, and zips the result.
+
+**Files:**
+- Modify: `Makefile` at the repo root — add `minecraft-admin-plugin` + `minecraft-admin-plugin-clean` targets
+- Create: `scripts/package-minecraft-admin-plugin.sh` — small shell helper that does the staging + zipping (keeps the Makefile readable)
+
+- [ ] **Step 1: Read the existing Makefile to match conventions**
+
+Open `/Users/dustin/projects/conch_workbench/Makefile`. Note:
+- `$(BAZEL)` is defined near the top as `cd $(INTELLIJ_ROOT) && bash bazel.cmd`
+- `conch-build`, `conch`, `conch-clean` are the existing targets
+- Target bodies use tabs, not spaces
+- The repo uses `out/` for build outputs (see `.gitignore` for `out/` entry)
+
+- [ ] **Step 2: Create the packaging script**
+
+Create `scripts/package-minecraft-admin-plugin.sh`:
+
+```bash
+#!/usr/bin/env bash
+# Package the Minecraft Admin plugin as an IntelliJ-installable zip.
+# Called from the root Makefile's `minecraft-admin-plugin` target.
+set -euo pipefail
+
+WORKBENCH_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+cd "$WORKBENCH_DIR"
+
+OUT_ROOT="out/minecraft-admin-plugin"
+PLUGIN_DIR_NAME="Conch Minecraft Admin"
+STAGE_DIR="$OUT_ROOT/$PLUGIN_DIR_NAME"
+LIB_DIR="$STAGE_DIR/lib"
+ZIP_PATH="out/minecraft-admin-plugin.zip"
+
+INTELLIJ_ROOT_FILE="$WORKBENCH_DIR/.intellij-root"
+if [ -f "$INTELLIJ_ROOT_FILE" ]; then
+  INTELLIJ_ROOT="$(cat "$INTELLIJ_ROOT_FILE")"
+else
+  INTELLIJ_ROOT="$WORKBENCH_DIR/../intellij-community"
+fi
+
+echo "==> Building plugin jar via Bazel"
+(cd "$INTELLIJ_ROOT" && bash bazel.cmd build //conch/plugins/minecraft-admin:minecraft-admin)
+
+JAR_PATH="$INTELLIJ_ROOT/out/bazel-bin/conch/plugins/minecraft-admin/minecraft-admin.jar"
+if [ ! -f "$JAR_PATH" ]; then
+  echo "error: expected jar not found at $JAR_PATH" >&2
+  exit 1
+fi
+
+echo "==> Staging plugin layout at $STAGE_DIR"
+rm -rf "$OUT_ROOT" "$ZIP_PATH"
+mkdir -p "$LIB_DIR"
+cp "$JAR_PATH" "$LIB_DIR/minecraft-admin.jar"
+
+echo "==> Zipping to $ZIP_PATH"
+(cd "$OUT_ROOT" && zip -rq "../$(basename "$ZIP_PATH")" "$PLUGIN_DIR_NAME")
+
+SIZE="$(wc -c < "$ZIP_PATH" | tr -d ' ')"
+echo
+echo "==> Done."
+echo "    $ZIP_PATH  ($SIZE bytes)"
+echo "    Install via Conch → Settings → Plugins → gear → Install Plugin from Disk…"
+```
+
+- [ ] **Step 3: Make the script executable**
+
+```bash
+chmod +x scripts/package-minecraft-admin-plugin.sh
+```
+
+- [ ] **Step 4: Add Makefile targets**
+
+Append to the root `Makefile`:
+
+```makefile
+.PHONY: minecraft-admin-plugin minecraft-admin-plugin-clean
+
+minecraft-admin-plugin:
+	@bash scripts/package-minecraft-admin-plugin.sh
+
+minecraft-admin-plugin-clean:
+	@rm -rf out/minecraft-admin-plugin out/minecraft-admin-plugin.zip
+	@echo "Removed out/minecraft-admin-plugin and out/minecraft-admin-plugin.zip"
+```
+
+- [ ] **Step 5: Smoke-test the target**
+
+```bash
+cd /Users/dustin/projects/conch_workbench
+make minecraft-admin-plugin
+```
+
+Expected output:
+```
+==> Building plugin jar via Bazel
+... (bazel output)
+==> Staging plugin layout at out/minecraft-admin-plugin/Conch Minecraft Admin
+==> Zipping to out/minecraft-admin-plugin.zip
+==> Done.
+    out/minecraft-admin-plugin.zip  (NNNNN bytes)
+    Install via Conch → Settings → Plugins → gear → Install Plugin from Disk…
+```
+
+Then verify the zip contents:
+
+```bash
+unzip -l out/minecraft-admin-plugin.zip
+```
+
+Expected layout:
+```
+Conch Minecraft Admin/
+Conch Minecraft Admin/lib/
+Conch Minecraft Admin/lib/minecraft-admin.jar
+```
+
+And verify `plugin.xml` is inside the jar:
+
+```bash
+unzip -p out/minecraft-admin-plugin.zip "Conch Minecraft Admin/lib/minecraft-admin.jar" | \
+  unzip -l /dev/stdin | grep plugin.xml
+```
+
+Expected: `META-INF/plugin.xml` listed.
+
+- [ ] **Step 6: Clean-up smoke test**
+
+```bash
+make minecraft-admin-plugin-clean
+ls out/minecraft-admin-plugin* 2>&1 | grep -q "No such" && echo "clean ok" || echo "clean failed"
+```
+
+Expected: `clean ok`.
+
+- [ ] **Step 7: Commit**
+
+```bash
+git add Makefile scripts/package-minecraft-admin-plugin.sh
+git commit -m "$(cat <<'EOF'
+feat(minecraft-admin): phase 4.9 — standalone plugin build target
+
+`make minecraft-admin-plugin` drives the Bazel build, stages the jar
+into the IntelliJ plugin directory layout (Conch Minecraft Admin/lib/),
+and zips the result to out/minecraft-admin-plugin.zip. End users install
+via Settings → Plugins → gear → Install Plugin from Disk…
+
+`make minecraft-admin-plugin-clean` removes the staged directory and
+the zip.
+
+Packaging logic lives in scripts/package-minecraft-admin-plugin.sh so
+the Makefile stays readable.
+
+Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
+EOF
+)"
+```
+
+---
+
 ## Phase 4 gate
 
 - [ ] All tests pass: `bazel run //conch/plugins/minecraft-admin:minecraft_admin_test_runner` → 75+ green
 - [ ] Full product build: `make conch-build` → succeeds
-- [ ] `plugin.xml` declares the tool window, service, and notification group
+- [ ] `plugin.xml` declares the tool window (`anchor="bottom"`), service, and notification group
 - [ ] Each panel has dedicated render smoke tests, all green
+- [ ] `make minecraft-admin-plugin` produces a well-formed zip that unpacks to `Conch Minecraft Admin/lib/minecraft-admin.jar`
 - [ ] No placeholder code remains anywhere in Phase 4 files
 
 ---
@@ -5074,13 +5257,32 @@ cd /Users/dustin/projects/intellij-community && bash bazel.cmd run //conch/plugi
 cd /Users/dustin/projects/intellij-community && bash bazel.cmd run //conch/plugins/ssh:ssh_test_runner
 ```
 
-- [ ] **Step 3: Launch Conch and install the plugin**
+- [ ] **Step 3: Build the standalone plugin zip**
 
-Run `make conch`. If Conch doesn't auto-load non-bundled plugins at dev time, install the plugin jar via the plugins dialog pointing at `out/bazel-bin/conch/plugins/minecraft-admin/minecraft-admin.jar`.
+```bash
+cd /Users/dustin/projects/conch_workbench
+make minecraft-admin-plugin
+```
 
-- [ ] **Step 4: Manual — tool window appears**
+Expected: `out/minecraft-admin-plugin.zip` exists and `unzip -l` shows `Conch Minecraft Admin/lib/minecraft-admin.jar`.
 
-Confirm: "Minecraft Admin" stripe button shows up on the right sidebar. Click it. The tool window opens with an empty profile dropdown and disabled panels.
+- [ ] **Step 4: Launch Conch and install the plugin from disk**
+
+Run `make conch`. When Conch opens, go to `Settings / Preferences → Plugins → gear icon → Install Plugin from Disk…` and select `out/minecraft-admin-plugin.zip`. Restart Conch when prompted.
+
+- [ ] **Step 5: Manual — tool window appears at the bottom**
+
+Confirm: after restart, "Minecraft Admin" stripe button shows up on the **bottom** stripe. Click it. The tool window opens at the bottom of the IDE with an empty profile dropdown and disabled panels. Verify the layout:
+- Single-row top toolbar: server switcher on the left, status strip in the middle, lifecycle buttons on the right
+- Main area: horizontal split with players on the left (~30%) and console on the right (~70%)
+- Dragging the splitter resizes both panes
+
+- [ ] **Step 5a: Manual — undock / float verification**
+
+Click the tool window's gear icon → View Mode. Verify that **Undock**, **Float**, and **Window** modes all work:
+- Each mode transitions without NPEs or layout glitches
+- Panel reflows naturally — the players/console split stays horizontal, the toolbar stays on top
+- Returning to **Docked** re-pins to the bottom stripe
 
 - [ ] **Step 5: Manual — add a profile**
 
@@ -5183,8 +5385,11 @@ EOF
 - `LifecycleButtons` with status-driven enablement → Task 4.5 ✓
 - `PlayersPanel` with right-click Kick/Ban/Op → Task 4.6 ✓
 - `ConsolePanel` tail + send box + history + Broadcast → Task 4.7 ✓
-- `ProfileController` wiring + `McAdminToolWindow` + factory + `plugin.xml` → Task 4.8 ✓
+- `ProfileController` wiring + `McAdminToolWindow` + factory + `plugin.xml` (`anchor="bottom"`) → Task 4.8 ✓
+- `McAdminToolWindow` horizontal split layout for bottom anchor → Task 4.8 ✓
 - Crash balloon notification → Task 4.8 (ProfileController onCrashDetected) ✓
+- Standalone `make minecraft-admin-plugin` target producing an installable zip → Task 4.9 ✓
+- Undock / floating window support inherited from IntelliJ's `ToolWindow` API → no task needed (free from the framework) ✓
 - Manual verification gate covering ping probe, AMP AppState, crash detection → Phase 5 ✓
 
 No gaps.

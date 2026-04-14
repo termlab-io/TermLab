@@ -32,7 +32,7 @@ The plugin is **not** bundled in Conch's essential-plugin set. It's built by Baz
 Plugin.xml declares:
 - `<depends>com.conch.core</depends>`
 - `<depends>com.conch.vault</depends>`
-- One `<toolWindow>` with id `Minecraft Admin`, anchor `right`
+- One `<toolWindow>` with id `Minecraft Admin`, **anchor `bottom`** — the plugin is information-dense but vertically compact (status strip + players table + console tail), so a bottom-anchored tool window gives it the horizontal width it needs without sacrificing the editor area above. Users who want more vertical breathing room can undock the window via IntelliJ's stock **gear → View Mode → Undock / Window / Float** options — no custom code required; the platform's `ToolWindow` API handles floating/windowed modes for free.
 - One `<applicationConfigurable>` under Conch's settings group for server profile management (separate from the tool window's inline gear button, which opens the same dialog)
 - No keymap bindings in v1
 
@@ -193,43 +193,43 @@ The fallback is the baseline guarantee — v1 ships working even when ping is un
 
 ## UI: `McAdminToolWindow`
 
-A single tool window anchored to the right, stripe button reused from `AllIcons.Webreferences.Server` (matching the SSH hosts tool window's icon choice for now — replaceable later with a custom SVG).
+Bottom-anchored tool window (stripe button on the south bar), stripe icon reused from `AllIcons.Webreferences.Server` for now. The layout is **horizontally oriented** — a thin top toolbar across the full width followed by a left/right split — so the window works comfortably at its default docked height (~200-300 px) and scales gracefully when the user maximizes the tool window height or undocks it into a floating window.
 
-### Top bar
-- **Server switcher:** dropdown listing all configured profiles; switching profiles stops the old `ServerPoller` and starts a new one
-- **Gear button:** opens `ServerEditDialog` for the currently selected profile (or `ServerPickerDialog` if none is selected)
-- **Add button:** opens `ServerEditDialog` for a new profile
+### Top toolbar (one thin horizontal row)
+Left to right, all on a single flex row:
 
-### Status strip (below top bar)
-Six cells, left to right:
-- Status icon (colored dot) + status text
-- Players `N/M`
-- TPS (one decimal) with a red dot if <15
-- CPU `NN%`
-- RAM `NNNN / NNNN MB`
-- Uptime `Nh Nm`
+1. **Server switcher dropdown** + **Gear button** (edit current profile) + **Add button** (new profile)
+2. **Status strip** — six compact cells, same content as before:
+   - Status icon (colored dot) + status text
+   - Players `N/M`
+   - TPS (one decimal) with a red dot if <15
+   - CPU `NN%`
+   - RAM `NNNN / NNNN MB`
+   - Uptime `Nh Nm`
+3. **Lifecycle row** — four buttons: **Start**, **Stop**, **Restart**, **Backup Now**
 
-AMP-sourced fields gray out and show a tooltip "AMP offline: <msg>" when the last tick's AMP call failed. RCON-sourced fields gray out analogously. A small pill appears next to whichever side is failing.
+AMP-sourced cells gray out and show an "⚠ AMP offline" pill with tooltip when the last AMP call failed. RCON-sourced cells gray out analogously with an "⚠ RCON offline" pill.
 
-### Lifecycle row
-Four buttons: **Start**, **Stop**, **Restart**, **Backup Now**. Enabled/disabled based on `status`:
+Lifecycle buttons are enabled/disabled from `status`:
 - `RUNNING` → Stop, Restart, Backup enabled; Start disabled
 - `STOPPED` → Start enabled; rest disabled
 - `STARTING` / `STOPPING` → all disabled
 - `CRASHED` / `UNKNOWN` → Start and Backup enabled
 
-When the user clicks Stop, the plugin records "user-requested stop at <instant>" locally and suppresses the crash balloon for the next 10 seconds so an intentional stop doesn't look like a crash.
+When the user clicks Stop, the plugin records "user-requested stop at <instant>" locally and suppresses the crash balloon for the next 10 seconds.
 
-### Players panel
-JBTable with columns `name | ping (ms)`. Right-click menu: **Kick**, **Ban**, **Op**. Each action sends a confirming RCON command and relies on the next poll tick to reflect the result. No inline state mutation of the table — it's always a render of `state.players`.
+### Main area — horizontal split
+A `JBSplitter` with a persistent divider:
 
-### Console panel
-Scrollable text area (read-only) with:
-- Auto-scroll unless the user has scrolled up
-- A single-line input at the bottom with up/down history recall (20 entries, in-memory only)
-- "Broadcast" button next to the input — expands to a small dialog that sends the text via RCON `say <msg>` and closes
+- **Left pane: Players panel** — `JBTable` with columns `name | ping (ms)`. Right-click menu: **Kick**, **Ban**, **Op**. Each action sends a confirming RCON command and relies on the next poll tick to reflect the result. No inline mutation — always a render of `state.players`.
+- **Right pane: Console panel** — scrollable read-only text area with auto-scroll (unless the user has scrolled up), a single-line input at the bottom with up/down history recall (20 entries, in-memory), and a **Broadcast** button that sends `say <msg>` via RCON.
 
-Lines arrive via `AmpClient.getConsoleUpdates`, polled at 1 second while the console panel is the active sub-panel and at 5 seconds otherwise (to cap traffic when the user is watching the players tab).
+Default divider position: 30/70 (players / console) — the console is usually the more interesting surface during an active session.
+
+Lines arrive via `AmpClient.getConsoleUpdates`, polled at 1 second while the tool window is visible, 5 seconds when hidden/minimized.
+
+### Docked vs. undocked behavior
+The tool window is anchored bottom by default. Everything above is identical in docked, undocked, floating, and windowed modes — IntelliJ's `ToolWindow` framework handles the mode transition transparently, and the panel layout is pure `BorderLayout` + `JBSplitter`, so it reflows naturally as the user resizes. No special code paths for "undocked mode".
 
 ## Error handling and degraded modes
 
@@ -263,6 +263,60 @@ A `CrashDetector` tracks status transitions across ticks. When the previous tick
 The Conch vault holds both the AMP password and the RCON password, referenced by UUID from the `ServerProfile`. `McCredentialResolver` fetches them at connect time and hands them to the clients as `char[]` (same approach the SSH plugin's `SshResolvedCredential` takes, for parity — the vault currently stores secrets as strings but the interface accepts `char[]` to allow zeroing later).
 
 The `ServerEditDialog` contains a "Pick credential…" button for each password field that opens the existing Conch vault picker.
+
+## Standalone distribution
+
+The plugin has to be buildable and shippable **independently of the Conch product build** — your friend installs a single `.zip` via IntelliJ's "Install plugin from disk…" and gets the Minecraft admin console without having to build Conch itself.
+
+### Packaging format
+
+IntelliJ's plugin loader expects a zip with this layout:
+
+```
+minecraft-admin-plugin.zip
+└── Conch Minecraft Admin/       ← top-level directory named after the plugin
+    └── lib/
+        └── minecraft-admin.jar  ← main jar, contains META-INF/plugin.xml
+```
+
+`META-INF/plugin.xml` lives **inside** `minecraft-admin.jar` (it's a resource), which is already how the Bazel `jvm_library` packages resources from `resources/` via the `resourcegroup` rule. So the main jar is distribution-ready as-is; the packaging step only needs to put it in the right directory structure and zip it.
+
+### Build command
+
+A new top-level Makefile target:
+
+```
+make minecraft-admin-plugin
+```
+
+The target:
+
+1. Runs `bazel build //conch/plugins/minecraft-admin:minecraft-admin` via the existing `$(BAZEL)` invocation the other Conch targets use.
+2. Stages the output jar into `out/minecraft-admin-plugin/Conch Minecraft Admin/lib/minecraft-admin.jar`.
+3. Zips the staged directory into `out/minecraft-admin-plugin.zip`.
+4. Prints the output path so the user can tell their friend where to grab it.
+
+A companion `make minecraft-admin-plugin-clean` target removes `out/minecraft-admin-plugin/` and `out/minecraft-admin-plugin.zip`.
+
+### Dependency surface
+
+The plugin uses only the IntelliJ Platform API and stdlib. It has **no** runtime dependencies that need to ship inside the zip — every `deps` entry in `BUILD.bazel` is either a platform module (provided by the host IDE at runtime), Gson (bundled with the IntelliJ Platform), or an annotation (compile-time only).
+
+This means the `lib/` directory contains exactly one jar. If future work adds a runtime dependency that's **not** provided by the platform, that dep has to ship in `lib/` too and the packaging step has to copy it — the Makefile target should be updated accordingly, and the spec amended.
+
+### Install flow for the end user
+
+Your friend:
+
+1. Downloads `minecraft-admin-plugin.zip`.
+2. Opens Conch → `Settings / Preferences` → `Plugins` → gear icon → **Install Plugin from Disk…**.
+3. Selects the downloaded zip.
+4. Restarts Conch when prompted.
+5. Opens the new "Minecraft Admin" tool window on the bottom bar.
+
+The plugin's declared dependencies (`com.conch.core`, `com.conch.vault`) are already present in any Conch install, so there's nothing else to fetch.
+
+---
 
 ## Testing strategy
 
