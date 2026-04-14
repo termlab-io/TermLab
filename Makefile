@@ -94,29 +94,3 @@ conch-perf-benchmark: check-intellij
 conch-perf-budget:
 	bash $(WORKBENCH_DIR)/scripts/perf/check_perf_budget.sh \
 		--summary "$(CONCH_PERF_OUT)/latest_summary.env"
-
-.PHONY: minecraft-admin-plugin minecraft-admin-plugin-clean
-
-minecraft-admin-plugin:
-	@bash scripts/package-minecraft-admin-plugin.sh
-
-minecraft-admin-plugin-clean:
-	@rm -rf out/minecraft-admin-plugin out/minecraft-admin-plugin.zip
-	@echo "Removed out/minecraft-admin-plugin and out/minecraft-admin-plugin.zip"
-
-.PHONY: amp-probe
-
-amp-probe:
-	@AMP_USERNAME="$${AMP_USERNAME:-}" AMP_PASSWORD="$${AMP_PASSWORD:-}" \
-	 AMP_URL="$${AMP_URL:-http://localhost:8080}" \
-	 AMP_INSTANCE="$${AMP_INSTANCE:-}" \
-	 python3 scripts/amp-probe.py
-
-.PHONY: rcon-probe
-
-rcon-probe:
-	@RCON_HOST="$${RCON_HOST:-localhost}" \
-	 RCON_PORT="$${RCON_PORT:-25575}" \
-	 RCON_PASSWORD="$${RCON_PASSWORD:-}" \
-	 RCON_COMMAND="$${RCON_COMMAND:-list}" \
-	 python3 scripts/rcon-probe.py
