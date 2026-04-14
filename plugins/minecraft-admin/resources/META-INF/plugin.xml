@@ -9,4 +9,14 @@
 
     <depends>com.conch.core</depends>
     <depends>com.conch.vault</depends>
+
+    <extensions defaultExtensionNs="com.intellij">
+        <notificationGroup id="Conch Minecraft" displayType="BALLOON"/>
+        <toolWindow id="Minecraft Admin"
+                    anchor="bottom"
+                    secondary="false"
+                    icon="AllIcons.Webreferences.Server"
+                    factoryClass="com.conch.minecraftadmin.toolwindow.McAdminToolWindowFactory"/>
+        <applicationService serviceImplementation="com.conch.minecraftadmin.model.ProfileStore"/>
+    </extensions>
 </idea-plugin>

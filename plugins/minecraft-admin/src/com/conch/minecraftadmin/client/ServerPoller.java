@@ -213,4 +213,38 @@ public final class ServerPoller implements AutoCloseable {
             rconSession = null;
         }
     }
+
+    public void sendStart() {
+        commandExecutor.submit(() -> runLifecycle("start", () -> ampClient.startInstance(ensureAmp(), profile.ampInstanceName())));
+    }
+
+    public void sendStop() {
+        commandExecutor.submit(() -> {
+            crashDetector.recordUserStop(java.time.Instant.now());
+            runLifecycle("stop", () -> ampClient.stopInstance(ensureAmp(), profile.ampInstanceName()));
+        });
+    }
+
+    public void sendRestart() {
+        commandExecutor.submit(() -> {
+            crashDetector.recordUserStop(java.time.Instant.now());
+            runLifecycle("restart", () -> ampClient.restartInstance(ensureAmp(), profile.ampInstanceName()));
+        });
+    }
+
+    public void sendBackup() {
+        commandExecutor.submit(() -> runLifecycle("backup", () -> ampClient.backupInstance(ensureAmp(), profile.ampInstanceName())));
+    }
+
+    @FunctionalInterface
+    private interface IoAction { void run() throws IOException; }
+
+    private void runLifecycle(String label, IoAction action) {
+        try {
+            action.run();
+        } catch (IOException e) {
+            LOG.warn("Conch Minecraft: " + label + " failed for " + profile.label(), e);
+            ampSession = null;
+        }
+    }
 }
