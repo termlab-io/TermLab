@@ -76,6 +76,13 @@ public final class McAdminToolWindow extends JPanel {
         toolbar.add(statusStrip);
         toolbar.add(javax.swing.Box.createHorizontalGlue());
         toolbar.add(lifecycleButtons);
+        toolbar.add(javax.swing.Box.createHorizontalStrut(6));
+        javax.swing.JButton refreshButton = new javax.swing.JButton("Refresh");
+        refreshButton.setToolTipText("Reconnect to AMP and RCON for the current server");
+        refreshButton.addActionListener(e -> {
+            if (current != null) current.poller().reconnect();
+        });
+        toolbar.add(refreshButton);
         add(toolbar, BorderLayout.NORTH);
 
         // Main area — horizontal splitter: players on the left, console on the right

@@ -104,6 +104,25 @@ public final class ServerPoller implements AutoCloseable {
         safeTick();
     }
 
+    /**
+     * Force an immediate reconnect: close the RCON socket, drop the AMP
+     * session token, and reschedule the poll loop so the next tick fires
+     * right away. Safe to call from the EDT — session cleanup runs on the
+     * command executor, rescheduling runs on the caller thread.
+     */
+    public void reconnect() {
+        if (stopped) return;
+        commandExecutor.submit(() -> {
+            closeRcon();
+            ampSession = null;
+        });
+        ScheduledFuture<?> old = scheduledTask.getAndSet(null);
+        if (old != null) old.cancel(false);
+        ScheduledFuture<?> next = scheduler.scheduleWithFixedDelay(
+            this::safeTick, 0, TICK.toMillis(), TimeUnit.MILLISECONDS);
+        scheduledTask.set(next);
+    }
+
     /** Record that the user just asked to stop the server; suppresses crash balloon. */
     public void recordUserStop() {
         crashDetector.recordUserStop(Instant.now());
