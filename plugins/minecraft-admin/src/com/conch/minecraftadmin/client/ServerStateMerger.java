@@ -31,12 +31,41 @@ public final class ServerStateMerger {
         long ramMax = amp.healthy() && amp.status() != null ? amp.status().ramMaxMb() : 0L;
         Duration uptime = amp.healthy() && amp.status() != null ? amp.status().uptime() : Duration.ZERO;
 
+        // Players and TPS: prefer AMP when healthy; fall back to RCON when AMP is
+        // unhealthy or AMP didn't populate the metrics (playersMax == 0 / tps NaN).
+        // Player NAMES (the list) always come from RCON — AMP only reports counts.
+        int playersOnline;
+        int playersMax;
+        double tps;
+        if (amp.healthy() && amp.status() != null) {
+            playersOnline = amp.status().playersOnline();
+            playersMax = amp.status().playersMax();
+            tps = amp.status().tps();
+            // Fall back to RCON if AMP didn't fill in TPS (non-Minecraft module case)
+            if (Double.isNaN(tps) && rcon.healthy()) {
+                tps = rcon.tps();
+            }
+            // Fall back to RCON if AMP didn't report a player count (max=0 means no data)
+            if (playersMax == 0 && rcon.healthy()) {
+                playersOnline = rcon.playersOnline();
+                playersMax = rcon.playersMax();
+            }
+        } else if (rcon.healthy()) {
+            playersOnline = rcon.playersOnline();
+            playersMax = rcon.playersMax();
+            tps = rcon.tps();
+        } else {
+            playersOnline = 0;
+            playersMax = 0;
+            tps = Double.NaN;
+        }
+
         return new ServerState(
             status,
-            rcon.playersOnline(),
-            rcon.playersMax(),
+            playersOnline,
+            playersMax,
             rcon.players(),
-            rcon.healthy() ? rcon.tps() : Double.NaN,
+            tps,
             cpu, ramUsed, ramMax, uptime,
             amp.healthy() ? Optional.empty() : Optional.of(amp.errorMessage()),
             rcon.healthy() ? Optional.empty() : Optional.of(rcon.errorMessage()),

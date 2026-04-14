@@ -38,7 +38,7 @@ class ServerPollerTest {
                 inst.addProperty("FriendlyName", "survival");
                 inst.addProperty("InstanceName", "survival");
                 inst.addProperty("Running", true);
-                inst.addProperty("AppState", 30);
+                inst.addProperty("AppState", 20);
                 inst.addProperty("TimeStarted", Instant.now().minusSeconds(120).toString());
                 available.add(inst);
                 group.add("AvailableInstances", available);

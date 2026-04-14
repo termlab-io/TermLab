@@ -202,6 +202,9 @@ public final class AmpClient {
         double cpu = Double.NaN;
         long ramUsed = 0;
         long ramMax = 0;
+        int playersOnline = 0;
+        int playersMax = 0;
+        double tps = Double.NaN;
         if (inst.has("Metrics") && inst.get("Metrics").isJsonObject()) {
             JsonObject metrics = inst.getAsJsonObject("Metrics");
             if (metrics.has("CPU Usage") && metrics.get("CPU Usage").isJsonObject()) {
@@ -212,6 +215,15 @@ public final class AmpClient {
                 JsonObject memObj = metrics.getAsJsonObject("Memory Usage");
                 if (memObj.has("RawValue")) ramUsed = memObj.get("RawValue").getAsLong();
                 if (memObj.has("MaxValue")) ramMax = memObj.get("MaxValue").getAsLong();
+            }
+            if (metrics.has("Active Users") && metrics.get("Active Users").isJsonObject()) {
+                JsonObject usersObj = metrics.getAsJsonObject("Active Users");
+                if (usersObj.has("RawValue")) playersOnline = usersObj.get("RawValue").getAsInt();
+                if (usersObj.has("MaxValue")) playersMax = usersObj.get("MaxValue").getAsInt();
+            }
+            if (metrics.has("TPS") && metrics.get("TPS").isJsonObject()) {
+                JsonObject tpsObj = metrics.getAsJsonObject("TPS");
+                if (tpsObj.has("RawValue")) tps = tpsObj.get("RawValue").getAsDouble();
             }
         }
 
@@ -224,22 +236,46 @@ public final class AmpClient {
             } catch (Exception ignored) {}
         }
 
-        return new InstanceStatus(status, cpu, ramUsed, ramMax, uptime);
+        return new InstanceStatus(status, cpu, ramUsed, ramMax, uptime, playersOnline, playersMax, tps);
     }
 
-    private static McServerStatus mapAppState(boolean running, int appState) {
-        // AMP AppState values: 0=Undefined, 5=PreStart, 10=Ready, 20=Starting,
-        // 30=Started, 40=Stopping, 45=Restarting, 50=Stopped, 60=Failed, 70=Suspended.
-        if (!running) return switch (appState) {
-            case 50 -> McServerStatus.STOPPED;
-            case 60 -> McServerStatus.CRASHED;
-            default -> McServerStatus.STOPPED;
-        };
+    /**
+     * Maps AMP's Running flag and AppState enum to this plugin's McServerStatus.
+     *
+     * <p>Canonical AMP AppState table (AMP 2.7, confirmed empirically):
+     * <pre>
+     *   0  = Undefined          -> UNKNOWN
+     *   5  = PreStart           -> STARTING
+     *   7  = Configuring        -> STARTING
+     *  10  = Starting           -> STARTING
+     *  20  = Ready              -> RUNNING
+     *  25  = Restarting         -> STOPPING
+     *  30  = Stopping           -> STOPPING
+     *  40  = PreparingForSleep  -> STOPPING
+     *  45  = Sleeping           -> STOPPED
+     *  50  = Waiting            -> STOPPED
+     *  60  = Installing         -> STARTING
+     *  70  = Updating           -> STARTING
+     *  75  = AwaitingUserInput  -> STARTING
+     *  80  = Failed             -> CRASHED
+     * 100  = Suspended          -> STOPPED
+     * 200  = Maintenance        -> STOPPED
+     * 250  = Indeterminate      -> UNKNOWN
+     * </pre>
+     * If Running == false: prefer STOPPED unless AppState == 80 (CRASHED).
+     * Any AppState value not in the table -> UNKNOWN.
+     */
+    static McServerStatus mapAppState(boolean running, int appState) {
+        if (!running) {
+            return appState == 80 ? McServerStatus.CRASHED : McServerStatus.STOPPED;
+        }
         return switch (appState) {
-            case 30 -> McServerStatus.RUNNING;
-            case 20, 5, 10 -> McServerStatus.STARTING;
-            case 40, 45 -> McServerStatus.STOPPING;
-            case 60 -> McServerStatus.CRASHED;
+            case 0, 250 -> McServerStatus.UNKNOWN;
+            case 5, 7, 10, 60, 70, 75 -> McServerStatus.STARTING;
+            case 20 -> McServerStatus.RUNNING;
+            case 25, 30, 40 -> McServerStatus.STOPPING;
+            case 45, 50, 100, 200 -> McServerStatus.STOPPED;
+            case 80 -> McServerStatus.CRASHED;
             default -> McServerStatus.UNKNOWN;
         };
     }

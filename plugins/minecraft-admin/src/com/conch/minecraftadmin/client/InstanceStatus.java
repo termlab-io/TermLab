@@ -15,9 +15,14 @@ public record InstanceStatus(
     double cpuPercent,
     long ramUsedMb,
     long ramMaxMb,
-    @NotNull Duration uptime
+    @NotNull Duration uptime,
+    int playersOnline,    // from AMP Metrics."Active Users".RawValue, 0 if missing
+    int playersMax,       // from AMP Metrics."Active Users".MaxValue, 0 if missing
+    double tps            // from AMP Metrics.TPS.RawValue, NaN if missing
 ) {
     public static @NotNull InstanceStatus unknown() {
-        return new InstanceStatus(McServerStatus.UNKNOWN, Double.NaN, 0L, 0L, Duration.ZERO);
+        return new InstanceStatus(
+            McServerStatus.UNKNOWN, Double.NaN, 0L, 0L, Duration.ZERO,
+            0, 0, Double.NaN);
     }
 }

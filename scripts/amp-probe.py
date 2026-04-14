@@ -21,6 +21,179 @@ SEP_HEAVY = "=" * 70
 SEP_LIGHT = "-" * 70
 
 
+def map_app_state(running: bool, app_state) -> str:
+    """Mirror of AmpClient.mapAppState — canonical AMP 2.7 AppState table.
+
+    Must stay in sync with plugins/minecraft-admin/src/.../AmpClient.java.
+
+    AppState enum (AMP 2.7, confirmed empirically):
+      0  = Undefined         -> UNKNOWN
+      5  = PreStart          -> STARTING
+      7  = Configuring       -> STARTING
+     10  = Starting          -> STARTING
+     20  = Ready             -> RUNNING
+     25  = Restarting        -> STOPPING
+     30  = Stopping          -> STOPPING
+     40  = PreparingForSleep -> STOPPING
+     45  = Sleeping          -> STOPPED
+     50  = Waiting           -> STOPPED
+     60  = Installing        -> STARTING
+     70  = Updating          -> STARTING
+     75  = AwaitingUserInput -> STARTING
+     80  = Failed            -> CRASHED
+    100  = Suspended         -> STOPPED
+    200  = Maintenance       -> STOPPED
+    250  = Indeterminate     -> UNKNOWN
+    """
+    try:
+        app_state_int = int(app_state)
+    except (TypeError, ValueError):
+        return "UNKNOWN"
+
+    if not running:
+        return "CRASHED" if app_state_int == 80 else "STOPPED"
+
+    table = {
+        0: "UNKNOWN",
+        5: "STARTING",
+        7: "STARTING",
+        10: "STARTING",
+        20: "RUNNING",
+        25: "STOPPING",
+        30: "STOPPING",
+        40: "STOPPING",
+        45: "STOPPED",
+        50: "STOPPED",
+        60: "STARTING",
+        70: "STARTING",
+        75: "STARTING",
+        80: "CRASHED",
+        100: "STOPPED",
+        200: "STOPPED",
+        250: "UNKNOWN",
+    }
+    return table.get(app_state_int, "UNKNOWN")
+
+
+def _app_state_label(app_state) -> str:
+    """Human-readable AMP AppState name for the given numeric code."""
+    labels = {
+        0: "Undefined",
+        5: "PreStart",
+        7: "Configuring",
+        10: "Starting",
+        20: "Ready",
+        25: "Restarting",
+        30: "Stopping",
+        40: "PreparingForSleep",
+        45: "Sleeping",
+        50: "Waiting",
+        60: "Installing",
+        70: "Updating",
+        75: "AwaitingUserInput",
+        80: "Failed",
+        100: "Suspended",
+        200: "Maintenance",
+        250: "Indeterminate",
+    }
+    try:
+        return labels.get(int(app_state), f"Unknown({app_state})")
+    except (TypeError, ValueError):
+        return f"Unknown({app_state})"
+
+
+def do_plugin_preview(inst: dict) -> None:
+    """Print what the Minecraft Admin plugin would render for this instance."""
+    friendly = inst.get("FriendlyName", "<no FriendlyName>")
+    app_state = inst.get("AppState", None)
+    running = inst.get("Running", False)
+    metrics = inst.get("Metrics", {})
+    if not isinstance(metrics, dict):
+        metrics = {}
+
+    status = map_app_state(running, app_state)
+    state_label = _app_state_label(app_state)
+
+    # CPU
+    cpu_block = metrics.get("CPU Usage")
+    if isinstance(cpu_block, dict) and "RawValue" in cpu_block:
+        cpu_str = f"{cpu_block['RawValue']}%"
+    else:
+        cpu_str = "not provided by AMP"
+
+    # RAM
+    mem_block = metrics.get("Memory Usage")
+    if isinstance(mem_block, dict):
+        ram_used = mem_block.get("RawValue")
+        ram_max = mem_block.get("MaxValue")
+        if ram_used is not None and ram_max is not None:
+            ram_str = f"{ram_used} / {ram_max} MB"
+        elif ram_used is not None:
+            ram_str = f"{ram_used} MB (max: not provided by AMP)"
+        else:
+            ram_str = "not provided by AMP"
+    else:
+        ram_str = "not provided by AMP"
+
+    # Uptime
+    time_started = inst.get("TimeStarted")
+    if time_started:
+        try:
+            from datetime import datetime, timezone, timedelta
+            started = datetime.fromisoformat(time_started.replace("Z", "+00:00"))
+            now = datetime.now(timezone.utc)
+            delta = now - started
+            total_seconds = int(delta.total_seconds())
+            if total_seconds < 0:
+                uptime_str = "0s (clock skew?)"
+            else:
+                h, rem = divmod(total_seconds, 3600)
+                m, s = divmod(rem, 60)
+                uptime_str = f"{h}h {m}m {s}s" if h > 0 else (f"{m}m {s}s" if m > 0 else f"{s}s")
+        except Exception as e:
+            uptime_str = f"not parsed ({e})"
+    else:
+        uptime_str = "not provided by AMP"
+
+    # Active Users (players)
+    users_block = metrics.get("Active Users")
+    if isinstance(users_block, dict):
+        p_online = users_block.get("RawValue")
+        p_max = users_block.get("MaxValue")
+        if p_online is not None and p_max is not None:
+            players_str = f"{p_online} / {p_max}"
+        elif p_online is not None:
+            players_str = f"{p_online} (max: not provided by AMP)"
+        else:
+            players_str = "not provided by AMP"
+    else:
+        players_str = "not provided by AMP"
+
+    # TPS
+    tps_block = metrics.get("TPS")
+    if isinstance(tps_block, dict):
+        tps_raw = tps_block.get("RawValue")
+        tps_max = tps_block.get("MaxValue")
+        if tps_raw is not None and tps_max is not None:
+            tps_str = f"{tps_raw} / {tps_max}"
+        elif tps_raw is not None:
+            tps_str = str(tps_raw)
+        else:
+            tps_str = "not provided by AMP"
+    else:
+        tps_str = "not provided by AMP"
+
+    print(SEP_LIGHT)
+    print(f"plugin preview for '{friendly}' (what the Minecraft Admin plugin would show):")
+    print(f"  status:         {status:<16} (from AppState={app_state} \u2192 {state_label})")
+    print(f"  cpu:            {cpu_str}")
+    print(f"  ram:            {ram_str}")
+    print(f"  uptime:         {uptime_str}")
+    print(f"  players:        {players_str}           (from Metrics.\"Active Users\")")
+    print(f"  tps:            {tps_str}           (from Metrics.TPS)")
+    print(SEP_LIGHT)
+
+
 def redact_secrets(body: dict) -> dict:
     copy = dict(body)
     if "password" in copy:
@@ -234,6 +407,7 @@ def find_target(instances: list, target_name: str) -> None:
             if target_name != exact_case:
                 print(f"  Note: your name '{target_name}' matched '{exact_case}' (case-insensitive).")
                 print(f"  Copy '{exact_case}' exactly into the plugin profile's ampInstanceName field to avoid issues.")
+            do_plugin_preview(inst)
             return
 
     labels = [f"{inst.get('FriendlyName', '<no FriendlyName>')} ({inst.get('InstanceName', '<no InstanceName>')})"

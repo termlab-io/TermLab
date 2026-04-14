@@ -58,7 +58,7 @@ class AmpClientTest {
                 inst.addProperty("FriendlyName", "survival");
                 inst.addProperty("InstanceName", "survival");
                 inst.addProperty("Running", true);
-                inst.addProperty("AppState", 30);
+                inst.addProperty("AppState", 20);
                 inst.addProperty("TimeStarted", Instant.now().minusSeconds(300).toString());
                 JsonObject metrics = new JsonObject();
                 JsonObject cpu = new JsonObject();
@@ -68,6 +68,14 @@ class AmpClientTest {
                 mem.addProperty("RawValue", 1500);
                 mem.addProperty("MaxValue", 4000);
                 metrics.add("Memory Usage", mem);
+                JsonObject users = new JsonObject();
+                users.addProperty("RawValue", 7);
+                users.addProperty("MaxValue", 20);
+                metrics.add("Active Users", users);
+                JsonObject tpsMetric = new JsonObject();
+                tpsMetric.addProperty("RawValue", 19.5);
+                tpsMetric.addProperty("MaxValue", 20);
+                metrics.add("TPS", tpsMetric);
                 inst.add("Metrics", metrics);
                 available.add(inst);
                 group.add("AvailableInstances", available);
@@ -85,6 +93,9 @@ class AmpClientTest {
             assertEquals(1500, status.ramUsedMb());
             assertEquals(4000, status.ramMaxMb());
             assertTrue(status.uptime().toSeconds() >= 299);
+            assertEquals(7, status.playersOnline());
+            assertEquals(20, status.playersMax());
+            assertEquals(19.5, status.tps(), 0.001);
         }
     }
 
