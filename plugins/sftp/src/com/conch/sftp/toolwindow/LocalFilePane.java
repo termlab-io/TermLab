@@ -3,6 +3,7 @@ package com.conch.sftp.toolwindow;
 import com.conch.sftp.model.LocalFileEntry;
 import com.conch.sftp.ops.LocalFileOps;
 import com.conch.sftp.persistence.ConchSftpConfig;
+import com.conch.sftp.spi.LocalFileOpener;
 import com.intellij.icons.AllIcons;
 import com.intellij.openapi.actionSystem.ActionManager;
 import com.intellij.openapi.actionSystem.ActionToolbar;
@@ -355,9 +356,14 @@ public final class LocalFilePane extends JPanel {
         if (viewRow < 0 || currentDir == null) return;
         int modelRow = table.convertRowIndexToModel(viewRow);
         var entry = model.getEntryAt(modelRow);
-        if (entry instanceof LocalFileEntry local && local.isDirectory()) {
+        if (!(entry instanceof LocalFileEntry local)) return;
+        if (local.isDirectory()) {
             reload(local.path());
+            return;
         }
+        var openers = LocalFileOpener.EP_NAME.getExtensionList();
+        if (openers.isEmpty()) return;
+        openers.get(0).open(project, local);
     }
 
     private void onPathFieldSubmit() {
