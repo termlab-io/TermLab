@@ -118,7 +118,7 @@ def do_login(base_url: str, username: str, password: str) -> str:
         "token": "",
         "rememberMe": False,
     }
-    print_request_section("[1/5]", url, body)
+    print_request_section("[1/4]", url, body)
     try:
         status, headers, body_text = post_json(url, body)
     except Exception as e:
@@ -149,52 +149,10 @@ def do_login(base_url: str, username: str, password: str) -> str:
     return session_id
 
 
-def do_get_api_list(base_url: str, session_id: str) -> None:
-    url = base_url + "/API/Core/GetAPIList"
-    body = {"SESSIONID": session_id}
-    print(SEP_HEAVY)
-    print(f"[2/5] POST {url}")
-    print(f"         (diagnostic -- lists every method AMP exposes on this panel)")
-    print(SEP_LIGHT)
-    print("request body:")
-    redacted = redact_secrets(body)
-    print("  " + json.dumps(redacted, indent=2).replace("\n", "\n  "))
-    try:
-        status, headers, body_text = post_json(url, body)
-    except Exception as e:
-        print(f"\nerror: connection to {url} failed")
-        print(f"  {type(e).__name__}: {e}")
-        print(f"  hint: can you reach the AMP URL from this machine?")
-        print(f"  try: curl -v {base_url}/API/")
-        sys.exit(1)
-
-    print(SEP_LIGHT)
-    print(f"response status: {status}")
-
-    content_type = headers.get("Content-Type", headers.get("content-type", ""))
-    if "json" not in content_type:
-        print("WARNING: Content-Type does not contain 'json'")
-        print("response body (raw):")
-        print("  " + body_text)
-        print(SEP_HEAVY)
-        return
-
-    try:
-        parsed = json.loads(body_text)
-        pretty = json.dumps(parsed, indent=2)
-        print("response body (prettyprinted):")
-        print("  " + pretty.replace("\n", "\n  "))
-    except json.JSONDecodeError:
-        print("response body (raw -- could not parse as JSON):")
-        print("  " + body_text)
-
-    print(SEP_HEAVY)
-
-
 def do_get_instances(base_url: str, session_id: str) -> list:
     url = base_url + "/API/ADSModule/GetInstances"
     body = {"SESSIONID": session_id}
-    print_request_section("[3/5]", url, body)
+    print_request_section("[2/4]", url, body)
     try:
         status, headers, body_text = post_json(url, body)
     except Exception as e:
@@ -213,8 +171,14 @@ def do_get_instances(base_url: str, session_id: str) -> list:
         print("error: ADSModule/GetInstances returned non-JSON body")
         sys.exit(1)
 
-    # Walk the result array of groups
-    groups = parsed.get("result", [])
+    # Walk the result array of groups — AMP 2.7+ returns a top-level array;
+    # older or wrapped responses use {"result": [...]}.
+    if isinstance(parsed, list):
+        groups = parsed
+    elif isinstance(parsed, dict):
+        groups = parsed.get("result", [])
+    else:
+        groups = []
     if not isinstance(groups, list):
         print("warning: GetInstances result is not a list — AMP may be a game instance panel, not ADS")
         return []
@@ -261,23 +225,29 @@ def find_target(instances: list, target_name: str) -> None:
     for inst in instances:
         friendly = inst.get("FriendlyName", "")
         iname = inst.get("InstanceName", "")
-        if target_name == friendly or target_name == iname:
+        if target_name.lower() == friendly.lower() or target_name.lower() == iname.lower():
             app_state = inst.get("AppState", "?")
             running = inst.get("Running", "?")
-            print(f"\n✓ FOUND instance '{target_name}' — AppState={app_state} Running={running}")
+            matched_by = friendly if target_name.lower() == friendly.lower() else iname
+            exact_case = friendly if target_name.lower() == friendly.lower() else iname
+            print(f"\n✓ FOUND instance '{target_name}' (AMP exact-case: '{exact_case}') — AppState={app_state} Running={running}")
+            if target_name != exact_case:
+                print(f"  Note: your name '{target_name}' matched '{exact_case}' (case-insensitive).")
+                print(f"  Copy '{exact_case}' exactly into the plugin profile's ampInstanceName field to avoid issues.")
             return
 
-    friendly_names = [inst.get("FriendlyName", "<no FriendlyName>") for inst in instances]
+    labels = [f"{inst.get('FriendlyName', '<no FriendlyName>')} ({inst.get('InstanceName', '<no InstanceName>')})"
+              for inst in instances]
     print(f"\n✗ instance '{target_name}' NOT FOUND.")
-    print(f"  AMP knows about these instances: {friendly_names}")
+    print(f"  AMP knows about these instances: {labels}")
     print(f"  This is the #1 thing to copy into the plugin profile's ampInstanceName field.")
-    print(f"  Make sure the value exactly matches a FriendlyName or InstanceName shown above.")
+    print(f"  Make sure the value matches a FriendlyName or InstanceName shown above (case-insensitive).")
 
 
 def do_get_status(base_url: str, session_id: str) -> None:
     url = base_url + "/API/Core/GetStatus"
     body = {"SESSIONID": session_id}
-    print_request_section("[4/5]", url, body)
+    print_request_section("[3/4]", url, body)
     try:
         status, headers, body_text = post_json(url, body)
     except Exception as e:
@@ -301,7 +271,7 @@ def do_get_status(base_url: str, session_id: str) -> None:
 def do_get_updates(base_url: str, session_id: str, instance_name: str) -> None:
     url = base_url + "/API/Core/GetUpdates"
     body = {"SESSIONID": session_id, "InstanceName": instance_name}
-    print_request_section("[5/5]", url, body)
+    print_request_section("[4/4]", url, body)
     try:
         status, headers, body_text = post_json(url, body)
     except Exception as e:
@@ -357,22 +327,19 @@ def main():
     # Step 1: Login
     session_id = do_login(base_url, username, password)
 
-    # Step 2: GetAPIList (diagnostic)
-    do_get_api_list(base_url, session_id)
-
-    # Step 3: GetInstances
+    # Step 2: GetInstances
     instances = do_get_instances(base_url, session_id)
     find_target(instances, instance)
 
-    # Step 4: GetStatus (instance panel diagnostic)
+    # Step 3: GetStatus (instance panel diagnostic)
     do_get_status(base_url, session_id)
 
-    # Step 5: GetUpdates (only if instance was provided)
+    # Step 4: GetUpdates (only if instance was provided)
     if instance:
         do_get_updates(base_url, session_id, instance)
     else:
         print()
-        print(f"[5/5] skipping Core/GetUpdates — AMP_INSTANCE not set")
+        print(f"[4/4] skipping Core/GetUpdates — AMP_INSTANCE not set")
 
     print("\n✓ probe complete")
 

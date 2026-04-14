@@ -63,7 +63,7 @@ public final class AmpClient {
         body.addProperty("token", "");
         body.addProperty("rememberMe", false);
 
-        JsonObject response = postRaw(baseUrl, "Core/Login", body);
+        JsonObject response = expectObject(postRaw(baseUrl, "Core/Login", body), "Core/Login");
         String sessionField = response.has("sessionID") ? response.get("sessionID").getAsString() : null;
         String sessionFingerprint = sessionField == null ? "<null>"
             : sessionField.substring(0, Math.min(8, sessionField.length())) + "…";
@@ -82,9 +82,20 @@ public final class AmpClient {
     ) throws IOException {
         LOG.debug("Conch Minecraft: AMP getInstanceStatus instanceName=" + instanceName);
         JsonObject body = new JsonObject();
-        JsonObject response = post(session, "ADSModule/GetInstances", body);
-        JsonArray groups = response.getAsJsonArray("result");
-        if (groups == null) return InstanceStatus.unknown();
+        JsonElement response = post(session, "ADSModule/GetInstances", body);
+        JsonArray groups;
+        if (response.isJsonArray()) {
+            groups = response.getAsJsonArray();
+        } else if (response.isJsonObject() && response.getAsJsonObject().has("result")) {
+            groups = response.getAsJsonObject().getAsJsonArray("result");
+        } else {
+            LOG.warn("Conch Minecraft: ADSModule/GetInstances returned unexpected shape: " + response);
+            return InstanceStatus.unknown();
+        }
+        if (groups == null) {
+            LOG.warn("Conch Minecraft: ADSModule/GetInstances returned no groups");
+            return InstanceStatus.unknown();
+        }
 
         int groupCount = groups.size();
         int totalInstances = 0;
@@ -95,6 +106,7 @@ public final class AmpClient {
         LOG.debug("Conch Minecraft: AMP GetInstances returned " + groupCount
             + " group(s), " + totalInstances + " instance(s)");
 
+        List<String> visibleLabels = new ArrayList<>();
         for (JsonElement group : groups) {
             JsonArray instances = group.getAsJsonObject().getAsJsonArray("AvailableInstances");
             if (instances == null) continue;
@@ -106,16 +118,16 @@ public final class AmpClient {
                 int appState = inst.has("AppState") ? inst.get("AppState").getAsInt() : -1;
                 LOG.debug("Conch Minecraft: AMP instance seen: FriendlyName=" + friendly
                     + " InstanceName=" + id + " Running=" + running + " AppState=" + appState);
-                if (!instanceName.equals(friendly) && !instanceName.equals(id)) continue;
+                visibleLabels.add(friendly + " (" + id + ")");
+                if (!instanceName.equalsIgnoreCase(friendly) && !instanceName.equalsIgnoreCase(id)) continue;
                 InstanceStatus mapped = toStatus(inst);
                 LOG.debug("Conch Minecraft: AMP instance '" + instanceName
                     + "' mapped to status=" + mapped);
                 return mapped;
             }
         }
-        LOG.warn("Conch Minecraft: AMP instance '" + instanceName + "' not found in "
-            + totalInstances + " visible instance(s). Check that the 'ampInstanceName' field"
-            + " in the profile matches AMP's FriendlyName or InstanceName exactly.");
+        LOG.warn("Conch Minecraft: AMP instance '" + instanceName + "' not found. AMP knows about these instances: "
+            + visibleLabels);
         return InstanceStatus.unknown();
     }
 
@@ -152,7 +164,7 @@ public final class AmpClient {
         LOG.debug("Conch Minecraft: AMP getConsoleUpdates instanceName=" + instanceName);
         JsonObject body = new JsonObject();
         body.addProperty("InstanceName", instanceName);
-        JsonObject response = post(s, "Core/GetUpdates", body);
+        JsonObject response = expectObject(post(s, "Core/GetUpdates", body), "Core/GetUpdates");
         JsonElement resultEl = response.get("result");
         if (resultEl == null || !resultEl.isJsonObject()) return ConsoleUpdate.empty();
         JsonArray entries = resultEl.getAsJsonObject().getAsJsonArray("ConsoleEntries");
@@ -232,7 +244,15 @@ public final class AmpClient {
         };
     }
 
-    private JsonObject post(AmpSession session, String apiCall, JsonObject body) throws IOException {
+    private static JsonObject expectObject(JsonElement element, String apiCall) throws IOException {
+        if (!element.isJsonObject()) {
+            throw new IOException("AMP " + apiCall + " returned "
+                + (element.isJsonArray() ? "an array" : "a primitive") + " but expected an object");
+        }
+        return element.getAsJsonObject();
+    }
+
+    private JsonElement post(AmpSession session, String apiCall, JsonObject body) throws IOException {
         body.addProperty("SESSIONID", session.sessionId());
         try {
             return postRaw(session.baseUrl(), apiCall, body);
@@ -246,7 +266,7 @@ public final class AmpClient {
             loginBody.addProperty("password", new String(pair.password()));
             loginBody.addProperty("token", "");
             loginBody.addProperty("rememberMe", false);
-            JsonObject loginResponse = postRaw(session.baseUrl(), "Core/Login", loginBody);
+            JsonObject loginResponse = expectObject(postRaw(session.baseUrl(), "Core/Login", loginBody), "Core/Login");
             if (!loginResponse.has("success") || !loginResponse.get("success").getAsBoolean()) {
                 LOG.warn("Conch Minecraft: AMP re-login rejected baseUrl=" + session.baseUrl());
                 throw new AmpAuthException("AMP re-login after 401 rejected");
@@ -261,7 +281,7 @@ public final class AmpClient {
         }
     }
 
-    private JsonObject postRaw(String baseUrl, String apiCall, JsonObject body) throws IOException {
+    private JsonElement postRaw(String baseUrl, String apiCall, JsonObject body) throws IOException {
         String url = trimTrailingSlash(baseUrl) + "/API/" + apiCall;
         LOG.info("Conch Minecraft: AMP POST " + apiCall + " url=" + url
             + " body=" + redactSecrets(body));
@@ -302,9 +322,7 @@ public final class AmpClient {
                 + " status=" + status + " bodyPreview=" + preview);
         }
         try {
-            JsonElement parsed = JsonParser.parseString(response.body());
-            if (!parsed.isJsonObject()) throw new IOException("AMP returned non-object JSON");
-            return parsed.getAsJsonObject();
+            return JsonParser.parseString(response.body());
         } catch (com.google.gson.JsonSyntaxException e) {
             LOG.warn("Conch Minecraft: AMP POST " + apiCall + " returned malformed JSON", e);
             throw new IOException("AMP returned malformed JSON: " + e.getMessage(), e);
