@@ -1,15 +1,17 @@
 package com.conch.editor.scratch;
 
+import com.intellij.ide.scratch.ScratchFileService;
+import com.intellij.ide.scratch.ScratchRootType;
 import com.intellij.openapi.actionSystem.ActionUpdateThread;
 import com.intellij.openapi.actionSystem.AnAction;
 import com.intellij.openapi.actionSystem.AnActionEvent;
 import com.intellij.openapi.actionSystem.CommonDataKeys;
 import com.intellij.openapi.fileEditor.FileEditorManager;
-import com.intellij.openapi.fileTypes.FileType;
 import com.intellij.openapi.fileTypes.FileTypeManager;
+import com.intellij.openapi.fileTypes.PlainTextLanguage;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.ui.popup.JBPopupFactory;
-import com.intellij.testFramework.LightVirtualFile;
+import com.intellij.openapi.vfs.VirtualFile;
 import org.jetbrains.annotations.NotNull;
 
 import javax.swing.*;
@@ -73,9 +75,10 @@ public final class NewScratchAction extends AnAction {
     private static void createAndOpen(@NotNull Project project, @NotNull ScratchOption option) {
         int n = ScratchCounter.next();
         String filename = "scratch-" + n + option.extension();
-        FileType fileType = FileTypeManager.getInstance().getFileTypeByFileName(filename);
-        LightVirtualFile file = new LightVirtualFile(filename, fileType, "");
-        file.putUserData(ScratchMarker.KEY, Boolean.TRUE);
+        VirtualFile file = ScratchRootType.getInstance().createScratchFile(
+            project, filename, PlainTextLanguage.INSTANCE, "",
+            ScratchFileService.Option.create_new_always);
+        if (file == null) return;
         FileEditorManager.getInstance(project).openFile(file, true);
     }
 
