@@ -7,7 +7,10 @@ import com.intellij.openapi.actionSystem.AnAction;
 import com.intellij.openapi.actionSystem.AnActionEvent;
 import com.intellij.openapi.actionSystem.CommonDataKeys;
 import com.intellij.openapi.fileEditor.FileEditorManager;
+import com.intellij.lang.Language;
+import com.intellij.openapi.fileTypes.FileType;
 import com.intellij.openapi.fileTypes.FileTypeManager;
+import com.intellij.openapi.fileTypes.LanguageFileType;
 import com.intellij.openapi.fileTypes.PlainTextLanguage;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.ui.popup.JBPopupFactory;
@@ -75,9 +78,14 @@ public final class NewScratchAction extends AnAction {
     private static void createAndOpen(@NotNull Project project, @NotNull ScratchOption option) {
         int n = ScratchCounter.next();
         String filename = "scratch-" + n + option.extension();
+
+        FileType resolved = FileTypeManager.getInstance().getFileTypeByFileName(filename);
+        Language language = (resolved instanceof LanguageFileType lft)
+                ? lft.getLanguage()
+                : PlainTextLanguage.INSTANCE;
+
         VirtualFile file = ScratchRootType.getInstance().createScratchFile(
-            project, filename, PlainTextLanguage.INSTANCE, "",
-            ScratchFileService.Option.create_new_always);
+            project, filename, language, "", ScratchFileService.Option.create_new_always);
         if (file == null) return;
         FileEditorManager.getInstance(project).openFile(file, true);
     }
