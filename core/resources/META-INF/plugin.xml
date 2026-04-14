@@ -41,6 +41,18 @@
             id="conch.terminal.settings.terminal"
             displayName="Terminal"/>
 
+        <applicationConfigurable
+            parentId="root"
+            instance="com.conch.core.settings.ConchWorkbenchConfigurable"
+            id="conch.workbench.settings"
+            displayName="Conch Workbench"/>
+
+        <applicationConfigurable
+            parentId="conch.workbench.settings"
+            instance="com.conch.core.settings.LightEditorConfigurable"
+            id="conch.workbench.settings.editor"
+            displayName="Light Editor"/>
+
         <search.optionContributor
             implementation="com.conch.core.settings.ConchSearchableOptionContributor"/>
 
