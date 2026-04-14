@@ -203,18 +203,20 @@ public final class ServerPoller implements AutoCloseable {
         RconTickResult rconResult;
         try {
             RconSession session = ensureRcon();
+            LOG.debug("Conch Minecraft: tick RCON sending 'list' for profile=" + profile.label());
             String listReply = rconClient.command(session, "list");
-            String tpsReply = rconClient.command(session, "tps");
+            LOG.debug("Conch Minecraft: tick RCON 'list' reply length=" + listReply.length() + " profile=" + profile.label());
             PaperListReplyParser.Result parsed = PaperListReplyParser.parse(listReply);
-            double tps = PaperTpsReplyParser.parseMostRecent(tpsReply);
-            rconResult = RconTickResult.ok(parsed.players(), parsed.online(), parsed.max(), tps);
-            LOG.debug("Conch Minecraft: tick RCON ok players=" + rconResult.playersOnline()
-                + "/" + rconResult.playersMax() + " tps=" + rconResult.tps());
+            // TPS comes from AMP's Metrics.TPS — we don't call RCON 'tps' anymore.
+            // The merger uses AMP TPS when AMP is healthy and only falls back to
+            // RCON TPS when AMP is unhealthy, which is rare enough that dropping
+            // the extra round-trip is worth the simplicity and the session stability.
+            rconResult = RconTickResult.ok(parsed.players(), parsed.online(), parsed.max(), Double.NaN);
+            LOG.debug("Conch Minecraft: tick RCON ok players=" + parsed.online() + "/" + parsed.max());
         } catch (Exception e) {
+            LOG.warn("Conch Minecraft: tick RCON failed (command='list') for profile=" + profile.label() + " — closing session and reconnecting next tick", e);
             closeRcon();
             rconResult = RconTickResult.error(e.getMessage() == null ? e.toString() : e.getMessage());
-            LOG.info("Conch Minecraft: tick RCON failed profile=" + profile.label()
-                + " error=" + rconResult.errorMessage());
         }
 
         ServerState state = ServerStateMerger.merge(ampResult, rconResult, sampledAt);

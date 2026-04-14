@@ -40,6 +40,11 @@ class ServerPollerTest {
                 inst.addProperty("Running", true);
                 inst.addProperty("AppState", 20);
                 inst.addProperty("TimeStarted", Instant.now().minusSeconds(120).toString());
+                JsonObject metrics = new JsonObject();
+                JsonObject tpsMetric = new JsonObject();
+                tpsMetric.addProperty("RawValue", 19.5);
+                metrics.add("TPS", tpsMetric);
+                inst.add("Metrics", metrics);
                 available.add(inst);
                 group.add("AvailableInstances", available);
                 JsonArray result = new JsonArray();
@@ -49,7 +54,6 @@ class ServerPollerTest {
                 return wrapper;
             });
             rcon.onCommand("list", cmd -> "There are 2 of a max of 20 players online: alice, bob");
-            rcon.onCommand("tps", cmd -> "§6TPS from last 1m, 5m, 15m: §a19.5, §a20.0, §a20.0");
 
             ServerProfile profile = ServerProfile.create(
                 "Survival",
