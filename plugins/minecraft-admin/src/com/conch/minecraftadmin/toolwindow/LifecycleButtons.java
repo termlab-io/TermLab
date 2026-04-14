@@ -19,7 +19,7 @@ public final class LifecycleButtons extends JPanel {
     private final JButton start = new JButton("Start");
     private final JButton stop = new JButton("Stop");
     private final JButton restart = new JButton("Restart");
-    private final JButton backup = new JButton("Backup Now");
+    private final JButton backup = new JButton("Backup");
 
     public LifecycleButtons(
         @NotNull Runnable onStart,
@@ -33,6 +33,11 @@ public final class LifecycleButtons extends JPanel {
         stop.addActionListener(e -> onStop.run());
         restart.addActionListener(e -> onRestart.run());
         backup.addActionListener(e -> onBackup.run());
+        java.awt.Insets compactMargin = JBUI.insets(2, 10);
+        start.setMargin(compactMargin);
+        stop.setMargin(compactMargin);
+        restart.setMargin(compactMargin);
+        backup.setMargin(compactMargin);
         add(start);
         add(javax.swing.Box.createHorizontalStrut(6));
         add(stop);

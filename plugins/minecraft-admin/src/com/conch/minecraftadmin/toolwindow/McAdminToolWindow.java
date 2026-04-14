@@ -12,9 +12,12 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import com.intellij.openapi.ui.Splitter;
+import javax.swing.Box;
 import javax.swing.BoxLayout;
+import javax.swing.JButton;
 import javax.swing.JPanel;
 import java.awt.BorderLayout;
+import java.awt.Component;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -41,6 +44,9 @@ public final class McAdminToolWindow extends JPanel {
 
     private static final float DEFAULT_SPLIT_PROPORTION = 0.30f;
 
+    /** Below this width, the main splitter flips from horizontal to vertical orientation. */
+    private static final int NARROW_WIDTH_THRESHOLD = 800;
+
     private final Project project;
     private final ProfileStore profileStore;
     private final StatusStripPanel statusStrip = new StatusStripPanel();
@@ -48,6 +54,7 @@ public final class McAdminToolWindow extends JPanel {
     private final PlayersPanel playersPanel;
     private final ConsolePanel consolePanel;
     private final ServerSwitcher switcher;
+    private final Splitter mainSplit;
 
     private @Nullable ProfileController current;
 
@@ -72,9 +79,13 @@ public final class McAdminToolWindow extends JPanel {
             cmd -> sendRconSync(cmd),
             msg -> sendRcon("say " + msg));
 
-        // Top toolbar — one horizontal row: switcher + status strip + lifecycle buttons
-        JPanel toolbar = new JPanel();
-        toolbar.setLayout(new BoxLayout(toolbar, BoxLayout.X_AXIS));
+        // Build the refresh button before the toolbar so row1 can reference it.
+        JButton refreshButton = new JButton("Refresh");
+        refreshButton.setToolTipText("Reconnect to AMP and RCON for the current server");
+        refreshButton.addActionListener(e -> {
+            if (current != null) current.refresh();
+        });
+
         this.switcher = new ServerSwitcher(
             this::switchTo,
             this::addProfile,
@@ -82,28 +93,47 @@ public final class McAdminToolWindow extends JPanel {
             this::duplicateProfile,
             this::deleteProfile
         );
-        toolbar.add(switcher);
-        toolbar.add(javax.swing.Box.createHorizontalStrut(12));
-        toolbar.add(statusStrip);
-        toolbar.add(javax.swing.Box.createHorizontalGlue());
-        toolbar.add(lifecycleButtons);
-        toolbar.add(javax.swing.Box.createHorizontalStrut(6));
-        javax.swing.JButton refreshButton = new javax.swing.JButton("Refresh");
-        refreshButton.setToolTipText("Reconnect to AMP and RCON for the current server");
-        refreshButton.addActionListener(e -> {
-            if (current != null) current.refresh();
-        });
-        toolbar.add(refreshButton);
+
+        // Top toolbar — two stacked rows to prevent overflow on narrow windows.
+        JPanel toolbar = new JPanel();
+        toolbar.setLayout(new BoxLayout(toolbar, BoxLayout.Y_AXIS));
+
+        // Row 1: switcher on the left, refresh on the right
+        JPanel row1 = new JPanel();
+        row1.setLayout(new BoxLayout(row1, BoxLayout.X_AXIS));
+        row1.add(switcher);
+        row1.add(Box.createHorizontalGlue());
+        row1.add(refreshButton);
+        row1.setAlignmentX(Component.LEFT_ALIGNMENT);
+        toolbar.add(row1);
+
+        // Row 2: status strip on the left, lifecycle buttons on the right
+        JPanel row2 = new JPanel();
+        row2.setLayout(new BoxLayout(row2, BoxLayout.X_AXIS));
+        row2.add(statusStrip);
+        row2.add(Box.createHorizontalGlue());
+        row2.add(lifecycleButtons);
+        row2.setAlignmentX(Component.LEFT_ALIGNMENT);
+        toolbar.add(row2);
+
         add(toolbar, BorderLayout.NORTH);
 
-        // Main area — horizontal splitter: players on the left, console on the right
-        Splitter mainSplit = new Splitter(false, DEFAULT_SPLIT_PROPORTION);
+        // Main area — splitter that flips orientation based on window width.
+        this.mainSplit = new Splitter(false, DEFAULT_SPLIT_PROPORTION);
         mainSplit.setFirstComponent(playersPanel);
         mainSplit.setSecondComponent(consolePanel);
         add(mainSplit, BorderLayout.CENTER);
 
+        addComponentListener(new java.awt.event.ComponentAdapter() {
+            @Override
+            public void componentResized(java.awt.event.ComponentEvent e) {
+                updateSplitOrientation();
+            }
+        });
+
         reloadProfiles();
         profileStore.addListener(profiles -> reloadProfiles());
+        updateSplitOrientation();
     }
 
     private void reloadProfiles() {
@@ -200,6 +230,13 @@ public final class McAdminToolWindow extends JPanel {
             return current.poller().sendCommand(command).get();
         } catch (Exception e) {
             return "[error] " + e.getMessage();
+        }
+    }
+
+    private void updateSplitOrientation() {
+        boolean shouldBeVertical = getWidth() > 0 && getWidth() < NARROW_WIDTH_THRESHOLD;
+        if (shouldBeVertical != mainSplit.getOrientation()) {
+            mainSplit.setOrientation(shouldBeVertical);
         }
     }
 }

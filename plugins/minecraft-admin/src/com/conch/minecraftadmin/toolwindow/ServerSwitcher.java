@@ -10,6 +10,7 @@ import javax.swing.DefaultComboBoxModel;
 import javax.swing.JButton;
 import javax.swing.JComboBox;
 import javax.swing.JPanel;
+import java.awt.Dimension;
 import java.util.List;
 import java.util.function.Consumer;
 
@@ -43,6 +44,9 @@ public final class ServerSwitcher extends JPanel {
                 return this;
             }
         });
+        combo.setMinimumSize(new Dimension(180, combo.getPreferredSize().height));
+        combo.setPreferredSize(new Dimension(200, combo.getPreferredSize().height));
+        combo.setMaximumSize(new Dimension(280, combo.getPreferredSize().height));
         combo.addActionListener(e -> {
             ServerProfile p = (ServerProfile) combo.getSelectedItem();
             if (p != null) onSelect.accept(p);
