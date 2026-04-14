@@ -38,6 +38,8 @@
     <applicationListeners>
         <listener class="com.conch.editor.remote.RemoteSaveListener"
                   topic="com.intellij.openapi.fileEditor.FileDocumentManagerListener"/>
+        <listener class="com.conch.editor.scratch.ScratchSaveListener"
+                  topic="com.intellij.openapi.fileEditor.FileDocumentManagerListener"/>
         <listener class="com.conch.editor.remote.RemoteEditorShutdownListener"
                   topic="com.intellij.ide.AppLifecycleListener"/>
     </applicationListeners>
