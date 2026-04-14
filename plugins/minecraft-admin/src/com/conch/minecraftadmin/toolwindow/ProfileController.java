@@ -19,6 +19,7 @@ import org.jetbrains.annotations.NotNull;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.UUID;
 
 /** Wires one {@link ServerPoller} to the panels for one profile. */
 public final class ProfileController implements AutoCloseable {
@@ -76,7 +77,11 @@ public final class ProfileController implements AutoCloseable {
             AppExecutorUtil.getAppScheduledExecutorService(),
             r -> ApplicationManager.getApplication().invokeLater(r, ModalityState.any()),
             () -> {
-                McCredential cred = resolver.resolve(profile.rconCredentialId(), "");
+                UUID rconId = profile.rconCredentialId();
+                if (rconId == null) {
+                    return new char[0];  // passwordless RCON — empty auth body
+                }
+                McCredential cred = resolver.resolve(rconId, "");
                 if (cred == null) throw new IllegalStateException("RCON credential not found for " + profile.label());
                 return cred.password();
             });

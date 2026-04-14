@@ -72,6 +72,24 @@ class ServerProfileTest {
     }
 
     @Test
+    void create_withoutRconCredential_storesNull() {
+        UUID ampCred = UUID.randomUUID();
+        ServerProfile profile = ServerProfile.create(
+            "LAN Server",
+            "https://amp.local:8080",
+            "lan-instance",
+            "admin",
+            ampCred,
+            "192.168.1.10",
+            25575,
+            null);
+        assertNull(profile.rconCredentialId());
+        assertEquals("LAN Server", profile.label());
+        assertEquals(ampCred, profile.ampCredentialId());
+        assertNotNull(profile.id());
+    }
+
+    @Test
     void defaultRconPort() {
         assertEquals(25575, ServerProfile.DEFAULT_RCON_PORT);
     }

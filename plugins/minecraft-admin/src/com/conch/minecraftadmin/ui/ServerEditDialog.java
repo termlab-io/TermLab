@@ -59,8 +59,9 @@ public final class ServerEditDialog extends DialogWrapper {
     private final JBLabel rconCredentialLabel = new JBLabel("<not picked>");
 
     // Credential pick buttons
-    private final JButton ampPickButton  = new JButton("Pick\u2026");
-    private final JButton rconPickButton = new JButton("Pick\u2026");
+    private final JButton ampPickButton   = new JButton("Pick\u2026");
+    private final JButton rconPickButton  = new JButton("Pick\u2026");
+    private final JButton rconClearButton = new JButton("Clear");
 
     public ServerEditDialog(@Nullable Project project, @Nullable ServerProfile existing) {
         super(project, true);
@@ -102,9 +103,11 @@ public final class ServerEditDialog extends DialogWrapper {
         ampCredentialName = resolveDisplayName(ampCredentialId);
         ampCredentialLabel.setText(ampCredentialName);
 
-        // Restore RCON credential
+        // Restore RCON credential (may be null for passwordless servers)
         rconCredentialId = existing.rconCredentialId();
-        rconCredentialName = resolveDisplayName(rconCredentialId);
+        rconCredentialName = rconCredentialId == null
+            ? "(none \u2014 passwordless)"
+            : resolveDisplayName(rconCredentialId);
         rconCredentialLabel.setText(rconCredentialName);
     }
 
@@ -144,6 +147,12 @@ public final class ServerEditDialog extends DialogWrapper {
                 rconCredentialName = picked.displayName() + "  \u00b7  " + picked.subtitle();
                 rconCredentialLabel.setText(rconCredentialName);
             }
+        });
+
+        rconClearButton.addActionListener(e -> {
+            rconCredentialId   = null;
+            rconCredentialName = "(none \u2014 passwordless)";
+            rconCredentialLabel.setText(rconCredentialName);
         });
     }
 
@@ -206,7 +215,7 @@ public final class ServerEditDialog extends DialogWrapper {
         row = addPickerRow(panel, c, row, "AMP Password:", ampCredentialLabel, ampPickButton);
         row = addRow(panel, c, row, "RCON Host:",         rconHostField);
         row = addRow(panel, c, row, "RCON Port:",         rconPortSpinner);
-        row = addPickerRow(panel, c, row, "RCON Password:", rconCredentialLabel, rconPickButton);
+        row = addPickerRow(panel, c, row, "RCON Password:", rconCredentialLabel, rconPickButton, rconClearButton);
 
         // Filler row so the form doesn't stretch awkwardly
         c.gridy   = row;
@@ -250,6 +259,37 @@ public final class ServerEditDialog extends DialogWrapper {
         pickerRow.setOpaque(false);
         pickerRow.add(displayLabel, BorderLayout.CENTER);
         pickerRow.add(pickButton,   BorderLayout.EAST);
+
+        c.gridx   = 1;
+        c.weightx = 1;
+        panel.add(pickerRow, c);
+
+        return row + 1;
+    }
+
+    /**
+     * Add a label + (display label + Pick button + Clear button) row; returns the next row index.
+     * Used for optional credential pickers where the user may want to remove the selection.
+     */
+    private static int addPickerRow(JPanel panel, GridBagConstraints c,
+                                    int row, String labelText,
+                                    JBLabel displayLabel, JButton pickButton, JButton clearButton) {
+        c.gridy    = row;
+        c.gridx    = 0;
+        c.gridwidth = 1;
+        c.weightx  = 0;
+        c.weighty  = 0;
+        panel.add(new JLabel(labelText), c);
+
+        JPanel buttons = new JPanel(new FlowLayout(FlowLayout.LEFT, 4, 0));
+        buttons.setOpaque(false);
+        buttons.add(pickButton);
+        buttons.add(clearButton);
+
+        JPanel pickerRow = new JPanel(new BorderLayout(6, 0));
+        pickerRow.setOpaque(false);
+        pickerRow.add(displayLabel, BorderLayout.CENTER);
+        pickerRow.add(buttons,      BorderLayout.EAST);
 
         c.gridx   = 1;
         c.weightx = 1;
@@ -306,9 +346,7 @@ public final class ServerEditDialog extends DialogWrapper {
             return new ValidationInfo("RCON Port must be between 1 and 65535", rconPortSpinner);
         }
 
-        if (rconCredentialId == null) {
-            return new ValidationInfo("RCON Password credential must be picked", rconPickButton);
-        }
+        // rconCredentialId may legitimately be null for passwordless (local / LAN-trusted) servers.
 
         return null;
     }
@@ -330,7 +368,8 @@ public final class ServerEditDialog extends DialogWrapper {
         String rconHost        = rconHostField.getText().trim();
         int    rconPort        = (Integer) rconPortSpinner.getValue();
 
-        // doValidate() guarantees these are non-null before OK is allowed
+        // doValidate() guarantees ampCredentialId is non-null before OK is allowed.
+        // rconCredentialId may be null for passwordless (local / LAN-trusted) servers.
         UUID ampCred  = ampCredentialId;
         UUID rconCred = rconCredentialId;
 

@@ -1,6 +1,7 @@
 package com.conch.minecraftadmin.model;
 
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import java.time.Instant;
 import java.util.UUID;
@@ -19,7 +20,8 @@ import java.util.UUID;
  * @param ampCredentialId    vault reference → AMP password
  * @param rconHost           RCON endpoint host (often same as ampUrl's host)
  * @param rconPort           RCON endpoint port, default 25575
- * @param rconCredentialId   vault reference → RCON password
+ * @param rconCredentialId   vault reference → RCON password, or {@code null} for
+ *                           passwordless RCON (local / LAN-trusted servers)
  * @param createdAt          when the profile was created
  * @param updatedAt          when the profile was last edited
  */
@@ -32,7 +34,7 @@ public record ServerProfile(
     @NotNull UUID ampCredentialId,
     @NotNull String rconHost,
     int rconPort,
-    @NotNull UUID rconCredentialId,
+    @Nullable UUID rconCredentialId,
     @NotNull Instant createdAt,
     @NotNull Instant updatedAt
 ) {
@@ -48,7 +50,7 @@ public record ServerProfile(
         @NotNull UUID ampCredentialId,
         @NotNull String rconHost,
         int rconPort,
-        @NotNull UUID rconCredentialId
+        @Nullable UUID rconCredentialId
     ) {
         Instant now = Instant.now();
         return new ServerProfile(
@@ -81,7 +83,7 @@ public record ServerProfile(
         @NotNull UUID newAmpCredentialId,
         @NotNull String newRconHost,
         int newRconPort,
-        @NotNull UUID newRconCredentialId
+        @Nullable UUID newRconCredentialId
     ) {
         return new ServerProfile(
             id, newLabel, newAmpUrl, newAmpInstanceName, newAmpUsername, newAmpCredentialId,
