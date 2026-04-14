@@ -1,0 +1,59 @@
+load("@rules_java//java:defs.bzl", "java_binary")
+load("@rules_jvm//:jvm.bzl", "jvm_library", "resourcegroup")
+
+resourcegroup(
+    name = "minecraft_admin_resources",
+    srcs = glob(["resources/**/*"]),
+    strip_prefix = "resources",
+)
+
+jvm_library(
+    name = "minecraft-admin",
+    module_name = "intellij.conch.minecraft-admin",
+    visibility = ["//visibility:public"],
+    srcs = glob(["src/**/*.java"], allow_empty = True),
+    resources = [":minecraft_admin_resources"],
+    deps = [
+        "//conch/sdk",
+        "//conch/core",
+        "//platform/analysis-api:analysis",
+        "//platform/core-api:core",
+        "//platform/core-ui",
+        "//platform/editor-ui-api:editor-ui",
+        "//platform/ide-core",
+        "//platform/lang-api:lang",
+        "//platform/platform-api:ide",
+        "//platform/platform-impl:ide-impl",
+        "//platform/projectModel-api:projectModel",
+        "//platform/util:util-ui",
+        "@lib//:jetbrains-annotations",
+        "@lib//:gson",
+        "@lib//:kotlin-stdlib",
+    ],
+)
+
+jvm_library(
+    name = "minecraft_admin_test_lib",
+    module_name = "intellij.conch.minecraft-admin.tests",
+    visibility = ["//visibility:public"],
+    srcs = glob(["test/**/*.java"], allow_empty = True),
+    deps = [
+        ":minecraft-admin",
+        "//conch/sdk",
+        "//libraries/junit5",
+        "//libraries/junit5-jupiter",
+        "//libraries/junit5-launcher",
+        "@lib//:jetbrains-annotations",
+        "@lib//:gson",
+    ],
+)
+
+java_binary(
+    name = "minecraft_admin_test_runner",
+    main_class = "com.conch.minecraftadmin.TestRunner",
+    runtime_deps = [
+        ":minecraft_admin_test_lib",
+        "//libraries/junit5-jupiter",
+        "//libraries/junit5-launcher",
+    ],
+)
