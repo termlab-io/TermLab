@@ -1,6 +1,7 @@
 package com.conch.core.settings;
 
 import com.conch.core.editor.FirstLaunchEditorNotifier;
+import com.intellij.ide.util.PropertiesComponent;
 import com.intellij.openapi.options.ConfigurationException;
 import com.intellij.openapi.options.SearchableConfigurable;
 import com.intellij.openapi.ui.Messages;
@@ -81,6 +82,8 @@ public final class LightEditorConfigurable implements SearchableConfigurable {
             checkbox.setSelected(initialEnabled);
             return;
         }
+        PropertiesComponent.getInstance()
+            .setValue(FirstLaunchEditorNotifier.FIRST_LAUNCH_KEY, true);
         if (want) {
             FirstLaunchEditorNotifier.enablePluginsAndRestart();
         } else {

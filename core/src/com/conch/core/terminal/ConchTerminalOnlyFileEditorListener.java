@@ -16,6 +16,10 @@ public final class ConchTerminalOnlyFileEditorListener implements FileEditorMana
             return;
         }
 
+        if (com.conch.core.editor.FirstLaunchEditorNotifier.isEditorEnabled()) {
+            return;
+        }
+
         ApplicationManager.getApplication().invokeLater(() -> {
             source.closeFile(file);
         });
