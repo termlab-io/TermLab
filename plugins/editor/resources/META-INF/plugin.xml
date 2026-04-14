@@ -46,4 +46,16 @@
         <listener class="com.conch.editor.remote.RemoteEditorProjectListener"
                   topic="com.intellij.openapi.fileEditor.FileEditorManagerListener"/>
     </projectListeners>
+
+    <actions>
+        <action id="Conch.Editor.NewScratch"
+                class="com.conch.editor.scratch.NewScratchAction"
+                text="New Scratch File"
+                description="Create a new empty scratch text file">
+            <add-to-group group-id="FileMenu" anchor="first"/>
+            <keyboard-shortcut keymap="$default" first-keystroke="control N"/>
+            <keyboard-shortcut keymap="Mac OS X 10.5+" first-keystroke="meta N" replace-all="true"/>
+            <keyboard-shortcut keymap="Mac OS X" first-keystroke="meta N" replace-all="true"/>
+        </action>
+    </actions>
 </idea-plugin>
