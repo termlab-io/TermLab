@@ -30,6 +30,11 @@
             implementation="com.conch.editor.remote.RemoteEditorStartupSweep"/>
     </extensions>
 
+    <extensions defaultExtensionNs="com.conch.sftp">
+        <localFileOpener implementation="com.conch.editor.sftp.EditorLocalFileOpener"/>
+        <remoteFileOpener implementation="com.conch.editor.sftp.EditorRemoteFileOpener"/>
+    </extensions>
+
     <applicationListeners>
         <listener class="com.conch.editor.remote.RemoteSaveListener"
                   topic="com.intellij.openapi.fileEditor.FileDocumentManagerListener"/>
