@@ -21,7 +21,10 @@ load("@rules_java//java:defs.bzl", "java_import")
 java_import(
     name = "sshd_sftp",
     jars = ["sshd-sftp-2.15.0.jar"],
-    visibility = ["//conch/plugins/sftp:__pkg__"],
+    visibility = [
+        "//conch/plugins/sftp:__pkg__",
+        "//conch/plugins/editor:__pkg__",
+    ],
 )
 
 exports_files(
