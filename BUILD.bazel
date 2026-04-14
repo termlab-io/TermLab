@@ -66,8 +66,14 @@ java_binary(
         "//plugins/classic-ui",
         "//json",
         # Required by the editor plugin for grammar-based syntax
-        # highlighting.
+        # highlighting.  The /plugin target is a thin descriptor-only
+        # wrapper (META-INF/plugin.xml + icon); the implementation
+        # modules must be listed explicitly so their JARs reach the
+        # classpath and TextMate can load its built-in bundles.
         "//plugins/textmate/plugin",
+        "//plugins/textmate:textmate",          # TextMateServiceImpl + file-type/language support
+        "//plugins/textmate/common:common",     # intellij.textmate.common module descriptor
+        "//plugins/textmate/backend:backend",   # settings UI + indexing integration (optional but declared in plugin.xml)
     ],
     main_class = "com.intellij.idea.Main",
     jvm_flags = [
