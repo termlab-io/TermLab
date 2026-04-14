@@ -88,7 +88,7 @@ def print_response_section(status: int, headers: dict, body_text: str,
         parsed = json.loads(body_text)
         if redact_session and isinstance(parsed, dict) and "sessionID" in parsed:
             session_id = parsed["sessionID"]
-            truncated = session_id[:8] + "…"
+            truncated = session_id[:8] + "..."
             display = dict(parsed)
             display["sessionID"] = truncated + "  (truncated for safety)"
         else:
@@ -118,7 +118,7 @@ def do_login(base_url: str, username: str, password: str) -> str:
         "token": "",
         "rememberMe": False,
     }
-    print_request_section("[1/4]", url, body)
+    print_request_section("[1/5]", url, body)
     try:
         status, headers, body_text = post_json(url, body)
     except Exception as e:
@@ -149,10 +149,52 @@ def do_login(base_url: str, username: str, password: str) -> str:
     return session_id
 
 
-def do_get_instances(base_url: str, session_id: str) -> list:
-    url = base_url + "/API/Core/GetInstances"
+def do_get_api_list(base_url: str, session_id: str) -> None:
+    url = base_url + "/API/Core/GetAPIList"
     body = {"SESSIONID": session_id}
-    print_request_section("[2/4]", url, body)
+    print(SEP_HEAVY)
+    print(f"[2/5] POST {url}")
+    print(f"         (diagnostic -- lists every method AMP exposes on this panel)")
+    print(SEP_LIGHT)
+    print("request body:")
+    redacted = redact_secrets(body)
+    print("  " + json.dumps(redacted, indent=2).replace("\n", "\n  "))
+    try:
+        status, headers, body_text = post_json(url, body)
+    except Exception as e:
+        print(f"\nerror: connection to {url} failed")
+        print(f"  {type(e).__name__}: {e}")
+        print(f"  hint: can you reach the AMP URL from this machine?")
+        print(f"  try: curl -v {base_url}/API/")
+        sys.exit(1)
+
+    print(SEP_LIGHT)
+    print(f"response status: {status}")
+
+    content_type = headers.get("Content-Type", headers.get("content-type", ""))
+    if "json" not in content_type:
+        print("WARNING: Content-Type does not contain 'json'")
+        print("response body (raw):")
+        print("  " + body_text)
+        print(SEP_HEAVY)
+        return
+
+    try:
+        parsed = json.loads(body_text)
+        pretty = json.dumps(parsed, indent=2)
+        print("response body (prettyprinted):")
+        print("  " + pretty.replace("\n", "\n  "))
+    except json.JSONDecodeError:
+        print("response body (raw -- could not parse as JSON):")
+        print("  " + body_text)
+
+    print(SEP_HEAVY)
+
+
+def do_get_instances(base_url: str, session_id: str) -> list:
+    url = base_url + "/API/ADSModule/GetInstances"
+    body = {"SESSIONID": session_id}
+    print_request_section("[3/5]", url, body)
     try:
         status, headers, body_text = post_json(url, body)
     except Exception as e:
@@ -163,12 +205,12 @@ def do_get_instances(base_url: str, session_id: str) -> list:
         sys.exit(1)
 
     print_response_section(status, headers, body_text)
-    check_status(status, body_text, "Core/GetInstances")
+    check_status(status, body_text, "ADSModule/GetInstances")
 
     try:
         parsed = json.loads(body_text)
     except json.JSONDecodeError:
-        print("error: Core/GetInstances returned non-JSON body")
+        print("error: ADSModule/GetInstances returned non-JSON body")
         sys.exit(1)
 
     # Walk the result array of groups
@@ -235,7 +277,7 @@ def find_target(instances: list, target_name: str) -> None:
 def do_get_status(base_url: str, session_id: str) -> None:
     url = base_url + "/API/Core/GetStatus"
     body = {"SESSIONID": session_id}
-    print_request_section("[3/4]", url, body)
+    print_request_section("[4/5]", url, body)
     try:
         status, headers, body_text = post_json(url, body)
     except Exception as e:
@@ -259,7 +301,7 @@ def do_get_status(base_url: str, session_id: str) -> None:
 def do_get_updates(base_url: str, session_id: str, instance_name: str) -> None:
     url = base_url + "/API/Core/GetUpdates"
     body = {"SESSIONID": session_id, "InstanceName": instance_name}
-    print_request_section("[4/4]", url, body)
+    print_request_section("[5/5]", url, body)
     try:
         status, headers, body_text = post_json(url, body)
     except Exception as e:
@@ -315,19 +357,22 @@ def main():
     # Step 1: Login
     session_id = do_login(base_url, username, password)
 
-    # Step 2: GetInstances
+    # Step 2: GetAPIList (diagnostic)
+    do_get_api_list(base_url, session_id)
+
+    # Step 3: GetInstances
     instances = do_get_instances(base_url, session_id)
     find_target(instances, instance)
 
-    # Step 3: GetStatus (instance panel diagnostic)
+    # Step 4: GetStatus (instance panel diagnostic)
     do_get_status(base_url, session_id)
 
-    # Step 4: GetUpdates (only if instance was provided)
+    # Step 5: GetUpdates (only if instance was provided)
     if instance:
         do_get_updates(base_url, session_id, instance)
     else:
         print()
-        print(f"[4/4] skipping Core/GetUpdates — AMP_INSTANCE not set")
+        print(f"[5/5] skipping Core/GetUpdates — AMP_INSTANCE not set")
 
     print("\n✓ probe complete")
 

@@ -31,7 +31,7 @@ class ServerPollerTest {
                 r.addProperty("sessionID", "abc");
                 return r;
             });
-            amp.handle("Core/GetInstances", body -> {
+            amp.handle("ADSModule/GetInstances", body -> {
                 JsonObject group = new JsonObject();
                 JsonArray available = new JsonArray();
                 JsonObject inst = new JsonObject();

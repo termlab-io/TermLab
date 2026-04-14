@@ -193,7 +193,7 @@ public final class ServerPoller implements AutoCloseable {
             InstanceStatus status = ampClient.getInstanceStatus(session, profile.ampInstanceName());
             ampResult = AmpTickResult.ok(status);
             LOG.debug("Conch Minecraft: tick AMP ok status=" + ampResult.status().status());
-        } catch (IOException e) {
+        } catch (Exception e) {
             ampSession = null;
             ampResult = AmpTickResult.error(e.getMessage() == null ? e.toString() : e.getMessage());
             LOG.info("Conch Minecraft: tick AMP failed profile=" + profile.label()
@@ -210,7 +210,7 @@ public final class ServerPoller implements AutoCloseable {
             rconResult = RconTickResult.ok(parsed.players(), parsed.online(), parsed.max(), tps);
             LOG.debug("Conch Minecraft: tick RCON ok players=" + rconResult.playersOnline()
                 + "/" + rconResult.playersMax() + " tps=" + rconResult.tps());
-        } catch (IOException e) {
+        } catch (Exception e) {
             closeRcon();
             rconResult = RconTickResult.error(e.getMessage() == null ? e.toString() : e.getMessage());
             LOG.info("Conch Minecraft: tick RCON failed profile=" + profile.label()

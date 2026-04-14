@@ -51,7 +51,7 @@ class AmpClientTest {
     void getInstanceStatus_runningInstance() throws IOException {
         try (FakeAmpServer server = new FakeAmpServer()) {
             server.handle("Core/Login", body -> loginSuccess("abc"));
-            server.handle("Core/GetInstances", body -> {
+            server.handle("ADSModule/GetInstances", body -> {
                 JsonObject group = new JsonObject();
                 JsonArray available = new JsonArray();
                 JsonObject inst = new JsonObject();
@@ -92,7 +92,7 @@ class AmpClientTest {
     void getInstanceStatus_missingInstance_returnsUnknown() throws IOException {
         try (FakeAmpServer server = new FakeAmpServer()) {
             server.handle("Core/Login", body -> loginSuccess("abc"));
-            server.handle("Core/GetInstances", body -> {
+            server.handle("ADSModule/GetInstances", body -> {
                 JsonObject wrapper = new JsonObject();
                 wrapper.add("result", new JsonArray());
                 return wrapper;
@@ -112,7 +112,7 @@ class AmpClientTest {
                 int n = logins.incrementAndGet();
                 return loginSuccess("session-" + n);
             });
-            server.handle("Core/GetInstances", body -> {
+            server.handle("ADSModule/GetInstances", body -> {
                 JsonObject wrapper = new JsonObject();
                 wrapper.add("result", new JsonArray());
                 return wrapper;

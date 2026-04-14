@@ -82,7 +82,7 @@ public final class AmpClient {
     ) throws IOException {
         LOG.debug("Conch Minecraft: AMP getInstanceStatus instanceName=" + instanceName);
         JsonObject body = new JsonObject();
-        JsonObject response = post(session, "Core/GetInstances", body);
+        JsonObject response = post(session, "ADSModule/GetInstances", body);
         JsonArray groups = response.getAsJsonArray("result");
         if (groups == null) return InstanceStatus.unknown();
 
