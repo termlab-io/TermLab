@@ -1,6 +1,7 @@
 package com.conch.minecraftadmin.toolwindow;
 
 import com.conch.minecraftadmin.client.AmpClient;
+import com.conch.minecraftadmin.client.PasswordFingerprint;
 import com.conch.minecraftadmin.client.RconClient;
 import com.conch.minecraftadmin.client.ServerPoller;
 import com.conch.minecraftadmin.client.StateListener;
@@ -98,7 +99,9 @@ public final class ProfileController implements AutoCloseable {
                         + " — vault may be locked; click Refresh in the Minecraft Admin tool window to unlock it");
                     throw new IllegalStateException("RCON credential not found for " + profile.label());
                 }
-                return cred.password();
+                char[] password = cred.password();
+                LOG.info("Conch Minecraft: ProfileController RCON password supplier for profile=" + profile.label() + " " + PasswordFingerprint.of(password));
+                return password;
             });
     }
 

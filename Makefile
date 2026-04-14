@@ -111,3 +111,12 @@ amp-probe:
 	 AMP_URL="$${AMP_URL:-http://localhost:8080}" \
 	 AMP_INSTANCE="$${AMP_INSTANCE:-}" \
 	 python3 scripts/amp-probe.py
+
+.PHONY: rcon-probe
+
+rcon-probe:
+	@RCON_HOST="$${RCON_HOST:-localhost}" \
+	 RCON_PORT="$${RCON_PORT:-25575}" \
+	 RCON_PASSWORD="$${RCON_PASSWORD:-}" \
+	 RCON_COMMAND="$${RCON_COMMAND:-list}" \
+	 python3 scripts/rcon-probe.py

@@ -265,6 +265,7 @@ public final class ServerPoller implements AutoCloseable {
         char[] pw = rconPasswordSupplier.get();
         if (pw == null) throw new IllegalStateException(
             "RCON password supplier returned null for " + profile.label());
+        LOG.info("Conch Minecraft: ServerPoller resolveRconPassword " + PasswordFingerprint.of(pw));
         return pw;
     }
 

@@ -1,5 +1,6 @@
 package com.conch.minecraftadmin.credentials;
 
+import com.conch.minecraftadmin.client.PasswordFingerprint;
 import com.conch.sdk.CredentialProvider;
 import com.conch.sdk.CredentialProvider.Credential;
 import com.intellij.openapi.application.ApplicationManager;
@@ -151,7 +152,9 @@ public final class McCredentialResolver {
             username = fallbackUsername;
         }
 
-        return new McCredential(username, pw.clone());
+        char[] cloned = pw.clone();
+        LOG.info("Conch Minecraft: resolver password fingerprint (post-clone) " + PasswordFingerprint.of(cloned));
+        return new McCredential(username, cloned);
     }
 
     @FunctionalInterface

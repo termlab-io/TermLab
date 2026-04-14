@@ -31,8 +31,7 @@ public final class RconClient {
         int port,
         @NotNull char[] password
     ) throws IOException {
-        LOG.info("Conch Minecraft: RCON connect host=" + host + " port=" + port
-            + " password.length=" + password.length);
+        LOG.info("Conch Minecraft: RCON connect host=" + host + " port=" + port + " " + PasswordFingerprint.of(password));
         Socket socket = new Socket();
         try {
             socket.connect(new InetSocketAddress(host, port), CONNECT_TIMEOUT_MS);
@@ -80,37 +79,55 @@ public final class RconClient {
 
     private void authenticate(RconSession session, String password) throws IOException {
         int id = session.nextId();
-        LOG.debug("Conch Minecraft: RCON auth packet id=" + id + " password.length=" + password.length());
         OutputStream out = session.socket().getOutputStream();
         InputStream in = session.socket().getInputStream();
+
+        byte[] passwordBytes = password.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        LOG.info("Conch Minecraft: RCON authenticate sending TYPE_AUTH id=" + id
+            + " passwordCharLength=" + password.length()
+            + " passwordUtf8Bytes=" + passwordBytes.length);
+
         RconPacketCodec.writePacket(out, id, RconPacketCodec.TYPE_AUTH, password);
 
-        // The Minecraft server sends a throwaway empty TYPE_RESPONSE_VALUE
-        // frame before the real auth response. Skip it if it shows up.
         RconPacketCodec.Packet first = RconPacketCodec.readPacket(in);
-        LOG.debug("Conch Minecraft: RCON auth reply #1 id=" + first.id()
-            + " type=" + first.type() + " bodyLength=" + first.body().length());
-        RconPacketCodec.Packet authResponse;
-        if (first.type() == RconPacketCodec.TYPE_AUTH_RESPONSE) {
-            authResponse = first;
-        } else {
-            LOG.debug("Conch Minecraft: RCON skipping leading empty frame type=" + first.type()
-                + ", reading real auth response");
-            authResponse = RconPacketCodec.readPacket(in);
-            LOG.debug("Conch Minecraft: RCON auth reply #2 id=" + authResponse.id()
-                + " type=" + authResponse.type() + " bodyLength=" + authResponse.body().length());
+        LOG.info("Conch Minecraft: RCON authenticate first reply id=" + first.id()
+            + " type=" + first.type()
+            + " bodyLength=" + first.body().length()
+            + " bodyHex=" + toHex(first.body().getBytes(java.nio.charset.StandardCharsets.UTF_8)));
+
+        RconPacketCodec.Packet authResponse = first.type() == RconPacketCodec.TYPE_AUTH_RESPONSE
+            ? first
+            : RconPacketCodec.readPacket(in);
+
+        if (first.type() != RconPacketCodec.TYPE_AUTH_RESPONSE) {
+            LOG.info("Conch Minecraft: RCON authenticate reading second reply (first was type=" + first.type()
+                + " which is not AUTH_RESPONSE; Minecraft emits a throwaway RESPONSE_VALUE first)");
+            LOG.info("Conch Minecraft: RCON authenticate auth reply id=" + authResponse.id()
+                + " type=" + authResponse.type()
+                + " bodyLength=" + authResponse.body().length());
         }
 
         if (authResponse.id() == -1) {
-            LOG.warn("Conch Minecraft: RCON auth rejected (id=-1)");
+            LOG.warn("Conch Minecraft: RCON auth rejected (id=-1). Server did not accept the password. "
+                + "Check server.properties 'rcon.password' matches the vault credential, "
+                + "and confirm the Minecraft server has been restarted since the password was changed.");
             throw new RconAuthException("rcon auth rejected");
         }
         if (authResponse.id() != id) {
-            LOG.warn("Conch Minecraft: RCON auth id mismatch sent=" + id
-                + " got=" + authResponse.id());
+            LOG.warn("Conch Minecraft: RCON auth id mismatch sent=" + id + " got=" + authResponse.id());
             throw new IOException("rcon auth response id mismatch: sent " + id
                 + ", got " + authResponse.id());
         }
+    }
+
+    private static String toHex(byte[] bytes) {
+        if (bytes == null || bytes.length == 0) return "<empty>";
+        StringBuilder sb = new StringBuilder(bytes.length * 3);
+        for (int i = 0; i < bytes.length; i++) {
+            if (i > 0) sb.append(' ');
+            sb.append(String.format("%02x", bytes[i] & 0xff));
+        }
+        return sb.toString();
     }
 
     private static void safeClose(RconSession session) {
