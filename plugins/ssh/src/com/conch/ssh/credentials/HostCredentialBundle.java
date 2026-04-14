@@ -172,8 +172,20 @@ public record HostCredentialBundle(
     ) {
         return host -> {
             if (vault.credentialId() != null) {
+                // Try silent lookup first — works when the vault is
+                // already unlocked.
                 SshResolvedCredential saved = resolver.resolve(vault.credentialId(), host.username());
                 if (saved != null) return saved;
+                // Likely the vault is locked. Unlock it (no picker)
+                // and retry the exact credential the host is wired to.
+                // Only fall through to the picker if the configured
+                // credentialId genuinely doesn't exist after unlock —
+                // e.g. the entry was deleted or the user picked a
+                // credential from a different store.
+                if (resolver.ensureAnyProviderAvailable()) {
+                    saved = resolver.resolve(vault.credentialId(), host.username());
+                    if (saved != null) return saved;
+                }
             }
             return picker.pick(host);
         };

@@ -6,6 +6,7 @@ import com.conch.vault.model.Vault;
 import com.conch.vault.model.VaultAccount;
 import com.conch.vault.model.VaultKey;
 import com.conch.vault.ui.AccountPickerDialog;
+import com.conch.vault.ui.UnlockDialog;
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.project.ProjectManager;
@@ -58,6 +59,22 @@ public final class VaultCredentialProvider implements CredentialProvider {
     public boolean isAvailable() {
         LockManager lm = lockManagerSupplier.get();
         return lm != null && !lm.isLocked();
+    }
+
+    /**
+     * If the vault is locked, pop {@link UnlockDialog} so the caller
+     * can subsequently resolve a credential by id without going
+     * through the account picker. Returns {@code true} when the vault
+     * is unlocked after the call.
+     */
+    @Override
+    public boolean ensureAvailable() {
+        LockManager lm = lockManagerSupplier.get();
+        if (lm == null) return false;
+        if (!lm.isLocked()) return true;
+        Project project = ProjectManager.getInstance().getDefaultProject();
+        boolean unlocked = new UnlockDialog(project, lm).showAndGet();
+        return unlocked && !lm.isLocked();
     }
 
     @Override

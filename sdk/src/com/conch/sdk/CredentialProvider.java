@@ -35,6 +35,27 @@ public interface CredentialProvider {
     boolean isAvailable();
 
     /**
+     * Best-effort "make the store usable" without involving a credential
+     * picker. For stores that can be locked (the credential vault), this
+     * shows the unlock dialog when the store is locked; the user enters
+     * the master password and the store becomes available. For stores
+     * that are always available, the default implementation is a no-op.
+     *
+     * <p>Return value reflects {@link #isAvailable()} after the attempt.
+     * Callers should invoke this when they already know the
+     * {@code credentialId} they want to fetch but a prior
+     * {@link #getCredential(UUID)} returned {@code null} — this lets
+     * them retry the same id rather than fall back to
+     * {@link #promptForCredential()}, which would pop a picker the
+     * user never asked for.
+     *
+     * <p>Must be called on the EDT.
+     */
+    default boolean ensureAvailable() {
+        return isAvailable();
+    }
+
+    /**
      * Lightweight enumeration of every credential the provider knows about.
      * Returned descriptors contain no secrets — they're safe to show in a
      * picker dropdown or search result list.
