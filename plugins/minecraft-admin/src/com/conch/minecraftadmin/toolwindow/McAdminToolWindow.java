@@ -5,19 +5,19 @@ import com.conch.minecraftadmin.client.ServerPoller;
 import com.conch.minecraftadmin.model.ProfileStore;
 import com.conch.minecraftadmin.model.ServerProfile;
 import com.conch.minecraftadmin.ui.ServerEditDialog;
+import com.intellij.icons.AllIcons;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.ui.Messages;
+import com.intellij.util.ui.JBUI;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import com.intellij.openapi.ui.Splitter;
-import javax.swing.Box;
-import javax.swing.BoxLayout;
 import javax.swing.JButton;
 import javax.swing.JPanel;
 import java.awt.BorderLayout;
-import java.awt.Component;
+import java.awt.Dimension;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -29,8 +29,9 @@ import java.util.UUID;
  *
  * <p>Layout optimized for a bottom-anchored tool window:
  * <ul>
- *   <li>NORTH: a single-row toolbar with the server switcher, status
- *       strip, and lifecycle buttons laid out left-to-right.</li>
+ *   <li>NORTH: a wrapping toolbar using {@link WrapLayout} with the server
+ *       switcher, status strip, lifecycle buttons, and refresh button as
+ *       four independent groups that flow to new rows when narrow.</li>
  *   <li>CENTER: a horizontal {@link Splitter} with the players table on
  *       the left (30%) and the console panel on the right (70%).</li>
  * </ul>
@@ -79,9 +80,14 @@ public final class McAdminToolWindow extends JPanel {
             cmd -> sendRconSync(cmd),
             msg -> sendRcon("say " + msg));
 
-        // Build the refresh button before the toolbar so row1 can reference it.
-        JButton refreshButton = new JButton("Refresh");
-        refreshButton.setToolTipText("Reconnect to AMP and RCON for the current server");
+        // Build the refresh button as an icon-only square button.
+        JButton refreshButton = new JButton(AllIcons.Actions.Refresh);
+        refreshButton.setToolTipText("Refresh — reconnect to AMP and RCON for the current server");
+        refreshButton.setMargin(JBUI.insets(2));
+        refreshButton.setPreferredSize(new Dimension(28, 28));
+        refreshButton.setMinimumSize(new Dimension(28, 28));
+        refreshButton.setMaximumSize(new Dimension(28, 28));
+        refreshButton.setFocusPainted(false);
         refreshButton.addActionListener(e -> {
             if (current != null) current.refresh();
         });
@@ -94,28 +100,12 @@ public final class McAdminToolWindow extends JPanel {
             this::deleteProfile
         );
 
-        // Top toolbar — two stacked rows to prevent overflow on narrow windows.
-        JPanel toolbar = new JPanel();
-        toolbar.setLayout(new BoxLayout(toolbar, BoxLayout.Y_AXIS));
-
-        // Row 1: switcher on the left, refresh on the right
-        JPanel row1 = new JPanel();
-        row1.setLayout(new BoxLayout(row1, BoxLayout.X_AXIS));
-        row1.add(switcher);
-        row1.add(Box.createHorizontalGlue());
-        row1.add(refreshButton);
-        row1.setAlignmentX(Component.LEFT_ALIGNMENT);
-        toolbar.add(row1);
-
-        // Row 2: status strip on the left, lifecycle buttons on the right
-        JPanel row2 = new JPanel();
-        row2.setLayout(new BoxLayout(row2, BoxLayout.X_AXIS));
-        row2.add(statusStrip);
-        row2.add(Box.createHorizontalGlue());
-        row2.add(lifecycleButtons);
-        row2.setAlignmentX(Component.LEFT_ALIGNMENT);
-        toolbar.add(row2);
-
+        // Top toolbar — WrapLayout so the four groups flow to new rows when narrow.
+        JPanel toolbar = new JPanel(new WrapLayout(WrapLayout.LEFT, 6, 4));
+        toolbar.add(switcher);
+        toolbar.add(statusStrip);
+        toolbar.add(lifecycleButtons);
+        toolbar.add(refreshButton);
         add(toolbar, BorderLayout.NORTH);
 
         // Main area — splitter that flips orientation based on window width.

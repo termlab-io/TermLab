@@ -6,11 +6,8 @@ import com.intellij.ui.components.JBLabel;
 import com.intellij.util.ui.JBUI;
 import org.jetbrains.annotations.NotNull;
 
-import javax.swing.BoxLayout;
 import javax.swing.JPanel;
 import java.awt.Color;
-import java.awt.Component;
-import java.awt.Dimension;
 import java.time.Duration;
 
 /**
@@ -35,22 +32,15 @@ public final class StatusStripPanel extends JPanel {
     private final JBLabel rconPill = new JBLabel();
 
     public StatusStripPanel() {
-        setLayout(new BoxLayout(this, BoxLayout.X_AXIS));
+        setLayout(new WrapLayout(WrapLayout.LEFT, 12, 2));
         setBorder(JBUI.Borders.empty(4, 8));
         add(statusLabel);
-        add(spacer());
         add(playersLabel);
-        add(spacer());
         add(tpsLabel);
-        add(spacer());
         add(cpuLabel);
-        add(spacer());
         add(ramLabel);
-        add(spacer());
         add(uptimeLabel);
-        add(spacer());
         add(ampPill);
-        add(spacer());
         add(rconPill);
     }
 
@@ -97,9 +87,5 @@ public final class StatusStripPanel extends JPanel {
         long hours = totalMinutes / 60;
         long minutes = totalMinutes % 60;
         return hours + "h " + minutes + "m";
-    }
-
-    private static Component spacer() {
-        return javax.swing.Box.createRigidArea(new Dimension(12, 0));
     }
 }
