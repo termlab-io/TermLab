@@ -94,3 +94,12 @@ conch-perf-benchmark: check-intellij
 conch-perf-budget:
 	bash $(WORKBENCH_DIR)/scripts/perf/check_perf_budget.sh \
 		--summary "$(CONCH_PERF_OUT)/latest_summary.env"
+
+.PHONY: minecraft-admin-plugin minecraft-admin-plugin-clean
+
+minecraft-admin-plugin:
+	@bash scripts/package-minecraft-admin-plugin.sh
+
+minecraft-admin-plugin-clean:
+	@rm -rf out/minecraft-admin-plugin out/minecraft-admin-plugin.zip
+	@echo "Removed out/minecraft-admin-plugin and out/minecraft-admin-plugin.zip"
