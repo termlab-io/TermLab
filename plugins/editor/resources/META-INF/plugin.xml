@@ -1,0 +1,17 @@
+<idea-plugin>
+    <id>com.conch.editor</id>
+    <name>Conch Light Editor</name>
+    <version>0.1.0</version>
+    <vendor>Conch</vendor>
+    <description>
+        Opt-in light editor for scratches and SFTP-triggered file editing.
+        Disabled by default; enabled via the first-launch notification or
+        Settings → Conch Workbench → Light Editor. Requires a restart to
+        toggle.
+    </description>
+
+    <depends>com.intellij.modules.platform</depends>
+    <depends>com.conch.core</depends>
+    <depends>com.conch.sftp</depends>
+    <depends>org.jetbrains.plugins.textmate</depends>
+</idea-plugin>
