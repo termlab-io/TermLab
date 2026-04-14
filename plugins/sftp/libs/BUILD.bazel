@@ -1,0 +1,30 @@
+load("@rules_java//java:defs.bzl", "java_import")
+
+# Vendored sshd-sftp library. See README.md in this directory for
+# provenance (Apache MINA SSHD 2.15.0 pulled from Maven Central,
+# SHA-1 verified). The jar is committed to the repo rather than
+# pulled through intellij-community's auto-generated
+# lib/MODULE.bazel system so the Conch SFTP plugin stays fully
+# self-contained — the `maven libs` section is regenerated
+# periodically and would wipe out any addition we made there.
+#
+# Two surfaces:
+#  - `java_import` target for other Bazel rules to depend on
+#    (the sftp plugin's jvm_library uses this).
+#  - `exports_files` so the jar is addressable as a raw file
+#    label. The JPS → Bazel target generator emits a file label
+#    reference into ALL_LIBRARY_COMMUNITY_TARGETS based on the
+#    module-library entry in intellij.conch.sftp.iml; without
+#    this exports_files block, the installer build errors out
+#    with "no such package 'conch/plugins/sftp/libs'".
+
+java_import(
+    name = "sshd_sftp",
+    jars = ["sshd-sftp-2.15.0.jar"],
+    visibility = ["//conch/plugins/sftp:__pkg__"],
+)
+
+exports_files(
+    ["sshd-sftp-2.15.0.jar"],
+    visibility = ["//visibility:public"],
+)

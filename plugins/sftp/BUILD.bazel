@@ -1,16 +1,4 @@
-load("@rules_java//java:defs.bzl", "java_import")
 load("@rules_jvm//:jvm.bzl", "jvm_library", "resourcegroup")
-
-# Vendored sshd-sftp library. See plugins/sftp/libs/README.md for provenance.
-# The jar is committed to the repo rather than pulled through
-# intellij-community's lib/MODULE.bazel system so the Conch SFTP plugin
-# stays fully self-contained and isn't vulnerable to the auto-generated
-# `maven libs` section being regenerated and wiping out our addition.
-java_import(
-    name = "sshd_sftp_lib",
-    jars = ["libs/sshd-sftp-2.15.0.jar"],
-    visibility = ["//visibility:private"],
-)
 
 resourcegroup(
     name = "sftp_resources",
@@ -25,7 +13,7 @@ jvm_library(
     srcs = glob(["src/**/*.java"], allow_empty = True),
     resources = [":sftp_resources"],
     deps = [
-        ":sshd_sftp_lib",
+        "//conch/plugins/sftp/libs:sshd_sftp",
         "//conch/sdk",
         "//conch/core",
         "//conch/plugins/ssh",
