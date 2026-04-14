@@ -54,9 +54,7 @@ java_binary(
         "//conch/plugins/ssh",
         "//conch/plugins/tunnels",
         "//conch/plugins/sftp",
-        # Opt-in light editor. Bundled in the distribution but disabled
-        # by default via config/disabled_plugins.txt seeding below; users
-        # enable it via the first-launch notification or Settings.
+        # Light editor: scratch files + SFTP-triggered file editing.
         "//conch/plugins/editor",
         # Runtime implementation of PasswordSafe — required by the vault
         # plugin so it can store the device secret in the cross-platform
@@ -67,9 +65,8 @@ java_binary(
         # IntelliJ-platform bundled plugins — ONLY these exist in Conch
         "//plugins/classic-ui",
         "//json",
-        # Required by the opt-in editor plugin for grammar-based
-        # syntax highlighting. Also disabled by default alongside
-        # com.conch.editor.
+        # Required by the editor plugin for grammar-based syntax
+        # highlighting.
         "//plugins/textmate/plugin",
     ],
     main_class = "com.intellij.idea.Main",

@@ -4,10 +4,9 @@
     <version>0.1.0</version>
     <vendor>Conch</vendor>
     <description>
-        Opt-in light editor for scratches and SFTP-triggered file editing.
-        Disabled by default; enabled via the first-launch notification or
-        Settings → Conch Workbench → Light Editor. Requires a restart to
-        toggle.
+        Light editor for scratches and SFTP-triggered file editing.
+        Bundled and enabled by default. Disable via Settings → Plugins
+        if you don't need it.
     </description>
 
     <depends>com.intellij.modules.platform</depends>

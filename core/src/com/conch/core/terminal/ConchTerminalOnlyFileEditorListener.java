@@ -16,7 +16,8 @@ public final class ConchTerminalOnlyFileEditorListener implements FileEditorMana
             return;
         }
 
-        if (com.conch.core.editor.FirstLaunchEditorNotifier.isEditorEnabled()) {
+        if (!com.intellij.ide.plugins.PluginManagerCore.isDisabled(
+                com.intellij.openapi.extensions.PluginId.getId("com.conch.editor"))) {
             return;
         }
 

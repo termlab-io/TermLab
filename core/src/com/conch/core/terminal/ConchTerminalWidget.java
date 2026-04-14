@@ -68,9 +68,14 @@ public class ConchTerminalWidget extends JediTermWidget {
      * visual selection) see nothing.
      *
      * <p>Fix: remap {@code buttonCode == -1} to {@code 2} — xterm's
-     * right-button code — on every mouse method before delegating to
-     * the parent. We apply this to press, release, move, and drag so
-     * drag-right-click interactions work too.
+     * right-button code — for press/release/drag before delegating to
+     * the parent. Motion events keep their original button code.
+     *
+     * <p>Additionally, suppress out-of-bounds mouse coordinates.
+     * During frame drags/resizes AWT can transiently report negative
+     * terminal cells; emitting those in SGR mode produces malformed
+     * escape fragments like {@code 0;86;-1m} that can leak into the
+     * shell prompt.
      */
     private static final class ConchJediTerminal extends JediTerminal {
 
@@ -82,22 +87,30 @@ public class ConchTerminalWidget extends JediTermWidget {
 
         @Override
         public void mousePressed(int x, int y, @NotNull com.jediterm.core.input.MouseEvent event) {
+            if (isOutOfBoundsCell(x, y)) return;
             super.mousePressed(x, y, remapRightButton(event));
         }
 
         @Override
         public void mouseReleased(int x, int y, @NotNull com.jediterm.core.input.MouseEvent event) {
+            if (isOutOfBoundsCell(x, y)) return;
             super.mouseReleased(x, y, remapRightButton(event));
         }
 
         @Override
         public void mouseMoved(int x, int y, @NotNull com.jediterm.core.input.MouseEvent event) {
-            super.mouseMoved(x, y, remapRightButton(event));
+            if (isOutOfBoundsCell(x, y)) return;
+            super.mouseMoved(x, y, event);
         }
 
         @Override
         public void mouseDragged(int x, int y, @NotNull com.jediterm.core.input.MouseEvent event) {
+            if (isOutOfBoundsCell(x, y)) return;
             super.mouseDragged(x, y, remapRightButton(event));
+        }
+
+        private static boolean isOutOfBoundsCell(int x, int y) {
+            return x < 0 || y < 0;
         }
 
         private static @NotNull com.jediterm.core.input.MouseEvent remapRightButton(
