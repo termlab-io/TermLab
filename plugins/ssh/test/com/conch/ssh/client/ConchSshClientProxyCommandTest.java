@@ -8,6 +8,24 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 class ConchSshClientProxyCommandTest {
 
     @Test
+    void expandProxyCommand_replacesHostPortUserAndPercent() {
+        assertEquals(
+            "cloudflared access ssh --hostname lab.example.com --user root --port 2222 --literal-%",
+            ConchSshClient.expandProxyCommand(
+                "cloudflared access ssh --hostname %h --user %r --port %p --literal-%%",
+                "lab.example.com",
+                2222,
+                "root"));
+    }
+
+    @Test
+    void expandProxyCommand_unknownMacrosRemainAsIs() {
+        assertEquals(
+            "cmd %x lab.example.com",
+            ConchSshClient.expandProxyCommand("cmd %x %h", "lab.example.com", 22, "root"));
+    }
+
+    @Test
     void proxyCommand_sshW_basicHost() {
         assertEquals(
             "bastion",

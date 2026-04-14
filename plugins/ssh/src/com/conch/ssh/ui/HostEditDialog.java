@@ -2,7 +2,6 @@ package com.conch.ssh.ui;
 
 import com.conch.sdk.CredentialProvider;
 import com.conch.sdk.CredentialProvider.CredentialDescriptor;
-import com.conch.ssh.client.ConchSshClient;
 import com.conch.ssh.model.HostStore;
 import com.conch.ssh.model.KeyFileAuth;
 import com.conch.ssh.model.PromptPasswordAuth;
@@ -500,11 +499,6 @@ public final class HostEditDialog extends DialogWrapper {
             String command = proxyCommandField.getText().trim();
             if (command.isEmpty()) {
                 return new ValidationInfo("Proxy command is required", proxyCommandField);
-            }
-            if (ConchSshClient.proxyJumpFromProxyCommand(command) == null) {
-                return new ValidationInfo(
-                    "Supported form: ssh -W %h:%p <jump-host>",
-                    proxyCommandField);
             }
         }
 

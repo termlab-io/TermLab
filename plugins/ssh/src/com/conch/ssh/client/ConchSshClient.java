@@ -23,6 +23,8 @@ import org.apache.sshd.common.AttributeRepository;
 import org.apache.sshd.common.NamedResource;
 import org.apache.sshd.common.config.keys.FilePasswordProvider;
 import org.apache.sshd.common.config.keys.KeyUtils;
+import org.apache.sshd.common.session.Session;
+import org.apache.sshd.common.session.SessionListener;
 import org.apache.sshd.common.session.SessionContext;
 import org.apache.sshd.common.util.net.SshdSocketAddress;
 import org.apache.sshd.common.util.security.SecurityUtils;
@@ -30,10 +32,16 @@ import org.apache.sshd.core.CoreModuleProperties;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+import java.io.ByteArrayOutputStream;
+import java.io.Closeable;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
+import java.net.InetAddress;
 import java.net.InetSocketAddress;
+import java.net.ServerSocket;
 import java.net.SocketAddress;
+import java.net.Socket;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.GeneralSecurityException;
@@ -41,10 +49,13 @@ import java.security.KeyPair;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -98,6 +109,32 @@ public final class ConchSshClient {
      */
     private final ConcurrentMap<String, SshResolvedCredential> bastionCredentialsByAddress =
         new ConcurrentHashMap<>();
+
+    /**
+     * For proxy-command connects, map the relay loopback address
+     * MINA dials (host:port) to the actual target host:port so the
+     * server-key verifier can check the real remote identity rather
+     * than loopback.
+     */
+    private final ConcurrentMap<String, SshdSocketAddress> proxyCommandTargetByRelayAddress =
+        new ConcurrentHashMap<>();
+
+    /**
+     * MINA callback fired as soon as a session is created/established.
+     * If this session came through a proxy-command relay address we
+     * registered, tag it with TARGET_SERVER before key verification.
+     */
+    private final SessionListener proxyCommandTargetTagger = new SessionListener() {
+        @Override
+        public void sessionEstablished(Session session) {
+            SshdSocketAddress target = removeProxyCommandTargetForAddress(session.getRemoteAddress());
+            if (target == null) return;
+            session.setAttribute(ClientSessionCreator.TARGET_SERVER, target);
+            LOG.info("Conch SSH: proxy command session tagged TARGET_SERVER="
+                + target.getHostName() + ":" + target.getPort()
+                + " remoteAddress=" + session.getRemoteAddress());
+        }
+    };
 
     public ConchSshClient() {
     }
@@ -195,116 +232,130 @@ public final class ConchSshClient {
         @NotNull ServerKeyVerifier verifier
     ) throws SshConnectException {
         ClientSession session;
+        ConnectPlan connectPlan = null;
+        boolean keepProxyTunnel = false;
         try {
-            long connectStartNs = System.nanoTime();
-            ConnectFuture connectFuture = connectFutureFor(mina, host, credential);
-            LOG.info("Conch SSH: connectFuture obtained host=" + host.host() + ":" + host.port()
-                + " awaitingVerify...");
-            session = connectFuture.verify(CONNECT_TIMEOUT).getSession();
-            long connectMs = (System.nanoTime() - connectStartNs) / 1_000_000;
-            SshdSocketAddress target = session.getAttribute(ClientSessionCreator.TARGET_SERVER);
-            LOG.info("Conch SSH: connect session established host=" + host.host() + ":" + host.port()
-                + " connectAddress=" + session.getConnectAddress()
-                + " remoteAddress=" + session.getIoSession().getRemoteAddress()
-                + " targetServer=" + (target == null ? "<none:direct-or-hop>"
-                    : target.getHostName() + ":" + target.getPort())
-                + " connectMs=" + connectMs
-                + " sessionId=" + session.getSessionId());
-        } catch (IllegalArgumentException e) {
-            LOG.warn("Conch SSH: invalid proxy config for host="
-                + host.host() + ":" + host.port() + " -> " + e.getMessage(), e);
-            throw new SshConnectException(
-                SshConnectException.Kind.INVALID_PROXY_CONFIG,
-                "Invalid SSH proxy configuration: " + e.getMessage(),
-                e);
-        } catch (IOException e) {
-            LOG.warn("Conch SSH: network/connect failure host="
-                + host.host() + ":" + host.port() + " -> " + e.getMessage(), e);
-            throw new SshConnectException(
-                SshConnectException.Kind.HOST_UNREACHABLE,
-                "Could not reach " + host.host() + ":" + host.port() + " — " + e.getMessage(),
-                e);
-        }
+            try {
+                long connectStartNs = System.nanoTime();
+                connectPlan = connectFutureFor(mina, host, credential);
+                LOG.info("Conch SSH: connectFuture obtained host=" + host.host() + ":" + host.port()
+                    + " awaitingVerify...");
+                session = connectPlan.connectFuture().verify(CONNECT_TIMEOUT).getSession();
+                unregisterProxyCommandTargets(connectPlan);
+                long connectMs = (System.nanoTime() - connectStartNs) / 1_000_000;
+                SshdSocketAddress target = session.getAttribute(ClientSessionCreator.TARGET_SERVER);
+                LOG.info("Conch SSH: connect session established host=" + host.host() + ":" + host.port()
+                    + " connectAddress=" + session.getConnectAddress()
+                    + " remoteAddress=" + session.getIoSession().getRemoteAddress()
+                    + " targetServer=" + (target == null ? "<none:direct-or-hop>"
+                        : target.getHostName() + ":" + target.getPort())
+                    + " connectMs=" + connectMs
+                    + " sessionId=" + session.getSessionId());
+            } catch (IllegalArgumentException e) {
+                LOG.warn("Conch SSH: invalid proxy config for host="
+                    + host.host() + ":" + host.port() + " -> " + e.getMessage(), e);
+                throw new SshConnectException(
+                    SshConnectException.Kind.INVALID_PROXY_CONFIG,
+                    "Invalid SSH proxy configuration: " + e.getMessage(),
+                    e);
+            } catch (IOException e) {
+                String message = buildConnectFailureMessage(host, connectPlan, e.getMessage());
+                LOG.warn("Conch SSH: network/connect failure host="
+                    + host.host() + ":" + host.port() + " -> " + e.getMessage(), e);
+                throw new SshConnectException(
+                    SshConnectException.Kind.HOST_UNREACHABLE,
+                    message,
+                    e);
+            }
 
-        // Keep the per-session verifier set too so direct and proxied sessions
-        // share the same check path.
-        session.setServerKeyVerifier(verifier);
+            // Keep the per-session verifier set too so direct and proxied sessions
+            // share the same check path.
+            session.setServerKeyVerifier(verifier);
 
-        // Attach identities.
-        try {
-            attachIdentities(session, credential);
-        } catch (IOException | GeneralSecurityException e) {
-            safeClose(session);
-            throw new SshConnectException(
-                SshConnectException.Kind.AUTH_FAILED,
-                "Could not load key material: " + e.getMessage(),
-                e);
-        }
-
-        configureSessionAuthPreferences(session, credential);
-
-        // Authenticate.
-        try {
-            LOG.info("Conch SSH: starting auth host=" + host.host() + ":" + host.port()
-                + " proxyJump=" + (host.proxyJump() != null ? host.proxyJump() : "<none>"));
-            long authStartNs = System.nanoTime();
-            AuthFuture auth = session.auth();
-            auth.verify(AUTH_TIMEOUT);
-            long authMs = (System.nanoTime() - authStartNs) / 1_000_000;
-            if (!auth.isSuccess()) {
+            // Attach identities.
+            try {
+                attachIdentities(session, credential);
+            } catch (IOException | GeneralSecurityException e) {
                 safeClose(session);
-                Throwable cause = auth.getException();
-                LOG.warn("Conch SSH: auth future !isSuccess host=" + host.host() + ":" + host.port()
-                    + " authMs=" + authMs
-                    + " causeClass=" + (cause == null ? "null" : cause.getClass().getName())
-                    + " causeMsg=" + (cause == null ? "null" : cause.getMessage()));
                 throw new SshConnectException(
                     SshConnectException.Kind.AUTH_FAILED,
-                    "SSH authentication failed",
-                    cause != null ? cause : new IOException("auth future did not succeed"));
+                    "Could not load key material: " + e.getMessage(),
+                    e);
             }
-            LOG.info("Conch SSH: auth success host=" + host.host() + ":" + host.port()
-                + " authMs=" + authMs);
-        } catch (IOException e) {
-            safeClose(session);
-            // MINA throws IOException wrapping MITM / cipher / kex failures.
-            // Detect the known-hosts rejection case by message content — not
-            // pretty, but MINA doesn't surface a structured cause for this.
-            String msg = e.getMessage() == null ? "" : e.getMessage().toLowerCase();
-            SshConnectException.Kind kind =
-                msg.contains("server key") || msg.contains("host key") || msg.contains("rejected")
-                    ? SshConnectException.Kind.HOST_KEY_REJECTED
-                    : SshConnectException.Kind.AUTH_FAILED;
-            LOG.warn("Conch SSH: auth failure host="
-                + host.host() + ":" + host.port()
-                + " proxyJump=" + (host.proxyJump() != null ? host.proxyJump() : "<none>")
-                + " kind=" + kind
-                + " exceptionClass=" + e.getClass().getName()
-                + " -> " + e.getMessage(), e);
-            throw new SshConnectException(kind, "Authentication failed: " + e.getMessage(), e);
-        }
 
-        // Open the shell channel with a sensible initial PTY size.
-        // JediTerm will send a window-change to the real size as soon as
-        // the terminal widget is realized, so the 80x24 default is only
-        // briefly visible — if at all.
-        try {
-            org.apache.sshd.client.channel.ChannelShell channel = session.createShellChannel();
-            channel.setPtyType("xterm-256color");
-            channel.setPtyColumns(80);
-            channel.setPtyLines(24);
-            channel.open().verify(AUTH_TIMEOUT);
-            LOG.info("Conch SSH: connect success host=" + host.host() + ":" + host.port()
-                + " sessionId=" + session.getSessionId());
-            return new SshConnection(session, channel);
-        } catch (IOException e) {
-            safeClose(session);
-            LOG.warn("Conch SSH: channel open failed host="
-                + host.host() + ":" + host.port() + " -> " + e.getMessage(), e);
-            throw new SshConnectException(
-                SshConnectException.Kind.CHANNEL_OPEN_FAILED,
-                "Could not open shell channel on " + host.host() + ": " + e.getMessage(),
-                e);
+            configureSessionAuthPreferences(session, credential);
+
+            // Authenticate.
+            try {
+                LOG.info("Conch SSH: starting auth host=" + host.host() + ":" + host.port()
+                    + " proxyJump=" + (host.proxyJump() != null ? host.proxyJump() : "<none>"));
+                long authStartNs = System.nanoTime();
+                AuthFuture auth = session.auth();
+                auth.verify(AUTH_TIMEOUT);
+                long authMs = (System.nanoTime() - authStartNs) / 1_000_000;
+                if (!auth.isSuccess()) {
+                    safeClose(session);
+                    Throwable cause = auth.getException();
+                    LOG.warn("Conch SSH: auth future !isSuccess host=" + host.host() + ":" + host.port()
+                        + " authMs=" + authMs
+                        + " causeClass=" + (cause == null ? "null" : cause.getClass().getName())
+                        + " causeMsg=" + (cause == null ? "null" : cause.getMessage()));
+                    throw new SshConnectException(
+                        SshConnectException.Kind.AUTH_FAILED,
+                        "SSH authentication failed",
+                        cause != null ? cause : new IOException("auth future did not succeed"));
+                }
+                LOG.info("Conch SSH: auth success host=" + host.host() + ":" + host.port()
+                    + " authMs=" + authMs);
+            } catch (IOException e) {
+                safeClose(session);
+                // MINA throws IOException wrapping MITM / cipher / kex failures.
+                // Detect the known-hosts rejection case by message content — not
+                // pretty, but MINA doesn't surface a structured cause for this.
+                String msg = e.getMessage() == null ? "" : e.getMessage().toLowerCase();
+                SshConnectException.Kind kind =
+                    msg.contains("server key") || msg.contains("host key") || msg.contains("rejected")
+                        ? SshConnectException.Kind.HOST_KEY_REJECTED
+                        : SshConnectException.Kind.AUTH_FAILED;
+                LOG.warn("Conch SSH: auth failure host="
+                    + host.host() + ":" + host.port()
+                    + " proxyJump=" + (host.proxyJump() != null ? host.proxyJump() : "<none>")
+                    + " kind=" + kind
+                    + " exceptionClass=" + e.getClass().getName()
+                    + " -> " + e.getMessage(), e);
+                throw new SshConnectException(kind, "Authentication failed: " + e.getMessage(), e);
+            }
+
+            // Open the shell channel with a sensible initial PTY size.
+            // JediTerm will send a window-change to the real size as soon as
+            // the terminal widget is realized, so the 80x24 default is only
+            // briefly visible — if at all.
+            try {
+                org.apache.sshd.client.channel.ChannelShell channel = session.createShellChannel();
+                channel.setPtyType("xterm-256color");
+                channel.setPtyColumns(80);
+                channel.setPtyLines(24);
+                channel.open().verify(AUTH_TIMEOUT);
+                if (connectPlan != null && connectPlan.proxyCommandTunnel() != null) {
+                    keepProxyTunnel = true;
+                    bindProxyCommandTunnelLifecycle(session, connectPlan.proxyCommandTunnel());
+                }
+                LOG.info("Conch SSH: connect success host=" + host.host() + ":" + host.port()
+                    + " sessionId=" + session.getSessionId());
+                return new SshConnection(session, channel);
+            } catch (IOException e) {
+                safeClose(session);
+                LOG.warn("Conch SSH: channel open failed host="
+                    + host.host() + ":" + host.port() + " -> " + e.getMessage(), e);
+                throw new SshConnectException(
+                    SshConnectException.Kind.CHANNEL_OPEN_FAILED,
+                    "Could not open shell channel on " + host.host() + ": " + e.getMessage(),
+                    e);
+            }
+        } finally {
+            if (!keepProxyTunnel) {
+                closeConnectPlan(connectPlan);
+            }
         }
     }
 
@@ -362,65 +413,81 @@ public final class ConchSshClient {
         @NotNull ServerKeyVerifier verifier
     ) throws SshConnectException {
         ClientSession session;
+        ConnectPlan connectPlan = null;
+        boolean keepProxyTunnel = false;
         try {
-            long connectStartNs = System.nanoTime();
-            ConnectFuture connectFuture = connectFutureFor(mina, host, credential);
-            session = connectFuture.verify(CONNECT_TIMEOUT).getSession();
-            long connectMs = (System.nanoTime() - connectStartNs) / 1_000_000;
-            SshdSocketAddress target = session.getAttribute(ClientSessionCreator.TARGET_SERVER);
-            LOG.info("Conch SSH: connectSession session established host=" + host.host() + ":" + host.port()
-                + " connectAddress=" + session.getConnectAddress()
-                + " remoteAddress=" + session.getIoSession().getRemoteAddress()
-                + " targetServer=" + (target == null ? "<none:direct-or-hop>"
-                    : target.getHostName() + ":" + target.getPort())
-                + " connectMs=" + connectMs);
-        } catch (IllegalArgumentException e) {
-            throw new SshConnectException(
-                SshConnectException.Kind.INVALID_PROXY_CONFIG,
-                "Invalid SSH proxy configuration: " + e.getMessage(), e);
-        } catch (IOException e) {
-            LOG.warn("Conch SSH: connectSession network/connect failure host="
-                + host.host() + ":" + host.port() + " -> " + e.getMessage(), e);
-            throw new SshConnectException(
-                SshConnectException.Kind.HOST_UNREACHABLE,
-                "Could not reach " + host.host() + ":" + host.port() + " — " + e.getMessage(), e);
-        }
+            try {
+                long connectStartNs = System.nanoTime();
+                connectPlan = connectFutureFor(mina, host, credential);
+                session = connectPlan.connectFuture().verify(CONNECT_TIMEOUT).getSession();
+                unregisterProxyCommandTargets(connectPlan);
+                long connectMs = (System.nanoTime() - connectStartNs) / 1_000_000;
+                SshdSocketAddress target = session.getAttribute(ClientSessionCreator.TARGET_SERVER);
+                LOG.info("Conch SSH: connectSession session established host=" + host.host() + ":" + host.port()
+                    + " connectAddress=" + session.getConnectAddress()
+                    + " remoteAddress=" + session.getIoSession().getRemoteAddress()
+                    + " targetServer=" + (target == null ? "<none:direct-or-hop>"
+                        : target.getHostName() + ":" + target.getPort())
+                    + " connectMs=" + connectMs);
+            } catch (IllegalArgumentException e) {
+                throw new SshConnectException(
+                    SshConnectException.Kind.INVALID_PROXY_CONFIG,
+                    "Invalid SSH proxy configuration: " + e.getMessage(), e);
+            } catch (IOException e) {
+                String message = buildConnectFailureMessage(host, connectPlan, e.getMessage());
+                LOG.warn("Conch SSH: connectSession network/connect failure host="
+                    + host.host() + ":" + host.port() + " -> " + e.getMessage(), e);
+                throw new SshConnectException(
+                    SshConnectException.Kind.HOST_UNREACHABLE,
+                    message,
+                    e);
+            }
 
-        session.setServerKeyVerifier(verifier);
+            session.setServerKeyVerifier(verifier);
 
-        try {
-            attachIdentities(session, credential);
-        } catch (IOException | GeneralSecurityException e) {
-            safeClose(session);
-            throw new SshConnectException(
-                SshConnectException.Kind.AUTH_FAILED,
-                "Could not load key material: " + e.getMessage(), e);
-        }
-
-        configureSessionAuthPreferences(session, credential);
-
-        try {
-            AuthFuture auth = session.auth();
-            auth.verify(AUTH_TIMEOUT);
-            if (!auth.isSuccess()) {
+            try {
+                attachIdentities(session, credential);
+            } catch (IOException | GeneralSecurityException e) {
                 safeClose(session);
-                Throwable cause = auth.getException();
                 throw new SshConnectException(
                     SshConnectException.Kind.AUTH_FAILED,
-                    "SSH authentication failed",
-                    cause != null ? cause : new IOException("auth future did not succeed"));
+                    "Could not load key material: " + e.getMessage(), e);
             }
-        } catch (IOException e) {
-            safeClose(session);
-            String msg = e.getMessage() == null ? "" : e.getMessage().toLowerCase();
-            SshConnectException.Kind kind =
-                msg.contains("server key") || msg.contains("host key") || msg.contains("rejected")
-                    ? SshConnectException.Kind.HOST_KEY_REJECTED
-                    : SshConnectException.Kind.AUTH_FAILED;
-            throw new SshConnectException(kind, "Authentication failed: " + e.getMessage(), e);
-        }
 
-        return session;
+            configureSessionAuthPreferences(session, credential);
+
+            try {
+                AuthFuture auth = session.auth();
+                auth.verify(AUTH_TIMEOUT);
+                if (!auth.isSuccess()) {
+                    safeClose(session);
+                    Throwable cause = auth.getException();
+                    throw new SshConnectException(
+                        SshConnectException.Kind.AUTH_FAILED,
+                        "SSH authentication failed",
+                        cause != null ? cause : new IOException("auth future did not succeed"));
+                }
+            } catch (IOException e) {
+                safeClose(session);
+                String msg = e.getMessage() == null ? "" : e.getMessage().toLowerCase();
+                SshConnectException.Kind kind =
+                    msg.contains("server key") || msg.contains("host key") || msg.contains("rejected")
+                        ? SshConnectException.Kind.HOST_KEY_REJECTED
+                        : SshConnectException.Kind.AUTH_FAILED;
+                throw new SshConnectException(kind, "Authentication failed: " + e.getMessage(), e);
+            }
+
+            if (connectPlan != null && connectPlan.proxyCommandTunnel() != null) {
+                keepProxyTunnel = true;
+                bindProxyCommandTunnelLifecycle(session, connectPlan.proxyCommandTunnel());
+            }
+
+            return session;
+        } finally {
+            if (!keepProxyTunnel) {
+                closeConnectPlan(connectPlan);
+            }
+        }
     }
 
     /**
@@ -437,15 +504,22 @@ public final class ConchSshClient {
             }
             client = null;
         }
+        bastionCredentialsByAddress.clear();
+        proxyCommandTargetByRelayAddress.clear();
     }
 
     // -- internals ------------------------------------------------------------
 
-    private @NotNull ConnectFuture connectFutureFor(
+    private @NotNull ConnectPlan connectFutureFor(
         @NotNull SshClient mina,
         @NotNull SshHost host,
         @NotNull SshResolvedCredential credential
     ) throws IOException, SshConnectException {
+        String proxyCommand = trimToNull(host.proxyCommand());
+        if (proxyCommand != null) {
+            return connectFutureForProxyCommand(mina, host, credential, proxyCommand);
+        }
+
         String proxyJump = effectiveProxyJump(host);
         if (proxyJump == null) {
             LOG.info("Conch SSH: direct connect path host=" + host.host() + ":" + host.port());
@@ -453,7 +527,7 @@ public final class ConchSshClient {
             // in ~/.ssh/config doesn't override the Conch-configured direct path.
             HostConfigEntry direct = new HostConfigEntry(
                 host.host(), host.host(), host.port(), credential.username(), null);
-            return mina.connect(direct);
+            return new ConnectPlan(mina.connect(direct), null, List.of());
         }
 
         // Normalize the jump spec to OpenSSH user@host[:port] form. MINA
@@ -489,7 +563,34 @@ public final class ConchSshClient {
         LOG.info("Conch SSH: proxy jump connect path host=" + host.host() + ":" + host.port()
             + " via=" + normalizedProxyJump + " (resolving effective host config)");
         HostConfigEntry target = resolveEffectiveTarget(mina, host, credential.username(), normalizedProxyJump);
-        return mina.connect(target);
+        return new ConnectPlan(mina.connect(target), null, List.of());
+    }
+
+    private @NotNull ConnectPlan connectFutureForProxyCommand(
+        @NotNull SshClient mina,
+        @NotNull SshHost host,
+        @NotNull SshResolvedCredential credential,
+        @NotNull String proxyCommand
+    ) throws IOException, SshConnectException {
+        String expanded = expandProxyCommand(proxyCommand, host.host(), host.port(), credential.username());
+        ProxyCommandTunnel tunnel = ProxyCommandTunnel.open(expanded);
+        List<String> relayKeys = registerProxyCommandTarget(tunnel.relayAddress(), host.host(), host.port());
+        try {
+            LOG.info("Conch SSH: proxy command connect path host=" + host.host() + ":" + host.port()
+                + " relay=" + tunnel.relayAddress());
+            HostConfigEntry proxied = new HostConfigEntry(
+                host.host(),
+                tunnel.relayAddress().getHostString(),
+                tunnel.relayAddress().getPort(),
+                credential.username(),
+                null);
+            ConnectFuture future = mina.connect(proxied);
+            return new ConnectPlan(future, tunnel, relayKeys);
+        } catch (IOException | RuntimeException e) {
+            unregisterProxyCommandTargets(relayKeys);
+            tunnel.close();
+            throw e;
+        }
     }
 
     /**
@@ -667,20 +768,7 @@ public final class ConchSshClient {
         return target;
     }
 
-    private static @Nullable String effectiveProxyJump(@NotNull SshHost host) throws SshConnectException {
-        String command = trimToNull(host.proxyCommand());
-        if (command != null) {
-            LOG.info("Conch SSH: resolving proxy command for host=" + host.host() + ":" + host.port()
-                + " command=" + command);
-            String fromCommand = proxyJumpFromProxyCommand(command);
-            if (fromCommand == null) {
-                throw new SshConnectException(
-                    SshConnectException.Kind.INVALID_PROXY_CONFIG,
-                    "Unsupported ProxyCommand. Use an OpenSSH style command like: ssh -W %h:%p bastion");
-            }
-            LOG.info("Conch SSH: proxy command resolved to jump host=" + fromCommand);
-            return fromCommand;
-        }
+    private static @Nullable String effectiveProxyJump(@NotNull SshHost host) {
         String jump = trimToNull(host.proxyJump());
         if (jump != null) {
             LOG.info("Conch SSH: using configured proxy jump for host=" + host.host() + ":" + host.port()
@@ -735,6 +823,316 @@ public final class ConchSshClient {
         return value;
     }
 
+    public static @NotNull String expandProxyCommand(
+        @NotNull String command,
+        @NotNull String host,
+        int port,
+        @NotNull String username
+    ) {
+        StringBuilder out = new StringBuilder(command.length() + 16);
+        for (int i = 0; i < command.length(); i++) {
+            char ch = command.charAt(i);
+            if (ch != '%') {
+                out.append(ch);
+                continue;
+            }
+            if (i + 1 >= command.length()) {
+                out.append('%');
+                break;
+            }
+            char next = command.charAt(++i);
+            switch (next) {
+                case '%' -> out.append('%');
+                case 'h' -> out.append(host);
+                case 'p' -> out.append(port);
+                case 'r' -> out.append(username);
+                default -> out.append('%').append(next);
+            }
+        }
+        return out.toString();
+    }
+
+    private @NotNull List<String> registerProxyCommandTarget(
+        @NotNull InetSocketAddress relayAddress,
+        @NotNull String targetHost,
+        int targetPort
+    ) {
+        SshdSocketAddress target = new SshdSocketAddress(targetHost, targetPort);
+        List<String> keys = relayAddressKeys(relayAddress);
+        for (String key : keys) {
+            SshdSocketAddress previous = proxyCommandTargetByRelayAddress.put(key, target);
+            if (previous != null) {
+                LOG.warn("Conch SSH: proxy command target mapping replaced key=" + key
+                    + " old=" + previous.getHostName() + ":" + previous.getPort()
+                    + " new=" + targetHost + ":" + targetPort);
+            }
+        }
+        return keys;
+    }
+
+    private static @NotNull List<String> relayAddressKeys(@NotNull InetSocketAddress address) {
+        Set<String> keys = new LinkedHashSet<>();
+        String hostString = address.getHostString();
+        if (hostString != null && !hostString.isBlank()) {
+            keys.add(hostString.toLowerCase(Locale.ROOT) + ":" + address.getPort());
+        }
+        InetAddress inet = address.getAddress();
+        if (inet != null) {
+            keys.add(inet.getHostAddress().toLowerCase(Locale.ROOT) + ":" + address.getPort());
+            if (inet.isLoopbackAddress()) {
+                keys.add("localhost:" + address.getPort());
+            }
+        }
+        return List.copyOf(keys);
+    }
+
+    private static @NotNull List<String> relayAddressKeys(@Nullable SocketAddress address) {
+        if (!(address instanceof InetSocketAddress inet)) return List.of();
+        return relayAddressKeys(inet);
+    }
+
+    private @Nullable SshdSocketAddress removeProxyCommandTargetForAddress(@Nullable SocketAddress address) {
+        List<String> keys = relayAddressKeys(address);
+        for (String key : keys) {
+            SshdSocketAddress target = proxyCommandTargetByRelayAddress.remove(key);
+            if (target != null) return target;
+        }
+        return null;
+    }
+
+    private void unregisterProxyCommandTargets(@Nullable ConnectPlan plan) {
+        if (plan == null) return;
+        unregisterProxyCommandTargets(plan.relayKeys());
+    }
+
+    private void unregisterProxyCommandTargets(@NotNull List<String> relayKeys) {
+        for (String key : relayKeys) {
+            proxyCommandTargetByRelayAddress.remove(key);
+        }
+    }
+
+    private static @NotNull String buildConnectFailureMessage(
+        @NotNull SshHost host,
+        @Nullable ConnectPlan connectPlan,
+        @Nullable String causeMessage
+    ) {
+        String base = "Could not reach " + host.host() + ":" + host.port()
+            + " — " + (causeMessage == null ? "connection failed" : causeMessage);
+        if (connectPlan == null || connectPlan.proxyCommandTunnel() == null) return base;
+        String stderr = connectPlan.proxyCommandTunnel().stderrSummary();
+        if (stderr == null) return base;
+        return base + " (proxy command stderr: " + stderr + ")";
+    }
+
+    private static void bindProxyCommandTunnelLifecycle(
+        @NotNull ClientSession session,
+        @NotNull ProxyCommandTunnel tunnel
+    ) {
+        session.addCloseFutureListener(f -> tunnel.close());
+    }
+
+    private void closeConnectPlan(@Nullable ConnectPlan connectPlan) {
+        if (connectPlan == null) return;
+        unregisterProxyCommandTargets(connectPlan);
+        if (connectPlan.proxyCommandTunnel() != null) {
+            connectPlan.proxyCommandTunnel().close();
+        }
+    }
+
+    private record ConnectPlan(
+        @NotNull ConnectFuture connectFuture,
+        @Nullable ProxyCommandTunnel proxyCommandTunnel,
+        @NotNull List<String> relayKeys
+    ) {
+    }
+
+    private static final class ProxyCommandTunnel implements AutoCloseable {
+
+        private static final int STDERR_CAPTURE_LIMIT = 4096;
+
+        private final @NotNull String expandedCommand;
+        private final @NotNull Process process;
+        private final @NotNull ServerSocket relayListener;
+        private final @NotNull InetSocketAddress relayAddress;
+        private final @NotNull ByteArrayOutputStream stderrCapture = new ByteArrayOutputStream();
+        private final @NotNull AtomicBoolean closed = new AtomicBoolean(false);
+
+        private volatile @Nullable Socket relaySocket;
+
+        private ProxyCommandTunnel(
+            @NotNull String expandedCommand,
+            @NotNull Process process,
+            @NotNull ServerSocket relayListener
+        ) {
+            this.expandedCommand = expandedCommand;
+            this.process = process;
+            this.relayListener = relayListener;
+            this.relayAddress = (InetSocketAddress) relayListener.getLocalSocketAddress();
+        }
+
+        static @NotNull ProxyCommandTunnel open(@NotNull String expandedCommand) throws SshConnectException {
+            List<String> tokens = splitCommandTokens(expandedCommand);
+            if (tokens.isEmpty()) {
+                throw new SshConnectException(
+                    SshConnectException.Kind.INVALID_PROXY_CONFIG,
+                    "Proxy command is empty");
+            }
+
+            List<String> args = new ArrayList<>(tokens.size());
+            for (String token : tokens) {
+                String arg = stripWrappingQuotes(token);
+                if (!arg.isEmpty()) {
+                    args.add(arg);
+                }
+            }
+            if (args.isEmpty()) {
+                throw new SshConnectException(
+                    SshConnectException.Kind.INVALID_PROXY_CONFIG,
+                    "Proxy command is empty");
+            }
+
+            try {
+                ServerSocket relayListener = new ServerSocket();
+                relayListener.bind(new InetSocketAddress(InetAddress.getLoopbackAddress(), 0), 1);
+                Process process = new ProcessBuilder(args).start();
+                ProxyCommandTunnel tunnel = new ProxyCommandTunnel(expandedCommand, process, relayListener);
+                tunnel.startWorkers();
+                return tunnel;
+            } catch (IOException e) {
+                throw new SshConnectException(
+                    SshConnectException.Kind.INVALID_PROXY_CONFIG,
+                    "Could not start proxy command '" + expandedCommand + "': " + e.getMessage(),
+                    e);
+            }
+        }
+
+        @NotNull InetSocketAddress relayAddress() {
+            return relayAddress;
+        }
+
+        private void startWorkers() {
+            Thread stderrPump = daemon("ConchSSH-proxy-stderr-" + relayAddress.getPort(), this::captureStderr);
+            stderrPump.start();
+            Thread relayPump = daemon("ConchSSH-proxy-relay-" + relayAddress.getPort(), this::relayOnce);
+            relayPump.start();
+        }
+
+        private void relayOnce() {
+            Socket accepted = null;
+            try {
+                accepted = relayListener.accept();
+                relaySocket = accepted;
+                final Socket relay = accepted;
+                closeQuietly(relayListener);
+
+                Thread toProcess = daemon(
+                    "ConchSSH-proxy-to-process-" + relayAddress.getPort(),
+                    () -> pipe(relay.getInputStream(), process.getOutputStream()));
+                Thread toSocket = daemon(
+                    "ConchSSH-proxy-to-socket-" + relayAddress.getPort(),
+                    () -> pipe(process.getInputStream(), relay.getOutputStream()));
+                toProcess.start();
+                toSocket.start();
+                toProcess.join();
+                toSocket.join();
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            } catch (IOException e) {
+                if (!closed.get()) {
+                    LOG.warn("Conch SSH: proxy command relay failed for '" + expandedCommand + "': " + e.getMessage(), e);
+                }
+            } finally {
+                closeQuietly(accepted);
+                close();
+            }
+        }
+
+        private static void pipe(@NotNull InputStream in, @NotNull OutputStream out) {
+            byte[] buf = new byte[8192];
+            try {
+                int n;
+                while ((n = in.read(buf)) >= 0) {
+                    if (n == 0) continue;
+                    out.write(buf, 0, n);
+                    out.flush();
+                }
+            } catch (IOException ignored) {
+                // End-of-stream and closed-pipe are normal during teardown.
+            } finally {
+                closeQuietly(out);
+            }
+        }
+
+        private void captureStderr() {
+            byte[] buf = new byte[1024];
+            try (InputStream err = process.getErrorStream()) {
+                int n;
+                while ((n = err.read(buf)) >= 0) {
+                    if (n > 0) {
+                        appendStderr(buf, n);
+                    }
+                }
+            } catch (IOException ignored) {
+                // best effort
+            }
+        }
+
+        private void appendStderr(byte[] bytes, int len) {
+            synchronized (stderrCapture) {
+                int remaining = STDERR_CAPTURE_LIMIT - stderrCapture.size();
+                if (remaining <= 0) return;
+                stderrCapture.write(bytes, 0, Math.min(len, remaining));
+            }
+        }
+
+        private @Nullable String stderrSummary() {
+            synchronized (stderrCapture) {
+                if (stderrCapture.size() == 0) return null;
+                String text = stderrCapture.toString(java.nio.charset.StandardCharsets.UTF_8).trim();
+                return text.isEmpty() ? null : text.replace('\n', ' ');
+            }
+        }
+
+        @Override
+        public void close() {
+            if (!closed.compareAndSet(false, true)) return;
+            closeQuietly(relayListener);
+            closeQuietly(relaySocket);
+            closeQuietly(process.getInputStream());
+            closeQuietly(process.getOutputStream());
+            closeQuietly(process.getErrorStream());
+            process.destroy();
+            if (process.isAlive()) {
+                process.destroyForcibly();
+            }
+        }
+
+        private static @NotNull Thread daemon(@NotNull String name, @NotNull ThrowingRunnable runnable) {
+            Thread t = new Thread(() -> {
+                try {
+                    runnable.run();
+                } catch (IOException ignored) {
+                    // caller logs where useful
+                }
+            }, name);
+            t.setDaemon(true);
+            return t;
+        }
+    }
+
+    @FunctionalInterface
+    private interface ThrowingRunnable {
+        void run() throws IOException;
+    }
+
+    private static void closeQuietly(@Nullable Closeable closeable) {
+        if (closeable == null) return;
+        try {
+            closeable.close();
+        } catch (IOException ignored) {
+        }
+    }
+
     private synchronized SshClient ensureStarted() {
         if (client == null) {
             client = SshClient.setUpDefaultClient();
@@ -760,6 +1158,7 @@ public final class ConchSshClient {
             client.setFilePasswordProvider((session, resource, retryIndex) -> null);
             client.setPublicKeyAuthenticationReporter(new AuthDebugReporter());
             client.setPasswordAuthenticationReporter(new PasswordDebugReporter());
+            client.addSessionListener(proxyCommandTargetTagger);
             client.start();
         }
         return client;
