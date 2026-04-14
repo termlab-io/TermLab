@@ -25,10 +25,20 @@
 
         <applicationService
             serviceImplementation="com.conch.editor.remote.RemoteEditService"/>
+
+        <postStartupActivity
+            implementation="com.conch.editor.remote.RemoteEditorStartupSweep"/>
     </extensions>
 
     <applicationListeners>
         <listener class="com.conch.editor.remote.RemoteSaveListener"
                   topic="com.intellij.openapi.fileEditor.FileDocumentManagerListener"/>
+        <listener class="com.conch.editor.remote.RemoteEditorShutdownListener"
+                  topic="com.intellij.ide.AppLifecycleListener"/>
     </applicationListeners>
+
+    <projectListeners>
+        <listener class="com.conch.editor.remote.RemoteEditorProjectListener"
+                  topic="com.intellij.openapi.fileEditor.FileEditorManagerListener"/>
+    </projectListeners>
 </idea-plugin>
