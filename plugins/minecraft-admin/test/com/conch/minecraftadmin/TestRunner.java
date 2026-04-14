@@ -22,7 +22,11 @@ public final class TestRunner {
         launcher.execute(request, listener);
 
         TestExecutionSummary summary = listener.getSummary();
-        summary.printTo(new PrintWriter(System.out));
-        if (summary.getTotalFailureCount() > 0) System.exit(1);
+        PrintWriter writer = new PrintWriter(System.out, true);
+        summary.printTo(writer);
+        if (summary.getTotalFailureCount() > 0) {
+            summary.printFailuresTo(writer);
+            System.exit(1);
+        }
     }
 }

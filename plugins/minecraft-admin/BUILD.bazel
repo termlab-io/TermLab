@@ -51,6 +51,15 @@ jvm_library(
 java_binary(
     name = "minecraft_admin_test_runner",
     main_class = "com.conch.minecraftadmin.TestRunner",
+    jvm_flags = [
+        "--add-opens=java.desktop/javax.swing=ALL-UNNAMED",
+        "--add-opens=java.desktop/java.awt=ALL-UNNAMED",
+        "--add-opens=java.desktop/sun.awt=ALL-UNNAMED",
+        "--add-opens=java.desktop/sun.java2d=ALL-UNNAMED",
+        "--add-opens=java.desktop/sun.font=ALL-UNNAMED",
+        "--add-opens=java.desktop/sun.swing=ALL-UNNAMED",
+        "--add-opens=java.base/java.lang.reflect=ALL-UNNAMED",
+    ],
     runtime_deps = [
         ":minecraft_admin_test_lib",
         "//libraries/junit5-jupiter",
