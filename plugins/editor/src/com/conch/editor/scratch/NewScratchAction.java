@@ -9,11 +9,8 @@ import com.intellij.openapi.fileTypes.FileType;
 import com.intellij.openapi.fileTypes.FileTypeManager;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.ui.popup.JBPopupFactory;
-import com.intellij.openapi.ui.popup.PopupStep;
-import com.intellij.openapi.ui.popup.util.BaseListPopupStep;
 import com.intellij.testFramework.LightVirtualFile;
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 
 import javax.swing.*;
 import java.util.List;
@@ -60,32 +57,16 @@ public final class NewScratchAction extends AnAction {
         Project project = e.getData(CommonDataKeys.PROJECT);
         if (project == null) return;
 
-        var step = new BaseListPopupStep<ScratchOption>("New Scratch File", OPTIONS) {
-            @Override
-            public @NotNull String getTextFor(ScratchOption value) {
-                return value.label();
-            }
-
-            @Override
-            public @Nullable Icon getIconFor(ScratchOption value) {
-                String probe = "scratch" + value.extension();
-                FileType ft = FileTypeManager.getInstance().getFileTypeByFileName(probe);
-                return ft.getIcon();
-            }
-
-            @Override
-            public boolean isSpeedSearchEnabled() {
-                return true;
-            }
-
-            @Override
-            public PopupStep<?> onChosen(ScratchOption selectedValue, boolean finalChoice) {
-                return doFinalStep(() -> createAndOpen(project, selectedValue));
-            }
-        };
-
         JBPopupFactory.getInstance()
-            .createListPopup(step)
+            .createPopupChooserBuilder(OPTIONS)
+            .setTitle("New Scratch File")
+            .setVisibleRowCount(5)
+            .setNamerForFiltering(ScratchOption::label)
+            .setRenderer(new ScratchOptionCellRenderer())
+            .setItemChosenCallback(option -> createAndOpen(project, option))
+            .setMovable(false)
+            .setResizable(false)
+            .createPopup()
             .showCenteredInCurrentWindow(project);
     }
 
@@ -106,5 +87,22 @@ public final class NewScratchAction extends AnAction {
     @Override
     public @NotNull ActionUpdateThread getActionUpdateThread() {
         return ActionUpdateThread.BGT;
+    }
+
+    private static final class ScratchOptionCellRenderer
+            extends javax.swing.DefaultListCellRenderer {
+        @Override
+        public java.awt.Component getListCellRendererComponent(
+            javax.swing.JList<?> list, Object value, int index,
+            boolean isSelected, boolean cellHasFocus
+        ) {
+            super.getListCellRendererComponent(list, value, index, isSelected, cellHasFocus);
+            if (value instanceof ScratchOption option) {
+                setText(option.label());
+                String probe = "scratch" + option.extension();
+                setIcon(FileTypeManager.getInstance().getFileTypeByFileName(probe).getIcon());
+            }
+            return this;
+        }
     }
 }
