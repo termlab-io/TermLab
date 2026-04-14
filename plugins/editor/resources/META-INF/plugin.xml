@@ -14,4 +14,21 @@
     <depends>com.conch.core</depends>
     <depends>com.conch.sftp</depends>
     <depends>org.jetbrains.plugins.textmate</depends>
+
+    <extensions defaultExtensionNs="com.intellij">
+        <notificationGroup
+            id="Conch Light Editor"
+            displayType="BALLOON"/>
+
+        <applicationService
+            serviceImplementation="com.conch.editor.remote.RemoteFileBindingRegistry"/>
+
+        <applicationService
+            serviceImplementation="com.conch.editor.remote.RemoteEditService"/>
+    </extensions>
+
+    <applicationListeners>
+        <listener class="com.conch.editor.remote.RemoteSaveListener"
+                  topic="com.intellij.openapi.fileEditor.FileDocumentManagerListener"/>
+    </applicationListeners>
 </idea-plugin>
