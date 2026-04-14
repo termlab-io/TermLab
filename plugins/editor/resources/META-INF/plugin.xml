@@ -29,7 +29,7 @@
             implementation="com.conch.editor.remote.RemoteEditorStartupSweep"/>
 
         <postStartupActivity
-            implementation="com.conch.editor.debug.EditorStartupDebug"/>
+            implementation="com.conch.editor.debug.TextMateBuiltinBundleEnabler"/>
     </extensions>
 
     <extensions defaultExtensionNs="com.conch.sftp">
