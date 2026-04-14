@@ -76,6 +76,27 @@ public final class McCredentialResolver {
     }
 
     /**
+     * Ask every registered provider to become available (the vault
+     * provider pops its unlock dialog). Returns {@code true} if at
+     * least one provider reports {@link CredentialProvider#isAvailable()}
+     * after the attempt. Callers that already know a specific
+     * {@code credentialId} should use this to retry
+     * {@link #resolve(UUID, String)} after an initial miss, instead
+     * of falling back to an account picker the user never asked for.
+     *
+     * <p>Must be called on the EDT.
+     */
+    public boolean ensureAnyProviderAvailable() {
+        boolean anyAvailable = false;
+        for (CredentialProvider provider : providerLookup.get()) {
+            if (provider.ensureAvailable()) {
+                anyAvailable = true;
+            }
+        }
+        return anyAvailable;
+    }
+
+    /**
      * Convert an SDK-level {@link Credential} into an {@link McCredential},
      * cloning the password char array so the caller's {@link Credential#destroy()}
      * does not zero our copy.

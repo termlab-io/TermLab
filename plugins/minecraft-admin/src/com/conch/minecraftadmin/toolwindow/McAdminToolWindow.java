@@ -91,7 +91,7 @@ public final class McAdminToolWindow extends JPanel {
         javax.swing.JButton refreshButton = new javax.swing.JButton("Refresh");
         refreshButton.setToolTipText("Reconnect to AMP and RCON for the current server");
         refreshButton.addActionListener(e -> {
-            if (current != null) current.poller().reconnect();
+            if (current != null) current.refresh();
         });
         toolbar.add(refreshButton);
         add(toolbar, BorderLayout.NORTH);

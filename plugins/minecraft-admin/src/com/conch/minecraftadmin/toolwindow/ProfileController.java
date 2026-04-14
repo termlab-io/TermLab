@@ -31,6 +31,7 @@ public final class ProfileController implements AutoCloseable {
     private final LifecycleButtons lifecycleButtons;
     private final PlayersPanel playersPanel;
     private final ConsolePanel consolePanel;
+    private final McCredentialResolver resolver;
     private final ServerPoller poller;
 
     public ProfileController(
@@ -47,12 +48,13 @@ public final class ProfileController implements AutoCloseable {
         this.playersPanel = playersPanel;
         this.consolePanel = consolePanel;
 
-        McCredentialResolver resolver = new McCredentialResolver();
+        this.resolver = new McCredentialResolver();
         AmpClient amp = new AmpClient(baseUrl -> {
             McCredential cred = resolver.resolve(profile.ampCredentialId(), profile.ampUsername());
             if (cred == null) {
                 LOG.warn("Conch Minecraft: AMP credential " + profile.ampCredentialId()
-                    + " not found in vault for profile=" + profile.label());
+                    + " not found in vault for profile=" + profile.label()
+                    + " — vault may be locked; click Refresh in the Minecraft Admin tool window to unlock it");
                 throw new IllegalStateException("AMP credential not found for " + profile.label());
             }
             return new AmpClient.LoginPair(cred.username(), cred.password());
@@ -91,7 +93,8 @@ public final class ProfileController implements AutoCloseable {
                 McCredential cred = resolver.resolve(rconId, "");
                 if (cred == null) {
                     LOG.warn("Conch Minecraft: RCON credential " + rconId
-                        + " not found in vault for profile=" + profile.label());
+                        + " not found in vault for profile=" + profile.label()
+                        + " — vault may be locked; click Refresh in the Minecraft Admin tool window to unlock it");
                     throw new IllegalStateException("RCON credential not found for " + profile.label());
                 }
                 return cred.password();
@@ -100,12 +103,30 @@ public final class ProfileController implements AutoCloseable {
 
     public void start() {
         LOG.info("Conch Minecraft: ProfileController starting poller for profile=" + profile.label());
+        boolean vaultAvailable = resolver.ensureAnyProviderAvailable();
+        LOG.info("Conch Minecraft: vault available after ensureAnyProviderAvailable=" + vaultAvailable);
         poller.start();
         // Render an immediate empty snapshot so the UI isn't blank while the first tick runs.
         ServerState initial = ServerState.unknown(Instant.now());
         statusStrip.update(initial);
         lifecycleButtons.update(initial);
         playersPanel.update(initial);
+    }
+
+    /**
+     * User-initiated refresh: re-attempt to unlock the vault if it's
+     * locked, then invalidate AMP/RCON sessions and fire an immediate
+     * poll tick via {@link ServerPoller#reconnect()}.
+     *
+     * <p>Called from the tool window's Refresh button — must run on the
+     * EDT because {@link McCredentialResolver#ensureAnyProviderAvailable()}
+     * pops a modal dialog.
+     */
+    public void refresh() {
+        LOG.info("Conch Minecraft: ProfileController refresh requested for profile=" + profile.label());
+        boolean vaultAvailable = resolver.ensureAnyProviderAvailable();
+        LOG.info("Conch Minecraft: refresh vault available=" + vaultAvailable);
+        poller.reconnect();
     }
 
     public @NotNull ServerProfile profile() { return profile; }
