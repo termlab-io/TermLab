@@ -7,6 +7,16 @@
     control, broadcast + RCON commands. Supports IntelliJ's stock
     undock / floating window modes via the tool window gear menu.</description>
 
+    <!--
+      Declares the plugin needs only platform APIs (ToolWindow,
+      DialogWrapper, Application services, ExtensionPointName, etc.) —
+      no language modules, no IDEA-specific features. Without this, the
+      platform refuses to load the plugin in non-IDEA IDEs with
+      "Compatible with IntelliJ IDEA only because it doesn't define any
+      explicit module dependencies". Bundled plugins (ssh, core) skip
+      this check implicitly; non-bundled plugins must opt in.
+    -->
+    <depends>com.intellij.modules.platform</depends>
     <depends>com.conch.core</depends>
     <depends>com.conch.vault</depends>
 
