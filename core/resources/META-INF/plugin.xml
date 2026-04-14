@@ -106,6 +106,13 @@
         <searchEverywhereContributor
             implementation="com.conch.core.palette.TerminalPaletteContributor$Factory"/>
 
+        <notificationGroup
+            id="com.conch.editor.firstLaunch"
+            displayType="STICKY_BALLOON"/>
+
+        <postStartupActivity
+            implementation="com.conch.core.editor.FirstLaunchEditorNotifier"/>
+
         <!-- Override the platform's TabsCustomizationStrategy to only show
              Actions and Terminals tabs in Search Everywhere -->
         <applicationService
