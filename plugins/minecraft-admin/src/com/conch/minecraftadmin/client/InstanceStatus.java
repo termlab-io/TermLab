@@ -2,6 +2,7 @@ package com.conch.minecraftadmin.client;
 
 import com.conch.minecraftadmin.model.McServerStatus;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import java.time.Duration;
 
@@ -18,11 +19,12 @@ public record InstanceStatus(
     @NotNull Duration uptime,
     int playersOnline,    // from AMP Metrics."Active Users".RawValue, 0 if missing
     int playersMax,       // from AMP Metrics."Active Users".MaxValue, 0 if missing
-    double tps            // from AMP Metrics.TPS.RawValue, NaN if missing
+    double tps,           // from AMP Metrics.TPS.RawValue, NaN if missing
+    @Nullable String panelUrl    // the instance's own AMP panel URL for console tailing, null if unresolvable
 ) {
     public static @NotNull InstanceStatus unknown() {
         return new InstanceStatus(
             McServerStatus.UNKNOWN, Double.NaN, 0L, 0L, Duration.ZERO,
-            0, 0, Double.NaN);
+            0, 0, Double.NaN, null);
     }
 }

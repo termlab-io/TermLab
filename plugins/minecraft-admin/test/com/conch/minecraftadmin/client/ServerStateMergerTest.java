@@ -18,7 +18,7 @@ class ServerStateMergerTest {
     @Test
     void bothHealthy_buildsFullSnapshot() {
         ServerState s = ServerStateMerger.merge(
-            AmpTickResult.ok(new InstanceStatus(McServerStatus.RUNNING, 45.0, 2000, 4000, Duration.ofMinutes(5), 0, 0, Double.NaN)),
+            AmpTickResult.ok(new InstanceStatus(McServerStatus.RUNNING, 45.0, 2000, 4000, Duration.ofMinutes(5), 0, 0, Double.NaN, null)),
             RconTickResult.ok(List.of(new Player("alice", 42)), 1, 20, 19.98),
             NOW);
         assertEquals(McServerStatus.RUNNING, s.status());
@@ -50,7 +50,7 @@ class ServerStateMergerTest {
     @Test
     void ampUp_rconDown_keepsAmpFieldsAndRecordsRconError() {
         ServerState s = ServerStateMerger.merge(
-            AmpTickResult.ok(new InstanceStatus(McServerStatus.RUNNING, 45.0, 2000, 4000, Duration.ofMinutes(5), 0, 0, Double.NaN)),
+            AmpTickResult.ok(new InstanceStatus(McServerStatus.RUNNING, 45.0, 2000, 4000, Duration.ofMinutes(5), 0, 0, Double.NaN, null)),
             RconTickResult.error("connection reset"),
             NOW);
         assertEquals(McServerStatus.RUNNING, s.status());
@@ -86,7 +86,7 @@ class ServerStateMergerTest {
         ServerState s = ServerStateMerger.merge(
             AmpTickResult.ok(new InstanceStatus(
                 McServerStatus.RUNNING, 45.0, 2000, 4000, Duration.ofMinutes(5),
-                8, 30, 19.8)),  // AMP says 8/30 players, TPS 19.8
+                8, 30, 19.8, null)),  // AMP says 8/30 players, TPS 19.8
             RconTickResult.ok(List.of(new Player("alice", 42)), 1, 20, 20.0),  // RCON disagrees: 1/20, TPS 20.0
             NOW);
         assertEquals(8, s.playersOnline(), "should prefer AMP player count");
@@ -102,7 +102,7 @@ class ServerStateMergerTest {
         ServerState s = ServerStateMerger.merge(
             AmpTickResult.ok(new InstanceStatus(
                 McServerStatus.RUNNING, 45.0, 2000, 4000, Duration.ofMinutes(5),
-                0, 0, Double.NaN)),  // AMP has no metrics data
+                0, 0, Double.NaN, null)),  // AMP has no metrics data
             RconTickResult.ok(List.of(), 3, 20, 19.0),
             NOW);
         assertEquals(3, s.playersOnline(), "should fall back to RCON when AMP max is 0");

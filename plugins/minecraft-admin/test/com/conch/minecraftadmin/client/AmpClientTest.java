@@ -59,6 +59,9 @@ class AmpClientTest {
                 inst.addProperty("InstanceName", "survival");
                 inst.addProperty("Running", true);
                 inst.addProperty("AppState", 20);
+                inst.addProperty("IP", "127.0.0.1");
+                inst.addProperty("Port", 8082);
+                inst.addProperty("IsHTTPS", false);
                 inst.addProperty("TimeStarted", Instant.now().minusSeconds(300).toString());
                 JsonObject metrics = new JsonObject();
                 JsonObject cpu = new JsonObject();
@@ -96,6 +99,38 @@ class AmpClientTest {
             assertEquals(7, status.playersOnline());
             assertEquals(20, status.playersMax());
             assertEquals(19.5, status.tps(), 0.001);
+            assertEquals("http://127.0.0.1:8082", status.panelUrl());
+        }
+    }
+
+    @Test
+    void getInstanceStatus_ipZero_hasNoPanelUrl() throws IOException {
+        try (FakeAmpServer server = new FakeAmpServer()) {
+            server.handle("Core/Login", body -> loginSuccess("abc"));
+            server.handle("ADSModule/GetInstances", body -> {
+                JsonObject group = new JsonObject();
+                JsonArray available = new JsonArray();
+                JsonObject inst = new JsonObject();
+                inst.addProperty("FriendlyName", "bound-all");
+                inst.addProperty("InstanceName", "bound-all");
+                inst.addProperty("Running", true);
+                inst.addProperty("AppState", 20);
+                inst.addProperty("IP", "0.0.0.0");
+                inst.addProperty("Port", 8082);
+                inst.addProperty("IsHTTPS", false);
+                available.add(inst);
+                group.add("AvailableInstances", available);
+                JsonArray result = new JsonArray();
+                result.add(group);
+                JsonObject wrapper = new JsonObject();
+                wrapper.add("result", result);
+                return wrapper;
+            });
+            AmpClient client = new AmpClient(creds("admin", "pw"));
+            AmpSession session = client.login(server.baseUrl());
+            InstanceStatus status = client.getInstanceStatus(session, "bound-all");
+            assertEquals(McServerStatus.RUNNING, status.status());
+            assertNull(status.panelUrl(), "IP=0.0.0.0 should produce null panelUrl");
         }
     }
 

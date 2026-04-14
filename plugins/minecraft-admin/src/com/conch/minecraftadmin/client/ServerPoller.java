@@ -47,6 +47,8 @@ public final class ServerPoller implements AutoCloseable {
     private final CrashDetector crashDetector = new CrashDetector();
 
     private volatile AmpSession ampSession;
+    private volatile AmpSession consoleAmpSession;
+    private volatile String consolePanelUrl;
     private volatile RconSession rconSession;
     private final AtomicReference<ScheduledFuture<?>> scheduledTask = new AtomicReference<>();
     private volatile boolean stopped = false;
@@ -106,6 +108,8 @@ public final class ServerPoller implements AutoCloseable {
             rconSession = null;
         }
         ampSession = null;
+        consoleAmpSession = null;
+        consolePanelUrl = null;
     }
 
     /** Drive one tick synchronously. Exposed for tests. */
@@ -125,6 +129,7 @@ public final class ServerPoller implements AutoCloseable {
         commandExecutor.submit(() -> {
             closeRcon();
             ampSession = null;
+            consoleAmpSession = null;
             LOG.info("Conch Minecraft: ServerPoller sessions invalidated for profile=" + profile.label());
         });
         ScheduledFuture<?> old = scheduledTask.getAndSet(null);
@@ -200,6 +205,29 @@ public final class ServerPoller implements AutoCloseable {
                 + " error=" + ampResult.errorMessage());
         }
 
+        // If AMP told us the instance's own panel URL, poll its console too.
+        if (ampResult.healthy() && ampResult.status() != null && ampResult.status().panelUrl() != null) {
+            String newPanelUrl = ampResult.status().panelUrl();
+            if (!newPanelUrl.equals(consolePanelUrl)) {
+                // Panel URL changed (first tick, or instance moved). Drop any stale session.
+                consoleAmpSession = null;
+                consolePanelUrl = newPanelUrl;
+                LOG.info("Conch Minecraft: instance panel URL is " + newPanelUrl + " for profile=" + profile.label());
+            }
+            try {
+                AmpSession cs = ensureConsoleSession();
+                LOG.debug("Conch Minecraft: polling console for profile=" + profile.label());
+                ConsoleUpdate update = ampClient.getConsoleUpdates(cs, profile.ampInstanceName());
+                if (!update.lines().isEmpty()) {
+                    LOG.debug("Conch Minecraft: console poll returned " + update.lines().size() + " new line(s)");
+                    uiDispatcher.accept(() -> listener.onConsoleLines(update.lines()));
+                }
+            } catch (IOException e) {
+                LOG.warn("Conch Minecraft: console poll failed for profile=" + profile.label() + " — dropping console session, will retry next tick", e);
+                consoleAmpSession = null;
+            }
+        }
+
         RconTickResult rconResult;
         try {
             RconSession session = ensureRcon();
@@ -245,6 +273,22 @@ public final class ServerPoller implements AutoCloseable {
         AmpSession fresh = ampClient.login(profile.ampUrl());
         ampSession = fresh;
         LOG.info("Conch Minecraft: ensureAmp login success for profile=" + profile.label());
+        return fresh;
+    }
+
+    private AmpSession ensureConsoleSession() throws IOException {
+        AmpSession current = consoleAmpSession;
+        if (current != null) {
+            LOG.debug("Conch Minecraft: ensureConsoleSession reusing existing session for profile=" + profile.label());
+            return current;
+        }
+        if (consolePanelUrl == null) {
+            throw new IOException("no instance panel URL discovered yet");
+        }
+        LOG.info("Conch Minecraft: ensureConsoleSession logging in to instance panel " + consolePanelUrl + " for profile=" + profile.label());
+        AmpSession fresh = ampClient.login(consolePanelUrl);
+        consoleAmpSession = fresh;
+        LOG.info("Conch Minecraft: ensureConsoleSession login success for profile=" + profile.label());
         return fresh;
     }
 

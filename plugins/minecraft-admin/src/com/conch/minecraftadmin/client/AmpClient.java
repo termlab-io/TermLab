@@ -236,7 +236,22 @@ public final class AmpClient {
             } catch (Exception ignored) {}
         }
 
-        return new InstanceStatus(status, cpu, ramUsed, ramMax, uptime, playersOnline, playersMax, tps);
+        String panelUrl = null;
+        if (inst.has("IP") && inst.has("Port")) {
+            String ip = inst.get("IP").getAsString();
+            int port = inst.get("Port").getAsInt();
+            boolean isHttps = inst.has("IsHTTPS") && inst.get("IsHTTPS").getAsBoolean();
+            // Skip 0.0.0.0 — that's AMP binding to all interfaces and isn't a real reachable address.
+            // Skip empty/missing IP.
+            if (!ip.isEmpty() && !"0.0.0.0".equals(ip) && port > 0) {
+                panelUrl = (isHttps ? "https" : "http") + "://" + ip + ":" + port;
+                LOG.debug("Conch Minecraft: extracted instance panel URL=" + panelUrl);
+            } else {
+                LOG.debug("Conch Minecraft: instance IP=" + ip + " port=" + port + " — no usable panel URL");
+            }
+        }
+
+        return new InstanceStatus(status, cpu, ramUsed, ramMax, uptime, playersOnline, playersMax, tps, panelUrl);
     }
 
     /**
