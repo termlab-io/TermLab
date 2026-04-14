@@ -18,13 +18,17 @@ public final class ServerSwitcher extends JPanel {
 
     private final DefaultComboBoxModel<ServerProfile> model = new DefaultComboBoxModel<>();
     private final JComboBox<ServerProfile> combo = new JComboBox<>(model);
-    private final JButton addButton = new JButton("+");
-    private final JButton editButton = new JButton("⚙");
+    private final JButton addButton       = new JButton("+");
+    private final JButton editButton      = new JButton("⚙");
+    private final JButton duplicateButton = new JButton("📋");
+    private final JButton deleteButton    = new JButton("🗑");
 
     public ServerSwitcher(
         @NotNull Consumer<ServerProfile> onSelect,
         @NotNull Runnable onAdd,
-        @NotNull Consumer<ServerProfile> onEdit
+        @NotNull Consumer<ServerProfile> onEdit,
+        @NotNull Consumer<ServerProfile> onDuplicate,
+        @NotNull Consumer<ServerProfile> onDelete
     ) {
         setLayout(new BoxLayout(this, BoxLayout.X_AXIS));
         setBorder(JBUI.Borders.empty(4, 8));
@@ -48,16 +52,32 @@ public final class ServerSwitcher extends JPanel {
             ServerProfile p = (ServerProfile) combo.getSelectedItem();
             if (p != null) onEdit.accept(p);
         });
+        duplicateButton.addActionListener(e -> {
+            ServerProfile p = (ServerProfile) combo.getSelectedItem();
+            if (p != null) onDuplicate.accept(p);
+        });
+        deleteButton.addActionListener(e -> {
+            ServerProfile p = (ServerProfile) combo.getSelectedItem();
+            if (p != null) onDelete.accept(p);
+        });
         add(combo);
         add(javax.swing.Box.createHorizontalStrut(4));
         add(addButton);
         add(javax.swing.Box.createHorizontalStrut(4));
         add(editButton);
+        add(javax.swing.Box.createHorizontalStrut(4));
+        add(duplicateButton);
+        add(javax.swing.Box.createHorizontalStrut(4));
+        add(deleteButton);
     }
 
     public void setProfiles(@NotNull List<ServerProfile> profiles, @Nullable ServerProfile selected) {
         model.removeAllElements();
         for (ServerProfile p : profiles) model.addElement(p);
         if (selected != null) combo.setSelectedItem(selected);
+        boolean hasProfiles = !profiles.isEmpty();
+        editButton.setEnabled(hasProfiles);
+        duplicateButton.setEnabled(hasProfiles);
+        deleteButton.setEnabled(hasProfiles);
     }
 }

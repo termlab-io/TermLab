@@ -16,6 +16,7 @@ import javax.swing.JPanel;
 import java.awt.BorderLayout;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 /**
  * Root panel of the Minecraft Admin tool window. Holds one
@@ -70,7 +71,13 @@ public final class McAdminToolWindow extends JPanel {
         // Top toolbar — one horizontal row: switcher + status strip + lifecycle buttons
         JPanel toolbar = new JPanel();
         toolbar.setLayout(new BoxLayout(toolbar, BoxLayout.X_AXIS));
-        this.switcher = new ServerSwitcher(this::switchTo, this::addProfile, this::editProfile);
+        this.switcher = new ServerSwitcher(
+            this::switchTo,
+            this::addProfile,
+            this::editProfile,
+            this::duplicateProfile,
+            this::deleteProfile
+        );
         toolbar.add(switcher);
         toolbar.add(javax.swing.Box.createHorizontalStrut(12));
         toolbar.add(statusStrip);
@@ -97,11 +104,30 @@ public final class McAdminToolWindow extends JPanel {
 
     private void reloadProfiles() {
         List<ServerProfile> profiles = profileStore.getProfiles();
-        ServerProfile toSelect = current != null
-            ? current.profile()
-            : (profiles.isEmpty() ? null : profiles.get(0));
+        ServerProfile toSelect = null;
+        if (current != null) {
+            UUID currentId = current.profile().id();
+            toSelect = profiles.stream()
+                .filter(p -> p.id().equals(currentId))
+                .findFirst()
+                .orElse(null);
+        }
+        if (toSelect == null && !profiles.isEmpty()) {
+            toSelect = profiles.get(0);
+        }
         switcher.setProfiles(profiles, toSelect);
-        if (toSelect != null) switchTo(toSelect);
+        if (toSelect != null) {
+            switchTo(toSelect);
+        } else if (current != null) {
+            // All profiles deleted — shut down the poller and clear UI state.
+            current.close();
+            current = null;
+            com.conch.minecraftadmin.model.ServerState empty =
+                com.conch.minecraftadmin.model.ServerState.unknown(java.time.Instant.now());
+            statusStrip.update(empty);
+            lifecycleButtons.update(empty);
+            playersPanel.update(empty);
+        }
     }
 
     private void switchTo(ServerProfile profile) {
@@ -121,6 +147,23 @@ public final class McAdminToolWindow extends JPanel {
     private void editProfile(ServerProfile existing) {
         Optional<ServerProfile> edited = new ServerEditDialog(project, existing).showAndGetResult();
         edited.ifPresent(profileStore::update);
+    }
+
+    private void duplicateProfile(ServerProfile source) {
+        Optional<ServerProfile> created =
+            ServerEditDialog.forCopyOf(project, source).showAndGetResult();
+        created.ifPresent(profileStore::add);
+    }
+
+    private void deleteProfile(ServerProfile profile) {
+        int choice = Messages.showYesNoDialog(
+            project,
+            "Delete server profile '" + profile.label() + "'? This cannot be undone.",
+            "Delete Minecraft Server",
+            "Delete", "Cancel",
+            Messages.getWarningIcon());
+        if (choice != Messages.YES) return;
+        profileStore.remove(profile.id());
     }
 
     private void invokeOnPoller(@NotNull java.util.function.Consumer<ServerPoller> action) {

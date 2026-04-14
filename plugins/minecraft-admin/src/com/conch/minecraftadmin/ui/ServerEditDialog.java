@@ -90,25 +90,48 @@ public final class ServerEditDialog extends DialogWrapper {
 
     private void populateFromExisting() {
         if (existing == null) return;
+        seedFieldsFrom(existing);
+    }
 
-        labelField.setText(existing.label());
-        ampUrlField.setText(existing.ampUrl());
-        ampInstanceField.setText(existing.ampInstanceName());
-        ampUsernameField.setText(existing.ampUsername());
-        rconHostField.setText(existing.rconHost());
-        rconPortSpinner.setValue(existing.rconPort());
+    /**
+     * Populate every editable field from {@code source}. Called by the
+     * existing "edit" constructor path and by {@link #forCopyOf}.
+     */
+    private void seedFieldsFrom(@NotNull ServerProfile source) {
+        labelField.setText(source.label());
+        ampUrlField.setText(source.ampUrl());
+        ampInstanceField.setText(source.ampInstanceName());
+        ampUsernameField.setText(source.ampUsername());
+        rconHostField.setText(source.rconHost());
+        rconPortSpinner.setValue(source.rconPort());
 
         // Restore AMP credential — try to look up display name from providers
-        ampCredentialId = existing.ampCredentialId();
+        ampCredentialId = source.ampCredentialId();
         ampCredentialName = resolveDisplayName(ampCredentialId);
         ampCredentialLabel.setText(ampCredentialName);
 
         // Restore RCON credential (may be null for passwordless servers)
-        rconCredentialId = existing.rconCredentialId();
+        rconCredentialId = source.rconCredentialId();
         rconCredentialName = rconCredentialId == null
             ? "(none \u2014 passwordless)"
             : resolveDisplayName(rconCredentialId);
         rconCredentialLabel.setText(rconCredentialName);
+    }
+
+    /**
+     * Build a dialog in "add new" mode with all fields pre-populated from
+     * an existing profile. On save, a brand-new profile is created with a
+     * fresh UUID — the source profile is left untouched. Used by the
+     * Duplicate action on the tool window switcher.
+     */
+    public static @NotNull ServerEditDialog forCopyOf(
+        @Nullable Project project,
+        @NotNull ServerProfile source
+    ) {
+        ServerEditDialog dialog = new ServerEditDialog(project, null);
+        dialog.seedFieldsFrom(source);
+        dialog.labelField.setText(source.label() + " (copy)");
+        return dialog;
     }
 
     /** Walk registered providers to find the display name for a saved credential id. */
