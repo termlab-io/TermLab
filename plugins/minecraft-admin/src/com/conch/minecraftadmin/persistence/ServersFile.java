@@ -57,7 +57,7 @@ public final class ServersFile {
     }
 
     public static @NotNull List<ServerProfile> load(@NotNull Path source) throws IOException {
-        if (!Files.exists(source)) return Collections.emptyList();
+        if (!Files.isRegularFile(source)) return Collections.emptyList();
         String json = Files.readString(source);
         Envelope envelope;
         try {
