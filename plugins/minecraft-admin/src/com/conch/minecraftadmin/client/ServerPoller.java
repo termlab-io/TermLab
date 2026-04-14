@@ -16,6 +16,7 @@ import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
+import java.util.function.Supplier;
 
 /**
  * Drives one profile's 5-second poll loop. Each tick fires an AMP
@@ -29,7 +30,7 @@ import java.util.function.Consumer;
  * callbacks are dispatched via a caller-supplied {@link Consumer} so
  * UI code can marshal back to the EDT.
  */
-public class ServerPoller implements AutoCloseable {
+public final class ServerPoller implements AutoCloseable {
 
     private static final Logger LOG = Logger.getInstance(ServerPoller.class);
 
@@ -42,6 +43,7 @@ public class ServerPoller implements AutoCloseable {
     private final ScheduledExecutorService scheduler;
     private final ExecutorService commandExecutor;
     private final Consumer<Runnable> uiDispatcher;
+    private final Supplier<char[]> rconPasswordSupplier;
     private final CrashDetector crashDetector = new CrashDetector();
 
     private volatile AmpSession ampSession;
@@ -55,7 +57,8 @@ public class ServerPoller implements AutoCloseable {
         @NotNull RconClient rconClient,
         @NotNull StateListener listener,
         @NotNull ScheduledExecutorService scheduler,
-        @NotNull Consumer<Runnable> uiDispatcher
+        @NotNull Consumer<Runnable> uiDispatcher,
+        @NotNull Supplier<char[]> rconPasswordSupplier
     ) {
         this.profile = profile;
         this.ampClient = ampClient;
@@ -68,6 +71,7 @@ public class ServerPoller implements AutoCloseable {
             return t;
         });
         this.uiDispatcher = uiDispatcher;
+        this.rconPasswordSupplier = rconPasswordSupplier;
     }
 
     public void start() {
@@ -196,10 +200,10 @@ public class ServerPoller implements AutoCloseable {
     }
 
     private char[] resolveRconPassword() {
-        // In production, the RconClient's password is supplied via a caller-configured
-        // credential resolver. Tests override this by constructing ServerPoller with a
-        // subclass. See McCredentialResolver in the credentials package.
-        throw new UnsupportedOperationException("resolveRconPassword must be overridden in production via a wrapper");
+        char[] pw = rconPasswordSupplier.get();
+        if (pw == null) throw new IllegalStateException(
+            "RCON password supplier returned null for " + profile.label());
+        return pw;
     }
 
     private void closeRcon() {

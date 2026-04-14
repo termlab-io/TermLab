@@ -72,16 +72,9 @@ class ServerPollerTest {
             };
             ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
 
-            // Subclass to inject the RCON password without going through the vault.
-            ServerPoller poller = new ServerPoller(profile, ampClient, rconClient, listener, scheduler, Runnable::run) {
-                @Override
-                public String toString() { return "test-poller"; }
-            };
-            // Pre-seed the rcon session via reflection so tickOnce() doesn't call the
-            // vault-resolving stub. In production, ProfileController wraps this.
-            java.lang.reflect.Field f = ServerPoller.class.getDeclaredField("rconSession");
-            f.setAccessible(true);
-            f.set(poller, rconClient.connect("127.0.0.1", rcon.port(), "rpw".toCharArray()));
+            ServerPoller poller = new ServerPoller(
+                profile, ampClient, rconClient, listener, scheduler, Runnable::run,
+                () -> "rpw".toCharArray());
 
             try {
                 poller.tickOnce();
