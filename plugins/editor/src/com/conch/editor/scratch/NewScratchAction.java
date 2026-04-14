@@ -1,17 +1,17 @@
 package com.conch.editor.scratch;
 
+import com.intellij.icons.AllIcons;
 import com.intellij.openapi.actionSystem.ActionUpdateThread;
 import com.intellij.openapi.actionSystem.AnAction;
 import com.intellij.openapi.actionSystem.AnActionEvent;
 import com.intellij.openapi.actionSystem.CommonDataKeys;
 import com.intellij.openapi.fileEditor.FileEditorManager;
-import com.intellij.openapi.fileTypes.FileType;
-import com.intellij.openapi.fileTypes.FileTypeManager;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.ui.popup.JBPopupFactory;
 import com.intellij.testFramework.LightVirtualFile;
 import org.jetbrains.annotations.NotNull;
 
+import javax.swing.Icon;
 import javax.swing.*;
 import java.util.List;
 
@@ -22,34 +22,34 @@ import java.util.List;
  */
 public final class NewScratchAction extends AnAction {
 
-    record ScratchOption(String label, String extension) {}
+    private record ScratchOption(String label, String extension, Icon icon) {}
 
     private static final List<ScratchOption> OPTIONS = List.of(
-        new ScratchOption("Plain Text",  ".txt"),
-        new ScratchOption("Markdown",    ".md"),
-        new ScratchOption("JSON",        ".json"),
-        new ScratchOption("YAML",        ".yaml"),
-        new ScratchOption("TOML",        ".toml"),
-        new ScratchOption("XML",         ".xml"),
-        new ScratchOption("INI",         ".ini"),
-        new ScratchOption("Shell",       ".sh"),
-        new ScratchOption("Python",      ".py"),
-        new ScratchOption("Ruby",        ".rb"),
-        new ScratchOption("JavaScript",  ".js"),
-        new ScratchOption("TypeScript",  ".ts"),
-        new ScratchOption("HTML",        ".html"),
-        new ScratchOption("CSS",         ".css"),
-        new ScratchOption("SQL",         ".sql"),
-        new ScratchOption("Java",        ".java"),
-        new ScratchOption("Kotlin",      ".kt"),
-        new ScratchOption("Go",          ".go"),
-        new ScratchOption("Rust",        ".rs"),
-        new ScratchOption("C",           ".c"),
-        new ScratchOption("C++",         ".cpp"),
-        new ScratchOption("Lua",         ".lua"),
-        new ScratchOption("PHP",         ".php"),
-        new ScratchOption("Dockerfile",  ".dockerfile"),
-        new ScratchOption("Makefile",    ".makefile")
+        new ScratchOption("Plain Text",  ".txt",        AllIcons.FileTypes.Text),
+        new ScratchOption("Markdown",    ".md",         AllIcons.FileTypes.Text),
+        new ScratchOption("JSON",        ".json",       AllIcons.FileTypes.Json),
+        new ScratchOption("YAML",        ".yaml",       AllIcons.FileTypes.Yaml),
+        new ScratchOption("TOML",        ".toml",       AllIcons.FileTypes.Config),
+        new ScratchOption("XML",         ".xml",        AllIcons.FileTypes.Xml),
+        new ScratchOption("INI",         ".ini",        AllIcons.FileTypes.Config),
+        new ScratchOption("Shell",       ".sh",         AllIcons.FileTypes.Text),
+        new ScratchOption("Python",      ".py",         AllIcons.FileTypes.Text),
+        new ScratchOption("Ruby",        ".rb",         AllIcons.FileTypes.Text),
+        new ScratchOption("JavaScript",  ".js",         AllIcons.FileTypes.JavaScript),
+        new ScratchOption("TypeScript",  ".ts",         AllIcons.FileTypes.JavaScript),
+        new ScratchOption("HTML",        ".html",       AllIcons.FileTypes.Html),
+        new ScratchOption("CSS",         ".css",        AllIcons.FileTypes.Css),
+        new ScratchOption("SQL",         ".sql",        AllIcons.FileTypes.Text),
+        new ScratchOption("Java",        ".java",       AllIcons.FileTypes.Java),
+        new ScratchOption("Kotlin",      ".kt",         AllIcons.FileTypes.Text),
+        new ScratchOption("Go",          ".go",         AllIcons.FileTypes.Text),
+        new ScratchOption("Rust",        ".rs",         AllIcons.FileTypes.Text),
+        new ScratchOption("C",           ".c",          AllIcons.FileTypes.Text),
+        new ScratchOption("C++",         ".cpp",        AllIcons.FileTypes.Text),
+        new ScratchOption("Lua",         ".lua",        AllIcons.FileTypes.Text),
+        new ScratchOption("PHP",         ".php",        AllIcons.FileTypes.Text),
+        new ScratchOption("Dockerfile",  ".dockerfile", AllIcons.FileTypes.Config),
+        new ScratchOption("Makefile",    ".makefile",   AllIcons.FileTypes.Text)
     );
 
     @Override
@@ -106,8 +106,7 @@ public final class NewScratchAction extends AnAction {
             super.getListCellRendererComponent(list, value, index, isSelected, cellHasFocus);
             if (value instanceof ScratchOption option) {
                 setText(option.label());
-                String probe = "scratch" + option.extension();
-                setIcon(FileTypeManager.getInstance().getFileTypeByFileName(probe).getIcon());
+                setIcon(option.icon());
             }
             return this;
         }
