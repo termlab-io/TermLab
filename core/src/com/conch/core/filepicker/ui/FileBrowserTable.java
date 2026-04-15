@@ -5,9 +5,11 @@ import com.intellij.ui.table.JBTable;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+import javax.swing.DropMode;
 import javax.swing.JComponent;
 import javax.swing.JScrollPane;
 import javax.swing.ListSelectionModel;
+import javax.swing.TransferHandler;
 import javax.swing.table.TableRowSorter;
 import java.awt.BorderLayout;
 import java.awt.event.MouseAdapter;
@@ -113,6 +115,24 @@ public final class FileBrowserTable {
     }
 
     /**
+     * Configure this table as a drag-and-drop source and target.
+     * Sets {@code dragEnabled=true}, {@link DropMode#ON}, and the given
+     * {@link TransferHandler} on the underlying table in a single call,
+     * in the same order that pre-refactor pane code used — which
+     * ensures the drag gesture recogniser installed by the look-and-feel
+     * is wired up correctly.
+     *
+     * <p>Call this method instead of reaching through {@link #getTable()}
+     * to configure DnD individually. The method must be called before the
+     * widget is shown.
+     */
+    public void enableDragAndDrop(@NotNull TransferHandler handler) {
+        table.setDragEnabled(true);
+        table.setDropMode(DropMode.ON);
+        table.setTransferHandler(handler);
+    }
+
+    /**
      * The embeddable component. Put this into your layout wherever you
      * want the table to appear.
      */
@@ -123,7 +143,8 @@ public final class FileBrowserTable {
     /**
      * Direct access to the underlying {@link JBTable}. Used by the
      * existing SFTP tool window panes for DnD source/target setup.
-     * New callers should prefer the higher-level API methods.
+     * New callers should prefer the higher-level API methods on this
+     * class (e.g. {@link #enableDragAndDrop}).
      */
     public @NotNull JBTable getTable() {
         return table;

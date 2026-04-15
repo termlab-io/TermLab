@@ -71,12 +71,9 @@ public final class LocalFilePane extends JPanel {
         add(north, BorderLayout.NORTH);
 
         browser.addDoubleClickListener(this::onRowActivatedWithEntry);
+        browser.enableDragAndDrop(new LocalRowTransferHandler());
 
-        JBTable table = browser.getTable();
-        table.setDragEnabled(true);
-        table.setDropMode(DropMode.ON);
-        table.setTransferHandler(new LocalRowTransferHandler());
-        table.addMouseListener(new MouseAdapter() {
+        browser.getTable().addMouseListener(new MouseAdapter() {
             @Override
             public void mousePressed(MouseEvent e) {
                 maybeShowPopup(e);

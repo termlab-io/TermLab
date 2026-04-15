@@ -77,12 +77,9 @@ public final class RemoteFilePane extends JPanel {
         add(buildNorth(), BorderLayout.NORTH);
 
         browser.addDoubleClickListener(this::onRowActivatedWithEntry);
+        browser.enableDragAndDrop(new RemoteRowTransferHandler());
 
-        JBTable table = browser.getTable();
-        table.setDragEnabled(true);
-        table.setDropMode(DropMode.ON);
-        table.setTransferHandler(new RemoteRowTransferHandler());
-        table.addMouseListener(new MouseAdapter() {
+        browser.getTable().addMouseListener(new MouseAdapter() {
             @Override
             public void mousePressed(MouseEvent e) {
                 maybeShowPopup(e);
