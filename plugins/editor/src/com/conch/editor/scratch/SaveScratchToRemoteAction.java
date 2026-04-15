@@ -1,30 +1,21 @@
 package com.conch.editor.scratch;
 
-import com.conch.sftp.client.SshSftpSession;
-import com.conch.sftp.session.SftpSessionManager;
+import com.conch.core.filepicker.FilePickerResult;
+import com.conch.core.filepicker.ui.UnifiedFilePickerDialog;
 import com.conch.sftp.vfs.SftpUrl;
-import com.conch.sftp.vfs.SftpVirtualFile;
-import com.conch.sftp.vfs.SftpVirtualFileSystem;
-import com.conch.ssh.client.SshConnectException;
-import com.conch.ssh.model.HostStore;
-import com.conch.ssh.model.SshHost;
+import com.intellij.ide.util.PropertiesComponent;
 import com.intellij.notification.Notification;
 import com.intellij.notification.NotificationType;
 import com.intellij.notification.Notifications;
 import com.intellij.openapi.actionSystem.ActionUpdateThread;
 import com.intellij.openapi.actionSystem.AnAction;
 import com.intellij.openapi.actionSystem.AnActionEvent;
-import com.intellij.openapi.application.ApplicationManager;
-import com.intellij.openapi.fileChooser.FileChooserDescriptor;
+import com.intellij.openapi.editor.Document;
 import com.intellij.openapi.fileEditor.FileDocumentManager;
 import com.intellij.openapi.fileEditor.FileEditor;
 import com.intellij.openapi.fileEditor.FileEditorManager;
-import com.intellij.openapi.progress.ProgressIndicator;
-import com.intellij.openapi.progress.ProgressManager;
-import com.intellij.openapi.progress.Task;
 import com.intellij.openapi.project.Project;
-import com.intellij.openapi.ui.Messages;
-import com.intellij.openapi.ui.popup.JBPopupFactory;
+import com.intellij.openapi.vfs.LocalFileSystem;
 import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.openapi.vfs.VirtualFileManager;
 import com.intellij.testFramework.LightVirtualFile;
@@ -33,25 +24,17 @@ import org.jetbrains.annotations.Nullable;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
-import java.util.List;
+import java.nio.file.Paths;
+import java.util.UUID;
 
 /**
- * Save the active scratch file to a connected SFTP host. Cmd+Shift+S /
- * Ctrl+Shift+S. Disabled unless the active editor is on a marked scratch
- * LightVirtualFile.
- *
- * <p>Implementation note: the platform's {@code FileSaverDialog} is
- * hard-wired to the local filesystem (its OK-button enablement logic calls
- * {@code java.io.File#exists()} on the selected path, which always returns
- * {@code false} for SFTP paths). It cannot be rooted at an SFTP VirtualFile.
- * Instead, this action uses a two-step flow: a platform
- * {@code FileChooser.chooseFile} (directory-only descriptor) lets the user
- * browse the SFTP VFS natively, then a small filename input dialog completes
- * the destination.
+ * Save the active scratch file to a local directory or a remote SFTP
+ * host via the unified file picker. Bound to Cmd+Alt+S / Ctrl+Alt+S.
  */
 public final class SaveScratchToRemoteAction extends AnAction {
 
     private static final String NOTIFICATION_GROUP = "Conch SFTP";
+    private static final String LAST_SOURCE_KEY = "conch.editor.lastRemoteSourceId";
 
     @Override
     public void update(@NotNull AnActionEvent e) {
@@ -85,218 +68,75 @@ public final class SaveScratchToRemoteAction extends AnAction {
         VirtualFile scratch = activeScratchFile(project);
         if (scratch == null) return;
 
-        // If the SFTP tool window already has an active session, use it directly.
-        SftpSessionManager.ActiveSession active =
-            SftpSessionManager.getInstance().getActiveSessionForCurrentProject(project);
-        if (active != null) {
-            proceedWithHost(project, scratch, active.host(), active.session(), active.currentRemotePath());
+        FilePickerResult result = UnifiedFilePickerDialog.showSaveDialog(
+            project,
+            "Save Scratch",
+            scratch.getName(),
+            lastUsedSourceId());
+        if (result == null) return;
+
+        Document doc = FileDocumentManager.getInstance().getDocument(scratch);
+        if (doc == null) return;
+        byte[] bytes = doc.getText().getBytes(StandardCharsets.UTF_8);
+
+        try {
+            result.source().writeFile(result.absolutePath(), bytes);
+        } catch (IOException ioe) {
+            notifyError(project, "Save failed: " + ioe.getMessage());
             return;
         }
 
-        showHostPickerThenConnect(project, scratch);
+        rememberLastUsedSource(result.source().id());
+
+        VirtualFile saved = resolveSavedVirtualFile(result);
+        if (saved != null) {
+            FileEditorManager mgr = FileEditorManager.getInstance(project);
+            mgr.closeFile(scratch);
+            mgr.openFile(saved, true);
+        }
+
+        notify(project,
+            "Saved to " + result.source().label() + ":" + result.absolutePath(),
+            NotificationType.INFORMATION);
     }
 
-    private static void showHostPickerThenConnect(
-        @NotNull Project project, @NotNull VirtualFile scratch
-    ) {
-        HostStore store = ApplicationManager.getApplication().getService(HostStore.class);
-        if (store == null) {
-            notifySftp(project, "No host store available", NotificationType.ERROR);
-            return;
-        }
-        List<SshHost> hosts = store.getHosts();
-        if (hosts.isEmpty()) {
-            notifySftp(project,
-                "No SFTP hosts configured. Add one in the SFTP tool window first.",
-                NotificationType.WARNING);
-            return;
-        }
-
-        JBPopupFactory.getInstance()
-            .createPopupChooserBuilder(hosts)
-            .setTitle("Connect to host")
-            .setVisibleRowCount(8)
-            .setNamerForFiltering(SshHost::label)
-            .setItemChosenCallback(host -> connectThenProceed(project, scratch, host))
-            .createPopup()
-            .showCenteredInCurrentWindow(project);
+    private static @Nullable String lastUsedSourceId() {
+        return PropertiesComponent.getInstance().getValue(LAST_SOURCE_KEY);
     }
 
-    private static void connectThenProceed(
-        @NotNull Project project, @NotNull VirtualFile scratch, @NotNull SshHost host
-    ) {
-        ProgressManager.getInstance().run(new Task.Modal(
-            project, "Connecting to " + host.label() + "...", true
-        ) {
-            private SshSftpSession session;
-
-            @Override
-            public void run(@NotNull ProgressIndicator indicator) {
-                indicator.setIndeterminate(true);
-                try {
-                    session = SftpSessionManager.getInstance().acquire(host, this);
-                } catch (SshConnectException ex) {
-                    ApplicationManager.getApplication().invokeLater(() ->
-                        notifySftp(project, "Connection failed: " + ex.getMessage(),
-                            NotificationType.ERROR));
-                }
-            }
-
-            @Override
-            public void onSuccess() {
-                if (session == null) return;
-                try {
-                    proceedWithHost(project, scratch, host, session, "/");
-                } finally {
-                    SftpSessionManager.getInstance().release(host.id(), this);
-                }
-            }
-        });
+    private static void rememberLastUsedSource(@NotNull String id) {
+        PropertiesComponent.getInstance().setValue(LAST_SOURCE_KEY, id);
     }
 
     /**
-     * Core logic: use a two-step flow (directory chooser + filename prompt) to
-     * let the user pick a remote destination, write the scratch content, then
-     * transition the editor tab from scratch to the new remote file.
-     *
-     * <p>Session ownership for the duration of this method is managed via a
-     * fresh {@code actionOwner} token so the refcount stays above zero
-     * throughout. Before returning, ownership is transferred to the newly
-     * opened {@code SftpVirtualFile} so the tab keeps the session alive.
+     * Convert a {@link FilePickerResult} into an IntelliJ
+     * {@link VirtualFile} so the saved file opens as a proper editor
+     * tab. Local files go through {@link LocalFileSystem}; SFTP files
+     * go through the SFTP virtual filesystem.
      */
-    private static void proceedWithHost(
-        @NotNull Project project,
-        @NotNull VirtualFile scratch,
-        @NotNull SshHost host,
-        @NotNull SshSftpSession session,
-        @NotNull String startingRemoteDir
-    ) {
-        // Acquire an action-scoped reference for the duration of this method.
-        SftpSessionManager mgr = SftpSessionManager.getInstance();
-        Object actionOwner = new Object();
-        try {
-            mgr.acquire(host, actionOwner);
-        } catch (SshConnectException e) {
-            notifySftp(project, "Session lost: " + e.getMessage(), NotificationType.ERROR);
-            return;
-        }
-
-        try {
-            // Step 1: resolve the starting directory as an SftpVirtualFile so
-            // the FileChooser can browse the SFTP tree natively.
-            String startUrl = SftpUrl.compose(host.id(), startingRemoteDir);
-            VirtualFile root = VirtualFileManager.getInstance().findFileByUrl(startUrl);
-            if (root == null) {
-                notifySftp(project, "Could not list " + host.label() + ":" + startingRemoteDir,
-                    NotificationType.ERROR);
-                return;
-            }
-
-            // Step 2: platform directory chooser, rooted at the starting dir.
-            // FileChooser.chooseFile is VirtualFile-native and works with our
-            // SftpVirtualFileSystem. FileSaverDialog is NOT — it validates via
-            // java.io.File#exists which always returns false for SFTP paths.
-            FileChooserDescriptor descriptor =
-                com.intellij.openapi.fileChooser.FileChooserDescriptorFactory
-                    .createSingleFolderDescriptor()
-                    .withTitle("Save scratch to " + host.label() + " — pick a directory")
-                    .withRoots(root);
-            VirtualFile chosenDir = com.intellij.openapi.fileChooser.FileChooser
-                .chooseFile(descriptor, project, root);
-            if (chosenDir == null) return; // user cancelled
-
-            // Step 3: prompt for the filename.
-            String suggestedName = scratch.getName();
-            String enteredName = Messages.showInputDialog(
-                project,
-                "File name on " + host.label() + " in " + safeRemotePath(chosenDir) + ":",
-                "Save Scratch to Remote",
-                null,
-                suggestedName,
-                null);
-            if (enteredName == null || enteredName.isBlank()) return; // cancelled
-
-            // Basic sanity: reject names containing path separators.
-            if (enteredName.contains("/") || enteredName.contains("\\")) {
-                notifySftp(project, "File name must not contain path separators: " + enteredName,
-                    NotificationType.ERROR);
-                return;
-            }
-
-            // Step 4: compose the full remote path and write.
-            String chosenDirPath = safeRemotePath(chosenDir);
-            String destPath = chosenDirPath.endsWith("/")
-                ? chosenDirPath + enteredName
-                : chosenDirPath + "/" + enteredName;
-
-            String destUrl = SftpUrl.compose(host.id(), destPath);
-
-            byte[] content = FileDocumentManager.getInstance().getDocument(scratch).getText()
-                .getBytes(StandardCharsets.UTF_8);
-            SftpVirtualFile destFile = new SftpVirtualFile(
-                SftpVirtualFileSystem.getInstance(), host.id(), destPath, session,
-                /*isDirectoryHint=*/false);
+    private static @Nullable VirtualFile resolveSavedVirtualFile(@NotNull FilePickerResult result) {
+        String id = result.source().id();
+        if ("local".equals(id)) {
+            return LocalFileSystem.getInstance()
+                .refreshAndFindFileByNioFile(Paths.get(result.absolutePath()));
+        } else if (id.startsWith("sftp:")) {
             try {
-                destFile.setBinaryContent(content);
-            } catch (IOException e) {
-                notifySftp(project, "Save failed: " + e.getMessage(), NotificationType.ERROR);
-                return;
-            }
-
-            // Step 5: resolve the canonical interned instance via findFileByUrl.
-            VirtualFile saved = VirtualFileManager.getInstance().findFileByUrl(destUrl);
-            if (saved == null) {
-                notifySftp(project, "Saved, but could not reopen the file. Refresh the SFTP pane.",
-                    NotificationType.WARNING);
-                return;
-            }
-
-            // Step 6: transition session ownership from actionOwner to the new
-            // tab's VirtualFile BEFORE releasing actionOwner, so the refcount
-            // never hits zero.
-            try {
-                mgr.acquire(host, saved);
-            } catch (SshConnectException ce) {
-                notifySftp(project, "Session lost after save: " + ce.getMessage(), NotificationType.ERROR);
-                return;
-            }
-            mgr.release(host.id(), actionOwner);
-            actionOwner = null; // ownership transferred
-
-            // Step 7: close the scratch tab, open the new file.
-            FileEditorManager fem = FileEditorManager.getInstance(project);
-            fem.closeFile(scratch);
-            fem.openFile(saved, true);
-
-            notifySftp(project, "Saved to " + host.label() + ":" + destPath,
-                NotificationType.INFORMATION);
-        } finally {
-            if (actionOwner != null) {
-                mgr.release(host.id(), actionOwner);
+                UUID hostId = UUID.fromString(id.substring("sftp:".length()));
+                String url = SftpUrl.compose(hostId, result.absolutePath());
+                return VirtualFileManager.getInstance().findFileByUrl(url);
+            } catch (IllegalArgumentException e) {
+                return null;
             }
         }
+        return null;
     }
 
-    /**
-     * Extract the remote path portion of an SftpVirtualFile's URL.
-     * Falls back to the file's getPath() for non-SFTP files (shouldn't
-     * happen on this code path, but defensive).
-     */
-    private static @NotNull String safeRemotePath(@NotNull VirtualFile vf) {
-        if (vf instanceof SftpVirtualFile sftp) {
-            // SftpVirtualFile.getPath() returns "<hostId>//<remotePath>".
-            // We want just the remote path. Parse the URL instead.
-            SftpUrl parsed = SftpUrl.parse(vf.getUrl());
-            if (parsed != null) return parsed.remotePath();
-        }
-        return vf.getPath();
-    }
-
-    private static void notifySftp(
-        @NotNull Project project, @NotNull String message, @NotNull NotificationType type
-    ) {
+    private static void notify(@NotNull Project project, @NotNull String message, @NotNull NotificationType type) {
         Notifications.Bus.notify(
-            new Notification(NOTIFICATION_GROUP, "Save Scratch to Remote", message, type),
-            project);
+            new Notification(NOTIFICATION_GROUP, "Save Scratch", message, type), project);
+    }
+
+    private static void notifyError(@NotNull Project project, @NotNull String message) {
+        notify(project, message, NotificationType.ERROR);
     }
 }
