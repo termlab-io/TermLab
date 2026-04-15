@@ -364,4 +364,8 @@
             </action>
         </group>
     </actions>
+
+    <extensions defaultExtensionNs="com.conch.core">
+        <fileSourceProvider implementation="com.conch.core.filepicker.LocalFileSourceProvider"/>
+    </extensions>
 </idea-plugin>
