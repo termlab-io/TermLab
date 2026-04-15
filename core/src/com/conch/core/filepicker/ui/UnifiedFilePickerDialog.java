@@ -1,5 +1,6 @@
 package com.conch.core.filepicker.ui;
 
+import com.conch.core.filepicker.FileEntry;
 import com.conch.core.filepicker.FilePickerResult;
 import com.conch.core.filepicker.FileSource;
 import com.conch.core.filepicker.FileSourceProvider;
@@ -99,8 +100,49 @@ public final class UnifiedFilePickerDialog extends DialogWrapper {
         setTitle(title);
         setOKButtonText(mode == Mode.SAVE ? "Save" : "Open");
         init();
-        // Source population and initial listing happens in Task 13/14.
         populateSources();
+
+        sourceCombo.addItemListener(e -> {
+            if (e.getStateChange() == java.awt.event.ItemEvent.SELECTED) {
+                openAndLoadCurrentSource();
+            }
+        });
+
+        retryButton.addActionListener(e -> openAndLoadCurrentSource());
+
+        browser.addDoubleClickListener(entry -> {
+            FileSource source = currentSource;
+            if (source == null || currentPath == null) return;
+            if (entry.isDirectory()) {
+                navigateTo(source.resolve(currentPath, entry.name()));
+                return;
+            }
+            if (mode == Mode.SAVE) {
+                filenameField.setText(entry.name());
+            } else {
+                result = new FilePickerResult(source, source.resolve(currentPath, entry.name()));
+                close(OK_EXIT_CODE);
+            }
+        });
+
+        pathField.addActionListener(e -> {
+            FileSource source = currentSource;
+            if (source == null) return;
+            String path = pathField.getText().trim();
+            try {
+                if (!source.isDirectory(path)) {
+                    flashPathFieldRed();
+                    return;
+                }
+            } catch (java.io.IOException ex) {
+                flashPathFieldRed();
+                return;
+            }
+            navigateTo(path);
+        });
+
+        com.intellij.openapi.application.ApplicationManager.getApplication().invokeLater(
+            this::openAndLoadCurrentSource);
     }
 
     private @Nullable FilePickerResult showAndReturn() {
@@ -139,6 +181,12 @@ public final class UnifiedFilePickerDialog extends DialogWrapper {
         JPanel pathRow = new JPanel(new BorderLayout(6, 0));
         JButton upButton = new JButton("▲");
         upButton.setToolTipText("Parent directory");
+        upButton.addActionListener(e -> {
+            FileSource source = currentSource;
+            if (source == null || currentPath == null) return;
+            String parent = source.parentOf(currentPath);
+            if (parent != null) navigateTo(parent);
+        });
         pathRow.add(upButton, BorderLayout.WEST);
         pathRow.add(pathField, BorderLayout.CENTER);
         pathRow.setAlignmentX(Component.LEFT_ALIGNMENT);
@@ -225,10 +273,142 @@ public final class UnifiedFilePickerDialog extends DialogWrapper {
 
     // Dialog completion -----------------------------------------------------
 
+    private void openAndLoadCurrentSource() {
+        FileSource source = (FileSource) sourceCombo.getSelectedItem();
+        if (source == null) return;
+        showCard(CARD_LOADING);
+        com.intellij.openapi.progress.ProgressManager.getInstance().run(
+            new com.intellij.openapi.progress.Task.Modal(
+                project, "Connecting to " + source.label() + "…", true
+            ) {
+                private java.io.IOException error;
+                private java.util.List<FileEntry> entries;
+                private String loadPath;
+
+                @Override
+                public void run(@NotNull com.intellij.openapi.progress.ProgressIndicator indicator) {
+                    indicator.setIndeterminate(true);
+                    try {
+                        source.open(project, UnifiedFilePickerDialog.this);
+                        loadPath = source.initialPath();
+                        entries = source.list(loadPath);
+                    } catch (java.io.IOException e) {
+                        error = e;
+                    }
+                }
+
+                @Override
+                public void onSuccess() {
+                    if (error != null) {
+                        errorLabel.setText(ErrorMessages.translate(error));
+                        showCard(CARD_ERROR);
+                        return;
+                    }
+                    if (currentSource != null && currentSource != source) {
+                        currentSource.close(UnifiedFilePickerDialog.this);
+                    }
+                    currentSource = source;
+                    currentPath = loadPath;
+                    pathField.setText(loadPath);
+                    browser.setEntries(entries);
+                    showCard(CARD_TABLE);
+                }
+            });
+    }
+
+    private void navigateTo(@NotNull String path) {
+        FileSource source = currentSource;
+        if (source == null) return;
+        showCard(CARD_LOADING);
+        com.intellij.openapi.progress.ProgressManager.getInstance().run(
+            new com.intellij.openapi.progress.Task.Modal(project, "Loading…", false) {
+                private java.io.IOException error;
+                private java.util.List<FileEntry> entries;
+
+                @Override
+                public void run(@NotNull com.intellij.openapi.progress.ProgressIndicator indicator) {
+                    indicator.setIndeterminate(true);
+                    try {
+                        entries = source.list(path);
+                    } catch (java.io.IOException e) {
+                        error = e;
+                    }
+                }
+
+                @Override
+                public void onSuccess() {
+                    if (error != null) {
+                        errorLabel.setText(ErrorMessages.translate(error));
+                        showCard(CARD_ERROR);
+                        return;
+                    }
+                    currentPath = path;
+                    pathField.setText(path);
+                    browser.setEntries(entries);
+                    showCard(CARD_TABLE);
+                }
+            });
+    }
+
+    private void flashPathFieldRed() {
+        java.awt.Color original = pathField.getBackground();
+        pathField.setBackground(new java.awt.Color(255, 200, 200));
+        javax.swing.Timer timer = new javax.swing.Timer(300, evt -> {
+            pathField.setBackground(original);
+            if (currentPath != null) pathField.setText(currentPath);
+        });
+        timer.setRepeats(false);
+        timer.start();
+    }
+
     @Override
     protected void doOKAction() {
-        // Implemented in Task 13 for Save and Task 14 for Open.
-        // For the skeleton, just close with no result.
+        if (mode == Mode.SAVE) {
+            doSaveAction();
+        } else {
+            doOpenAction();
+        }
+    }
+
+    private void doSaveAction() {
+        FileSource source = currentSource;
+        if (source == null || currentPath == null) return;
+        String filename = filenameField.getText().trim();
+        if (filename.isEmpty()) return;
+        if (filename.contains("/") || filename.contains("\\")) {
+            com.intellij.openapi.ui.Messages.showErrorDialog(
+                getContentPanel(),
+                "File name must not contain path separators: " + filename,
+                "Invalid File Name");
+            return;
+        }
+        String destPath = source.resolve(currentPath, filename);
+        boolean exists;
+        try {
+            exists = source.exists(destPath);
+        } catch (java.io.IOException e) {
+            com.intellij.openapi.ui.Messages.showErrorDialog(
+                getContentPanel(), ErrorMessages.translate(e), "Error");
+            return;
+        }
+        if (exists) {
+            int choice = com.intellij.openapi.ui.Messages.showYesNoDialog(
+                getContentPanel(),
+                filename + " already exists on " + source.label() + ". Overwrite?",
+                "File Exists",
+                com.intellij.openapi.ui.Messages.getQuestionIcon());
+            if (choice != com.intellij.openapi.ui.Messages.YES) return;
+        }
+        result = new FilePickerResult(source, destPath);
+        super.doOKAction();
+    }
+
+    private void doOpenAction() {
+        FileSource source = currentSource;
+        if (source == null || currentPath == null) return;
+        FileEntry selected = browser.getSelectedEntry();
+        if (selected == null || selected.isDirectory()) return;
+        result = new FilePickerResult(source, source.resolve(currentPath, selected.name()));
         super.doOKAction();
     }
 
