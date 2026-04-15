@@ -43,6 +43,11 @@
 
         <searchEverywhereContributor
             implementation="com.conch.sftp.palette.SftpSearchEverywhereContributor$Factory"/>
+
+        <virtualFileSystem
+            implementationClass="com.conch.sftp.vfs.SftpVirtualFileSystem"
+            key="sftp"
+            physical="true"/>
     </extensions>
 
     <actions>
