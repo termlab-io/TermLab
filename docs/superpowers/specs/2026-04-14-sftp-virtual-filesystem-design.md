@@ -17,13 +17,13 @@
 - Multi-host SFTP tool window (more than one simultaneous host connection in the SFTP tool window).
 - External change detection / file watching on remote files.
 - Conflict detection on save (we still last-write-wins, same as today).
-- Implementing the full set of `NewVirtualFileSystem` mutation operations (`deleteFile`, `moveFile`, `renameFile`, `copyFile`, `createChildFile`, `createChildDirectory`). The save flow doesn't need them; they throw `UnsupportedOperationException` and are added on demand.
+- Implementing the full set of `VirtualFileSystem` mutation operations (`deleteFile`, `moveFile`, `renameFile`, `copyFile`, `createChildFile`, `createChildDirectory`). The save flow doesn't need them; they inherit `UnsupportedOperationException` defaults from `DeprecatedVirtualFileSystem` and are added on demand.
 
 ## Architecture
 
 Three new components plus one migration:
 
-1. **`SftpVirtualFileSystem`** — a real `NewVirtualFileSystem` registered under protocol `sftp`. Single instance, multi-host routing.
+1. **`SftpVirtualFileSystem`** — a `DeprecatedVirtualFileSystem` subclass registered under protocol `sftp`. Single instance, multi-host routing.
 2. **`SftpSessionManager`** — application-level service that owns SFTP sessions per host, with reference-counted lifecycle so the SFTP tool window and any number of editor tabs can share one session per host.
 3. **`SaveScratchToRemoteAction`** — new `AnAction` for `Cmd+Shift+S` that launches the host-selection flow and the platform's `FileSaverDialog` rooted at the remote path.
 4. **Migration**: rewrite the existing `RemoteFileOpener` / `LocalFileOpener` extension-point implementations in the editor plugin to use the VFS. Delete the temp-file machinery wholesale.
@@ -31,6 +31,15 @@ Three new components plus one migration:
 The `LocalFileOpener` post-migration is trivial: it asks `LocalFileSystem` for the `VirtualFile` and calls `FileEditorManager.openFile`. No special path needed.
 
 ## `SftpVirtualFileSystem`
+
+### Base class choice
+
+Extends **`com.intellij.openapi.vfs.DeprecatedVirtualFileSystem`** (not `NewVirtualFileSystem`). Despite the class name, `DeprecatedVirtualFileSystem` is not actually marked `@Deprecated` — it's the supported base class for non-`ManagingFS`-integrated VFS implementations. It provides:
+- An `EventDispatcher<VirtualFileListener>`-backed listener mechanism with `addVirtualFileListener` / `removeVirtualFileListener` already implemented.
+- Helper methods like `fireFileCreated`, `fireContentsChanged`, `fireBeforeContentsChange` for raising VFS events from our mutations.
+- Default implementations of `deleteFile`/`moveFile`/`renameFile`/`createChildFile`/`createChildDirectory`/`copyFile` that throw `UnsupportedOperationException` — exactly what we want for the unsupported-mutation methods.
+
+`NewVirtualFileSystem` was rejected because it integrates with `ManagingFS`, the platform's persistent VFS database. For SFTP — where files are host-specific, sessions are transient, and we don't want remote file metadata bloating the persistent database across IDE restarts — that integration would be actively harmful. The "data provider" model `NewVirtualFileSystem` uses also forces an architecture where the platform owns the `VirtualFile` instances; we want to own them so we can attach SFTP-specific state and lifecycle.
 
 ### Registration
 
@@ -48,19 +57,22 @@ The `LocalFileOpener` post-migration is trivial: it asks `LocalFileSystem` for t
 - Internal helper: `com.conch.sftp.vfs.SftpUrl` — a record `(String hostId, String remotePath)` with static `parse(String)` and `compose(UUID, String)` methods. Used everywhere a path needs to be split.
 - The hostId is opaque to humans and is never shown in the UI. The chooser title carries the host's display label; the path bar shows just the remote absolute path.
 
-### Methods implemented
+### Methods we override
 
-- `getProtocol() → "sftp"`
-- `findFileByPath(String path)` — parses to `SftpUrl`, looks up the `SshHost` by UUID via `HostStore`, ensures the session is connected via `SftpSessionManager`, stats the remote path, returns an `SftpVirtualFile` (or `null`).
+- `getProtocol()` → returns `"sftp"`.
+- `findFileByPath(String path)` — parses to `SftpUrl`, looks up the `SshHost` by UUID via `HostStore`, ensures the session is connected via `SftpSessionManager` (acquiring a self-owned reference on first lookup per host), stats the remote path, returns the cached `SftpVirtualFile` instance from the hash-cons map (or instantiates one).
 - `refreshAndFindFileByPath(String path)` — clears the file's cached attributes, then `findFileByPath`.
-- `refresh(boolean async)` — clears all caches in the manager. Async submits to `AppExecutorUtil`; sync runs inline.
-- `addVirtualFileListener` / `removeVirtualFileListener` — backed by an `EventDispatcher<VirtualFileListener>`. Events fire when the VFS itself mutates a file (write, post-stat refresh). External changes on the remote are NOT detected.
-- `isReadOnly() → false`
+- `refresh(boolean async)` — invalidates all cached attributes and child listings across all `SftpVirtualFile` instances. Async variant submits to `AppExecutorUtil`; sync runs inline.
+- `isReadOnly()` → returns `false`.
 - `extractPresentableUrl(String path)` — returns `<host-label>:<remote-path>` for display in error messages and dialog titles.
 
-### Methods that throw `UnsupportedOperationException`
+### Methods inherited from `DeprecatedVirtualFileSystem` (no override needed)
 
-`deleteFile`, `moveFile`, `renameFile`, `copyFile`, `createChildFile`, `createChildDirectory`. Each throws with a descriptive message naming the unsupported op so callers see exactly which contract isn't yet implemented. The `FileSaverDialog` save flow does not call any of these; if a future caller does, the exception surfaces immediately and the missing op gets implemented at that point.
+`addVirtualFileListener` / `removeVirtualFileListener` are already implemented via the base class's `EventDispatcher`. We use the inherited helpers `fireFileCreated`, `fireContentsChanged`, etc. when our own mutations succeed.
+
+`deleteFile`, `moveFile`, `renameFile`, `copyFile`, `createChildFile`, `createChildDirectory` already throw `UnsupportedOperationException` from `DeprecatedVirtualFileSystem`'s defaults — we don't override them. If a future caller invokes one, the exception surfaces with a clear message and we add the implementation then.
+
+The `FileSaverDialog` save flow does not call any of the unsupported mutations; the platform's `VirtualFileWrapper` for save destinations doesn't require the parent VFS to support `createChildFile` for the destination path because the dialog returns a `java.io.File` wrapper that we resolve back through `findFileByPath` after constructing the path string ourselves.
 
 ### Multi-host routing
 
@@ -68,7 +80,7 @@ The single `SftpVirtualFileSystem` instance handles all hosts. Routing happens a
 
 ## `SftpVirtualFile`
 
-Extends `com.intellij.openapi.vfs.newvfs.NewVirtualFile`.
+Extends `com.intellij.openapi.vfs.VirtualFile` directly. Same approach `LightVirtualFile` and the platform's `DummyFileSystem`-backed files use. The `FileChooserDialog` walks `VirtualFile.getChildren()` and only requires that the children are `VirtualFile` instances with working `getName()`/`isDirectory()`/`getChildren()` — no `NewVirtualFile` semantics needed.
 
 ### State
 
@@ -80,7 +92,7 @@ Extends `com.intellij.openapi.vfs.newvfs.NewVirtualFile`.
 - `volatile long modificationStamp` — cached; bumped on every successful write
 - `volatile long timestamp` — cached
 - `volatile SftpVirtualFile parent` — lazily computed from `remotePath`
-- `volatile NewVirtualFile[] cachedChildren` — directory listing cache; `null` until first call
+- `volatile VirtualFile[] cachedChildren` — directory listing cache; `null` until first call
 
 Instances are hash-cons'd by `(hostId, remotePath)` via a `ConcurrentHashMap` in `SftpVirtualFileSystem` so two `findFileByPath` calls for the same URL return the same instance — required by VFS identity semantics.
 
@@ -439,7 +451,7 @@ Registered in `plugins/sftp/resources/META-INF/plugin.xml` under `<projectListen
 | `SftpSessionManager.acquire` (cold) | Calling thread | Modal progress at every EDT-bound call site |
 | Scratch save action's connect | EDT → background | `runProcessWithProgressSynchronously` titled "Connecting to <host>…" |
 
-**Why modal progress instead of fully async?** The IntelliJ `FileChooserDialog` is a synchronous EDT-bound UI. Its `getChildren()`, `findChild()`, and similar calls expect a synchronous answer. Returning a "loading…" placeholder requires implementing the async-children contract on `NewVirtualFile`, which is meaningfully more complex and not well-documented. Modal progress with a small, instant-cancellable spinner is the pragmatic answer for MVP — it behaves identically to how IntelliJ handles slow local operations like network drive listings. Revisit if it feels janky in practice.
+**Why modal progress instead of fully async?** The IntelliJ `FileChooserDialog` is a synchronous EDT-bound UI. Its `getChildren()`, `findChild()`, and similar calls expect a synchronous answer. Returning a "loading…" placeholder is meaningfully more complex and not well-documented for plain `VirtualFile`. Modal progress with a small, instant-cancellable spinner is the pragmatic answer for MVP — it behaves identically to how IntelliJ handles slow local operations like network drive listings. Revisit if it feels janky in practice.
 
 ## Caching
 
@@ -520,7 +532,7 @@ Removed: `TempPathResolverTest` along with `TempPathResolver`.
 
 ## Risks
 
-- **VFS contract complexity.** `NewVirtualFileSystem` has a lot of methods and the platform's expectations aren't fully documented. We may discover that some IntelliJ subsystem (the FileChooser, the editor's file modification tracker, the recent files manager) calls a method we haven't implemented and crashes. Mitigation: implement conservatively, add `Logger.warn` stubs in unimplemented methods rather than throwing immediately, tighten throws once we've validated the happy path.
+- **VFS contract complexity.** `VirtualFile` has a lot of methods and the platform's expectations for non-`NewVirtualFile` subclasses aren't fully documented. We may discover that some IntelliJ subsystem (the FileChooser, the editor's file modification tracker, the recent files manager) calls a method we haven't implemented and crashes. Mitigation: implement conservatively by reading what `LightVirtualFile` does for each abstract method, add `Logger.warn` stubs in unimplemented methods rather than throwing immediately, tighten throws once we've validated the happy path.
 - **Session-tab refcount leaks.** If the `SftpEditorTabListener` doesn't fire for some reason (project closed without normal lifecycle), the session refcount stays > 0 and the session never closes. Mitigation: a project-close `Disposable` that walks all open `SftpVirtualFile`-backed editors in the project and releases their refs explicitly.
 - **`getActiveSessionForCurrentProject` reaches into the SFTP tool window UI from a service.** Mild layering inversion. Acceptable for MVP because there's exactly one SFTP tool window per project. Worth a comment in the manager noting the limitation.
 - **Migration window.** The migration deletes a lot of working code. If the new VFS implementation has bugs, the old "good" code is gone. Mitigation: all the deleted code is in git history; a single-revert is feasible if the new flow regresses badly. Strong incentive to ship the migration commits in small, reviewable chunks (one for the VFS, one for the session manager, one for the action, one for the migration) rather than one giant change.
