@@ -140,6 +140,15 @@ public final class SftpVirtualFileSystem extends DeprecatedVirtualFileSystem {
         return existing != null ? existing : fresh;
     }
 
+    void fireContentsChangedExternally(@NotNull SftpVirtualFile file) {
+        // Use the inherited helper from DeprecatedVirtualFileSystem.
+        // Note: we pass 0 for the old timestamp because we don't track
+        // pre-change values; consumers shouldn't rely on it.
+        // The EventDispatcher requires write access; wrap in a write action.
+        com.intellij.openapi.application.ApplicationManager.getApplication()
+            .runWriteAction(() -> fireContentsChanged(/*requestor=*/null, file, 0));
+    }
+
     private static @Nullable SshHost lookupHost(@NotNull UUID hostId) {
         HostStore store = ApplicationManager.getApplication().getService(HostStore.class);
         if (store == null) return null;
