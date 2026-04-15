@@ -1,13 +1,12 @@
 package com.conch.sftp.toolwindow;
 
-import com.conch.sftp.client.ConchSftpConnector;
 import com.conch.sftp.client.SshSftpSession;
 import com.conch.sftp.model.RemoteFileEntry;
 import com.conch.sftp.ops.RemoteFileOps;
 import com.conch.sftp.persistence.ConchSftpConfig;
+import com.conch.sftp.session.SftpSessionManager;
 import com.conch.sftp.spi.RemoteFileOpener;
 import com.conch.ssh.client.SshConnectException;
-import com.conch.ssh.credentials.HostCredentialBundle;
 import com.conch.ssh.model.HostStore;
 import com.conch.ssh.model.SshHost;
 import com.intellij.icons.AllIcons;
@@ -235,14 +234,6 @@ public final class RemoteFilePane extends JPanel {
         statusLabel.setText("Resolving credentials for " + host.label() + "...");
         setUiEnabled(false);
 
-        HostCredentialBundle bundle = HostCredentialBundle.resolveForHost(host);
-        if (bundle == null) {
-            statusLabel.setText("Not connected");
-            setUiEnabled(true);
-            updateButtons();
-            return;
-        }
-
         ProgressManager.getInstance().run(new Task.Modal(
             project,
             "Opening SFTP to " + host.label() + "...",
@@ -252,13 +243,7 @@ public final class RemoteFilePane extends JPanel {
             public void run(@NotNull ProgressIndicator indicator) {
                 indicator.setIndeterminate(true);
                 try {
-                    SshSftpSession session = ConchSftpConnector.open(
-                        host, bundle.target(), bundle.bastion());
-                    // Target credential was consumed by connectSession
-                    // and closed inside ConchSshClient. The bastion
-                    // credential is closed in ConchSshClient's own
-                    // finally block as well. Null them out in the bundle
-                    // so our close() on the EDT is a no-op.
+                    SshSftpSession session = SftpSessionManager.getInstance().acquire(host, RemoteFilePane.this);
                     ApplicationManager.getApplication().invokeLater(() -> {
                         activeSession = session;
                         currentHost = host;
@@ -326,8 +311,9 @@ public final class RemoteFilePane extends JPanel {
 
     private void disconnect() {
         SshSftpSession session = activeSession;
-        if (session == null) return;
-        session.close();
+        if (session == null || currentHost == null) return;
+        UUID hostId = currentHost.id();
+        SftpSessionManager.getInstance().release(hostId, this);
         activeSession = null;
         currentHost = null;
         currentRemotePath = null;
