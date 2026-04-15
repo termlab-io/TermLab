@@ -1,4 +1,4 @@
-package com.conch.sftp.toolwindow;
+package com.conch.core.filepicker.ui;
 
 import com.intellij.util.ui.JBUI;
 import org.jetbrains.annotations.NotNull;

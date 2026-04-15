@@ -1,5 +1,9 @@
 package com.conch.sftp.toolwindow;
 
+import com.conch.core.filepicker.ui.FileNameCellRenderer;
+import com.conch.core.filepicker.ui.FileTableModel;
+import com.conch.core.filepicker.ui.ModifiedCellRenderer;
+import com.conch.core.filepicker.ui.SizeCellRenderer;
 import com.conch.sftp.client.SshSftpSession;
 import com.conch.sftp.model.RemoteFileEntry;
 import com.conch.sftp.ops.RemoteFileOps;

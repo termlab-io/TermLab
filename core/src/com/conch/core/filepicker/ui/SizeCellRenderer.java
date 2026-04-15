@@ -1,4 +1,4 @@
-package com.conch.sftp.toolwindow;
+package com.conch.core.filepicker.ui;
 
 import com.conch.core.filepicker.FileEntry;
 import com.intellij.util.ui.JBUI;
