@@ -103,9 +103,35 @@ public final class LocalFilePane extends JPanel {
                 maybeShowPopup(e);
             }
         });
-        table.setDragEnabled(true);
+        // Drop side: standard Swing mechanism. This works regardless of
+        // whether BasicTableUI's drag recognition fires.
         table.setDropMode(DropMode.ON);
         table.setTransferHandler(new LocalRowTransferHandler());
+
+        // Drag side: install an explicit DragGestureRecognizer via AWT's
+        // DragSource. JTable.setDragEnabled(true) is supposed to do this
+        // internally via BasicTableUI, but for reasons we can't pin down
+        // it's not working in this codebase — possibly JBTable overrides,
+        // possibly a platform version interaction. Driving the gesture
+        // recognizer ourselves sidesteps the whole question.
+        java.awt.dnd.DragSource dragSource = java.awt.dnd.DragSource.getDefaultDragSource();
+        dragSource.createDefaultDragGestureRecognizer(
+            table,
+            java.awt.dnd.DnDConstants.ACTION_MOVE,
+            event -> {
+                // Ensure the row under the press point is selected so the
+                // transfer handler has source rows to export.
+                java.awt.Point origin = event.getDragOrigin();
+                int row = table.rowAtPoint(origin);
+                if (row >= 0 && !table.isRowSelected(row)) {
+                    table.setRowSelectionInterval(row, row);
+                }
+                javax.swing.TransferHandler handler = table.getTransferHandler();
+                if (handler != null && table.getSelectedRowCount() > 0) {
+                    handler.exportAsDrag(table, event.getTriggerEvent(),
+                        javax.swing.TransferHandler.MOVE);
+                }
+            });
         add(new JScrollPane(table), BorderLayout.CENTER);
 
         reload(initialDirectory());
