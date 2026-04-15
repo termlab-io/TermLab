@@ -72,6 +72,21 @@ public final class FileBrowserTable {
         sorter.setSortsOnUpdates(true);
         table.setRowSorter(sorter);
 
+        // Enable drag BEFORE adding any further mouse listeners and BEFORE
+        // wrapping in a JScrollPane.  Swing's BasicTableUI.MouseInputHandler
+        // reads the dragEnabled property during mousePressed to decide whether
+        // to hand control to the DragRecognitionSupport machinery or fall back
+        // to plain row-selection.  If the JScrollPane is constructed (which
+        // internally triggers addNotify / updateUI on the viewport peer) before
+        // dragEnabled is set, the L&F mouse handler is wired up in
+        // "selection-only" mode and a later setDragEnabled(true) call cannot
+        // retro-fit the drag recogniser — the flag is checked at event time,
+        // but the handler's internal pressed-point bookkeeping has already been
+        // initialised without drag awareness.  Setting it here, before both the
+        // JScrollPane construction and our own addMouseListener call, restores
+        // the ordering that the pre-refactor panes used and that DnD requires.
+        table.setDragEnabled(true);
+
         table.addMouseListener(new MouseAdapter() {
             @Override
             public void mouseClicked(MouseEvent e) {
@@ -116,18 +131,17 @@ public final class FileBrowserTable {
 
     /**
      * Configure this table as a drag-and-drop source and target.
-     * Sets {@code dragEnabled=true}, {@link DropMode#ON}, and the given
-     * {@link TransferHandler} on the underlying table in a single call,
-     * in the same order that pre-refactor pane code used — which
-     * ensures the drag gesture recogniser installed by the look-and-feel
-     * is wired up correctly.
+     * Sets {@link DropMode#ON} and the given {@link TransferHandler} on
+     * the underlying table.  {@code dragEnabled} is already set to
+     * {@code true} in the constructor (it must be set before the internal
+     * mouse listener and the JScrollPane are created); this method only
+     * supplies the drop mode and the transfer handler, which can safely be
+     * set at any point before the widget is shown.
      *
      * <p>Call this method instead of reaching through {@link #getTable()}
-     * to configure DnD individually. The method must be called before the
-     * widget is shown.
+     * to configure DnD individually.
      */
     public void enableDragAndDrop(@NotNull TransferHandler handler) {
-        table.setDragEnabled(true);
         table.setDropMode(DropMode.ON);
         table.setTransferHandler(handler);
     }
