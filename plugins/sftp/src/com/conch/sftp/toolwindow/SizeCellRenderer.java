@@ -1,6 +1,6 @@
 package com.conch.sftp.toolwindow;
 
-import com.conch.sftp.model.FileEntry;
+import com.conch.core.filepicker.FileEntry;
 import com.intellij.util.ui.JBUI;
 import org.jetbrains.annotations.NotNull;
 

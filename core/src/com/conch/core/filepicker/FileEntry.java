@@ -1,4 +1,4 @@
-package com.conch.sftp.model;
+package com.conch.core.filepicker;
 
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -6,13 +6,14 @@ import org.jetbrains.annotations.Nullable;
 import java.time.Instant;
 
 /**
- * Platform-agnostic view of a single directory entry, used by both
- * the local pane (java.nio.file.Path-backed) and the remote pane
- * (MINA SFTP-backed). {@link com.conch.sftp.toolwindow.FileTableModel}
- * renders either kind via this interface so there's only one code
- * path for column layout, sort, icon, and row selection.
+ * Platform-agnostic view of a single directory entry. Used by the
+ * unified file picker and by the SFTP tool window panes. Implementations
+ * include {@code com.conch.sftp.model.LocalFileEntry} (backed by
+ * {@code java.nio.file.Path}) and {@code com.conch.sftp.model.RemoteFileEntry}
+ * (backed by Apache SSHD SFTP).
  */
 public interface FileEntry {
+
     @NotNull String name();
 
     long size();

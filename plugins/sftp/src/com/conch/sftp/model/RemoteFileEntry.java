@@ -1,5 +1,6 @@
 package com.conch.sftp.model;
 
+import com.conch.core.filepicker.FileEntry;
 import org.apache.sshd.sftp.client.SftpClient;
 import org.apache.sshd.sftp.common.SftpConstants;
 import org.jetbrains.annotations.NotNull;
