@@ -380,6 +380,11 @@ public final class RemoteFilePane extends JPanel {
         return currentRemotePath;
     }
 
+    /** Currently-connected host, or {@code null} when disconnected. */
+    public @org.jetbrains.annotations.Nullable com.conch.ssh.model.SshHost currentHost() {
+        return currentHost;
+    }
+
     /**
      * Absolute remote paths the user has selected, ready to pass
      * back into {@link org.apache.sshd.sftp.client.SftpClient}.

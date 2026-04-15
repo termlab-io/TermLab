@@ -166,6 +166,46 @@ public final class SftpSessionManager implements Disposable {
         }
     }
 
+    public record ActiveSession(
+        @NotNull com.conch.ssh.model.SshHost host,
+        @NotNull com.conch.sftp.client.SshSftpSession session,
+        @NotNull String currentRemotePath
+    ) {}
+
+    /**
+     * Returns the SFTP tool window's currently-connected session for the
+     * given project, or null if no SFTP tool window is open or no session
+     * is connected. Used by SaveScratchToRemoteAction to skip the host
+     * picker when the user is already working with a host.
+     *
+     * <p>NOTE: this method reaches into the SFTP tool window's UI state.
+     * It works because there is exactly one SFTP tool window per project.
+     * If a future feature lets users have multiple SFTP panes open
+     * simultaneously, this needs revisiting.
+     */
+    public @Nullable ActiveSession getActiveSessionForCurrentProject(
+        @NotNull com.intellij.openapi.project.Project project
+    ) {
+        com.intellij.openapi.wm.ToolWindow tw =
+            com.intellij.openapi.wm.ToolWindowManager.getInstance(project)
+                .getToolWindow("Conch SFTP");
+        if (tw == null) return null;
+        var contents = tw.getContentManager().getContents();
+        for (var content : contents) {
+            var component = content.getComponent();
+            if (component instanceof com.conch.sftp.toolwindow.SftpToolWindow toolWindow) {
+                com.conch.sftp.toolwindow.RemoteFilePane pane = toolWindow.remotePane();
+                com.conch.sftp.client.SshSftpSession session = pane.activeSession();
+                com.conch.ssh.model.SshHost host = pane.currentHost();
+                String path = pane.currentRemotePath();
+                if (session != null && host != null && path != null) {
+                    return new ActiveSession(host, session, path);
+                }
+            }
+        }
+        return null;
+    }
+
     @Override
     public void dispose() {
         lock.lock();
