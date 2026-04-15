@@ -50,6 +50,10 @@
             physical="false"/>
     </extensions>
 
+    <extensions defaultExtensionNs="com.conch.core">
+        <fileSourceProvider implementation="com.conch.sftp.filepicker.SftpFileSourceProvider"/>
+    </extensions>
+
     <projectListeners>
         <listener class="com.conch.sftp.session.SftpEditorTabListener"
                   topic="com.intellij.openapi.fileEditor.FileEditorManagerListener"/>
