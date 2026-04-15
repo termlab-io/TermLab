@@ -4,6 +4,8 @@ import com.conch.core.filepicker.FileEntry;
 import com.conch.core.filepicker.FilePickerResult;
 import com.conch.core.filepicker.FileSource;
 import com.conch.core.filepicker.FileSourceProvider;
+import com.intellij.openapi.application.ApplicationManager;
+import com.intellij.openapi.application.ModalityState;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.ui.DialogWrapper;
 import com.intellij.util.ui.AsyncProcessIcon;
@@ -24,6 +26,7 @@ import java.awt.BorderLayout;
 import java.awt.CardLayout;
 import java.awt.Component;
 import java.awt.Dimension;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -134,15 +137,14 @@ public final class UnifiedFilePickerDialog extends DialogWrapper {
                     flashPathFieldRed();
                     return;
                 }
-            } catch (java.io.IOException ex) {
+            } catch (IOException ex) {
                 flashPathFieldRed();
                 return;
             }
             navigateTo(path);
         });
 
-        com.intellij.openapi.application.ApplicationManager.getApplication().invokeLater(
-            this::openAndLoadCurrentSource);
+        openAndLoadCurrentSource();
     }
 
     private @Nullable FilePickerResult showAndReturn() {
@@ -277,77 +279,64 @@ public final class UnifiedFilePickerDialog extends DialogWrapper {
         FileSource source = (FileSource) sourceCombo.getSelectedItem();
         if (source == null) return;
         showCard(CARD_LOADING);
-        com.intellij.openapi.progress.ProgressManager.getInstance().run(
-            new com.intellij.openapi.progress.Task.Modal(
-                project, "Connecting to " + source.label() + "…", true
-            ) {
-                private java.io.IOException error;
-                private java.util.List<FileEntry> entries;
-                private String loadPath;
-
-                @Override
-                public void run(@NotNull com.intellij.openapi.progress.ProgressIndicator indicator) {
-                    indicator.setIndeterminate(true);
-                    try {
-                        source.open(project, UnifiedFilePickerDialog.this);
-                        loadPath = source.initialPath();
-                        entries = source.list(loadPath);
-                    } catch (java.io.IOException e) {
-                        error = e;
-                    }
+        ApplicationManager.getApplication().executeOnPooledThread(() -> {
+            IOException error = null;
+            String loadPath = null;
+            List<FileEntry> entries = null;
+            try {
+                source.open(project, UnifiedFilePickerDialog.this);
+                loadPath = source.initialPath();
+                entries = source.list(loadPath);
+            } catch (IOException e) {
+                error = e;
+            }
+            final IOException fError = error;
+            final String fLoadPath = loadPath;
+            final List<FileEntry> fEntries = entries;
+            ApplicationManager.getApplication().invokeLater(() -> {
+                if (fError != null) {
+                    errorLabel.setText(ErrorMessages.translate(fError));
+                    showCard(CARD_ERROR);
+                    return;
                 }
-
-                @Override
-                public void onSuccess() {
-                    if (error != null) {
-                        errorLabel.setText(ErrorMessages.translate(error));
-                        showCard(CARD_ERROR);
-                        return;
-                    }
-                    if (currentSource != null && currentSource != source) {
-                        currentSource.close(UnifiedFilePickerDialog.this);
-                    }
-                    currentSource = source;
-                    currentPath = loadPath;
-                    pathField.setText(loadPath);
-                    browser.setEntries(entries);
-                    showCard(CARD_TABLE);
+                if (currentSource != null && currentSource != source) {
+                    currentSource.close(UnifiedFilePickerDialog.this);
                 }
-            });
+                currentSource = source;
+                currentPath = fLoadPath;
+                pathField.setText(fLoadPath);
+                browser.setEntries(fEntries);
+                showCard(CARD_TABLE);
+            }, ModalityState.any());
+        });
     }
 
     private void navigateTo(@NotNull String path) {
         FileSource source = currentSource;
         if (source == null) return;
         showCard(CARD_LOADING);
-        com.intellij.openapi.progress.ProgressManager.getInstance().run(
-            new com.intellij.openapi.progress.Task.Modal(project, "Loading…", false) {
-                private java.io.IOException error;
-                private java.util.List<FileEntry> entries;
-
-                @Override
-                public void run(@NotNull com.intellij.openapi.progress.ProgressIndicator indicator) {
-                    indicator.setIndeterminate(true);
-                    try {
-                        entries = source.list(path);
-                    } catch (java.io.IOException e) {
-                        error = e;
-                    }
+        ApplicationManager.getApplication().executeOnPooledThread(() -> {
+            IOException error = null;
+            List<FileEntry> entries = null;
+            try {
+                entries = source.list(path);
+            } catch (IOException e) {
+                error = e;
+            }
+            final IOException fError = error;
+            final List<FileEntry> fEntries = entries;
+            ApplicationManager.getApplication().invokeLater(() -> {
+                if (fError != null) {
+                    errorLabel.setText(ErrorMessages.translate(fError));
+                    showCard(CARD_ERROR);
+                    return;
                 }
-
-                @Override
-                public void onSuccess() {
-                    if (error != null) {
-                        errorLabel.setText(ErrorMessages.translate(error));
-                        showCard(CARD_ERROR);
-                        return;
-                    }
-                    currentPath = path;
-                    pathField.setText(path);
-                    browser.setEntries(entries);
-                    showCard(CARD_TABLE);
-                }
-            });
+                currentPath = path;
+                pathField.setText(path);
+                browser.setEntries(fEntries);
+                showCard(CARD_TABLE);
+            }, ModalityState.any());
+        });
     }
 
     private void flashPathFieldRed() {
@@ -386,7 +375,7 @@ public final class UnifiedFilePickerDialog extends DialogWrapper {
         boolean exists;
         try {
             exists = source.exists(destPath);
-        } catch (java.io.IOException e) {
+        } catch (IOException e) {
             com.intellij.openapi.ui.Messages.showErrorDialog(
                 getContentPanel(), ErrorMessages.translate(e), "Error");
             return;
