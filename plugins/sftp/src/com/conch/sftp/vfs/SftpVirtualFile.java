@@ -16,7 +16,6 @@ import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
-import java.util.concurrent.ThreadLocalRandom;
 
 /**
  * Single VFS file backed by a remote path on an SFTP host. Owns its own
@@ -251,73 +250,7 @@ public final class SftpVirtualFile extends VirtualFile {
     }
 
     private void writeAtomically(byte @NotNull [] content) throws IOException {
-        SftpClient client = session.client();
-        String randomSuffix = Long.toHexString(ThreadLocalRandom.current().nextLong());
-        String writeTmp = remotePath + "." + randomSuffix + ".tmp";
-        String backupTmp = remotePath + "." + randomSuffix + ".bak";
-
-        // Step 1: write the new content to a sibling temp file.
-        try {
-            try (OutputStream out = client.write(writeTmp)) {
-                out.write(content);
-            }
-        } catch (IOException e) {
-            // Write failed; remove the partial temp and propagate.
-            try { client.remove(writeTmp); } catch (IOException ignored) {}
-            throw e;
-        }
-
-        // Step 2: try the simple atomic rename. POSIX SFTP servers
-        // succeed even if the target exists.
-        try {
-            client.rename(writeTmp, remotePath);
-            return;
-        } catch (IOException renameErr) {
-            LOG.warn("Atomic rename failed for " + remotePath
-                + " (" + renameErr.getMessage() + "), falling back to backup+rename");
-        }
-
-        // Step 3: fallback for non-POSIX servers — back up the original,
-        // then rename the new content into place. If anything fails,
-        // restore from backup so the user never loses data.
-        boolean backedUp = false;
-        try {
-            // 3a. Move original to a backup temp (atomic on the server).
-            //     If the original doesn't exist, this fails; that's fine —
-            //     we can skip straight to the final rename below.
-            try {
-                client.rename(remotePath, backupTmp);
-                backedUp = true;
-            } catch (IOException backupErr) {
-                LOG.warn("Backup rename failed for " + remotePath
-                    + " (" + backupErr.getMessage() + "); proceeding without backup");
-            }
-            // 3b. Move the new content into place.
-            try {
-                client.rename(writeTmp, remotePath);
-            } catch (IOException finalRenameErr) {
-                // Restore from backup if we made one.
-                if (backedUp) {
-                    try {
-                        client.rename(backupTmp, remotePath);
-                    } catch (IOException restoreErr) {
-                        LOG.error("CRITICAL: failed to restore " + remotePath
-                            + " from backup " + backupTmp
-                            + ". Original content is at " + backupTmp
-                            + ". New content is at " + writeTmp, restoreErr);
-                    }
-                }
-                throw finalRenameErr;
-            }
-            // 3c. Success — remove the backup.
-            if (backedUp) {
-                try { client.remove(backupTmp); } catch (IOException ignored) {}
-            }
-        } catch (IOException e) {
-            // Clean up the write-tmp if it's still there.
-            try { client.remove(writeTmp); } catch (IOException ignored) {}
-            throw e;
-        }
+        AtomicSftpWrite.writeAtomically(session.client(), remotePath, content);
     }
 
     // ------------ Refresh --------------------------------------------------
