@@ -39,11 +39,26 @@ public final class FileBrowserTable {
     private final CopyOnWriteArrayList<Consumer<FileEntry>> doubleClickListeners = new CopyOnWriteArrayList<>();
     private final CopyOnWriteArrayList<Runnable> selectionListeners = new CopyOnWriteArrayList<>();
 
+    /**
+     * Create a widget with {@link ListSelectionModel#SINGLE_SELECTION}
+     * — appropriate for picker dialogs where only one item is chosen.
+     * Use {@link #FileBrowserTable(int)} to override.
+     */
     public FileBrowserTable() {
+        this(ListSelectionModel.SINGLE_SELECTION);
+    }
+
+    /**
+     * Create a widget with the given selection mode (one of the
+     * {@link ListSelectionModel} constants). The SFTP tool-window panes
+     * use {@link ListSelectionModel#MULTIPLE_INTERVAL_SELECTION} so that
+     * multi-file delete / DnD work correctly.
+     */
+    public FileBrowserTable(int selectionMode) {
         table.setAutoResizeMode(JBTable.AUTO_RESIZE_LAST_COLUMN);
         table.setShowGrid(false);
         table.setFillsViewportHeight(true);
-        table.getSelectionModel().setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+        table.getSelectionModel().setSelectionMode(selectionMode);
         table.getColumnModel().getColumn(FileTableModel.COL_NAME)
             .setCellRenderer(new FileNameCellRenderer());
         table.getColumnModel().getColumn(FileTableModel.COL_SIZE)

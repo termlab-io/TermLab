@@ -1,9 +1,8 @@
 package com.conch.sftp.toolwindow;
 
-import com.conch.core.filepicker.ui.FileNameCellRenderer;
+import com.conch.core.filepicker.FileEntry;
+import com.conch.core.filepicker.ui.FileBrowserTable;
 import com.conch.core.filepicker.ui.FileTableModel;
-import com.conch.core.filepicker.ui.ModifiedCellRenderer;
-import com.conch.core.filepicker.ui.SizeCellRenderer;
 import com.conch.sftp.model.LocalFileEntry;
 import com.conch.sftp.ops.LocalFileOps;
 import com.conch.sftp.persistence.ConchSftpConfig;
@@ -24,7 +23,6 @@ import com.intellij.util.ui.JBUI;
 import org.jetbrains.annotations.NotNull;
 
 import javax.swing.event.ListSelectionListener;
-import javax.swing.table.TableRowSorter;
 import javax.swing.*;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.awt.*;
@@ -52,8 +50,8 @@ import java.util.stream.Stream;
 public final class LocalFilePane extends JPanel {
 
     private final Project project;
-    private final FileTableModel model = new FileTableModel();
-    private final JBTable table = new JBTable(model);
+    private final FileBrowserTable browser =
+        new FileBrowserTable(ListSelectionModel.MULTIPLE_INTERVAL_SELECTION);
     private final JTextField pathField = new JTextField();
 
     private Path currentDir;
@@ -72,27 +70,13 @@ public final class LocalFilePane extends JPanel {
         north.add(pathField, BorderLayout.CENTER);
         add(north, BorderLayout.NORTH);
 
-        table.setAutoResizeMode(JTable.AUTO_RESIZE_LAST_COLUMN);
-        table.setShowGrid(false);
-        table.setFillsViewportHeight(true);
-        table.getSelectionModel().setSelectionMode(ListSelectionModel.MULTIPLE_INTERVAL_SELECTION);
-        table.getColumnModel().getColumn(FileTableModel.COL_NAME)
-            .setCellRenderer(new FileNameCellRenderer());
-        table.getColumnModel().getColumn(FileTableModel.COL_SIZE)
-            .setCellRenderer(new SizeCellRenderer());
-        table.getColumnModel().getColumn(FileTableModel.COL_MODIFIED)
-            .setCellRenderer(new ModifiedCellRenderer());
-        TableRowSorter<FileTableModel> sorter = new TableRowSorter<>(model);
-        sorter.setSortsOnUpdates(true);
-        table.setRowSorter(sorter);
-        table.addMouseListener(new MouseAdapter() {
-            @Override
-            public void mouseClicked(MouseEvent e) {
-                if (e.getClickCount() == 2 && SwingUtilities.isLeftMouseButton(e)) {
-                    onRowActivated(table.getSelectedRow());
-                }
-            }
+        browser.addDoubleClickListener(this::onRowActivatedWithEntry);
 
+        JBTable table = browser.getTable();
+        table.setDragEnabled(true);
+        table.setDropMode(DropMode.ON);
+        table.setTransferHandler(new LocalRowTransferHandler());
+        table.addMouseListener(new MouseAdapter() {
             @Override
             public void mousePressed(MouseEvent e) {
                 maybeShowPopup(e);
@@ -103,16 +87,15 @@ public final class LocalFilePane extends JPanel {
                 maybeShowPopup(e);
             }
         });
-        table.setDragEnabled(true);
-        table.setDropMode(DropMode.ON);
-        table.setTransferHandler(new LocalRowTransferHandler());
-        add(new JScrollPane(table), BorderLayout.CENTER);
+
+        add(browser.getComponent(), BorderLayout.CENTER);
 
         reload(initialDirectory());
     }
 
     private void maybeShowPopup(@NotNull MouseEvent e) {
         if (!e.isPopupTrigger()) return;
+        JBTable table = browser.getTable();
         int viewRow = table.rowAtPoint(e.getPoint());
         if (viewRow >= 0 && !table.isRowSelected(viewRow)) {
             table.setRowSelectionInterval(viewRow, viewRow);
@@ -235,6 +218,7 @@ public final class LocalFilePane extends JPanel {
 
         @Override
         protected @NotNull FileRowsTransferable createTransferable(JComponent c) {
+            JBTable table = browser.getTable();
             int[] viewRows = table.getSelectedRows();
             int[] modelRows = new int[viewRows.length];
             for (int i = 0; i < viewRows.length; i++) {
@@ -247,11 +231,12 @@ public final class LocalFilePane extends JPanel {
         public boolean canImport(TransferSupport support) {
             if (!support.isDrop()) return false;
             if (!support.isDataFlavorSupported(FileRowsTransferable.FLAVOR)) return false;
+            JBTable table = browser.getTable();
             JTable.DropLocation drop = (JTable.DropLocation) support.getDropLocation();
             int viewRow = drop.getRow();
             if (viewRow < 0 || viewRow >= table.getRowCount()) return false;
             int modelRow = table.convertRowIndexToModel(viewRow);
-            var entry = model.getEntryAt(modelRow);
+            var entry = ((FileTableModel) table.getModel()).getEntryAt(modelRow);
             if (!(entry instanceof LocalFileEntry target) || !target.isDirectory()) return false;
             // Reject drops onto a row inside the currently-dragged set
             // (moving into yourself is a no-op at best, a disaster at worst).
@@ -271,9 +256,10 @@ public final class LocalFilePane extends JPanel {
         @Override
         public boolean importData(TransferSupport support) {
             if (!canImport(support)) return false;
+            JBTable table = browser.getTable();
             JTable.DropLocation drop = (JTable.DropLocation) support.getDropLocation();
             int targetModelRow = table.convertRowIndexToModel(drop.getRow());
-            var targetEntry = model.getEntryAt(targetModelRow);
+            var targetEntry = ((FileTableModel) table.getModel()).getEntryAt(targetModelRow);
             if (!(targetEntry instanceof LocalFileEntry target) || !target.isDirectory()) return false;
             Path destDir = target.path();
 
@@ -286,7 +272,7 @@ public final class LocalFilePane extends JPanel {
             }
             List<Path> sources = new ArrayList<>();
             for (int modelRow : data.modelRows()) {
-                var entry = model.getEntryAt(modelRow);
+                var entry = ((FileTableModel) table.getModel()).getEntryAt(modelRow);
                 if (entry instanceof LocalFileEntry local) sources.add(local.path());
             }
             if (sources.isEmpty()) return false;
@@ -356,10 +342,8 @@ public final class LocalFilePane extends JPanel {
         return Paths.get(System.getProperty("user.home"));
     }
 
-    private void onRowActivated(int viewRow) {
-        if (viewRow < 0 || currentDir == null) return;
-        int modelRow = table.convertRowIndexToModel(viewRow);
-        var entry = model.getEntryAt(modelRow);
+    private void onRowActivatedWithEntry(@NotNull FileEntry entry) {
+        if (currentDir == null) return;
         if (!(entry instanceof LocalFileEntry local)) return;
         if (local.isDirectory()) {
             reload(local.path());
@@ -423,7 +407,7 @@ public final class LocalFilePane extends JPanel {
                     return;
                 }
                 currentDir = dir;
-                model.setEntries(snapshot);
+                browser.setEntries(snapshot);
                 ConchSftpConfig.getInstance().setLastLocalPath(dir.toString());
                 for (Runnable listener : directoryListeners) listener.run();
             });
@@ -442,11 +426,12 @@ public final class LocalFilePane extends JPanel {
 
     /** Files / directories the user has selected. Returned paths are absolute. */
     public @NotNull List<Path> selectedPaths() {
+        JBTable table = browser.getTable();
         int[] viewRows = table.getSelectedRows();
         List<Path> paths = new ArrayList<>(viewRows.length);
         for (int viewRow : viewRows) {
             int modelRow = table.convertRowIndexToModel(viewRow);
-            var entry = model.getEntryAt(modelRow);
+            var entry = ((FileTableModel) table.getModel()).getEntryAt(modelRow);
             if (entry instanceof LocalFileEntry local) {
                 paths.add(local.path());
             }
@@ -455,7 +440,7 @@ public final class LocalFilePane extends JPanel {
     }
 
     public void addSelectionListener(@NotNull ListSelectionListener listener) {
-        table.getSelectionModel().addListSelectionListener(listener);
+        browser.getTable().getSelectionModel().addListSelectionListener(listener);
     }
 
     public void addDirectoryChangeListener(@NotNull Runnable listener) {

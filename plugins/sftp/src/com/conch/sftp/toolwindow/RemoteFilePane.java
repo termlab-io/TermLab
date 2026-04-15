@@ -1,9 +1,8 @@
 package com.conch.sftp.toolwindow;
 
-import com.conch.core.filepicker.ui.FileNameCellRenderer;
+import com.conch.core.filepicker.FileEntry;
+import com.conch.core.filepicker.ui.FileBrowserTable;
 import com.conch.core.filepicker.ui.FileTableModel;
-import com.conch.core.filepicker.ui.ModifiedCellRenderer;
-import com.conch.core.filepicker.ui.SizeCellRenderer;
 import com.conch.sftp.client.SshSftpSession;
 import com.conch.sftp.model.RemoteFileEntry;
 import com.conch.sftp.ops.RemoteFileOps;
@@ -34,7 +33,6 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import javax.swing.event.ListSelectionListener;
-import javax.swing.table.TableRowSorter;
 import javax.swing.*;
 import java.awt.*;
 import java.awt.datatransfer.StringSelection;
@@ -59,8 +57,8 @@ import java.util.stream.Collectors;
 public final class RemoteFilePane extends JPanel {
 
     private final Project project;
-    private final FileTableModel model = new FileTableModel();
-    private final JBTable table = new JBTable(model);
+    private final FileBrowserTable browser =
+        new FileBrowserTable(ListSelectionModel.MULTIPLE_INTERVAL_SELECTION);
     private final JComboBox<SshHost> hostPicker = new JComboBox<>();
     private final JTextField pathField = new JTextField();
     private final JLabel statusLabel = new JLabel("Not connected");
@@ -78,27 +76,13 @@ public final class RemoteFilePane extends JPanel {
 
         add(buildNorth(), BorderLayout.NORTH);
 
-        table.setAutoResizeMode(JTable.AUTO_RESIZE_LAST_COLUMN);
-        table.setShowGrid(false);
-        table.setFillsViewportHeight(true);
-        table.getSelectionModel().setSelectionMode(ListSelectionModel.MULTIPLE_INTERVAL_SELECTION);
-        table.getColumnModel().getColumn(FileTableModel.COL_NAME)
-            .setCellRenderer(new FileNameCellRenderer());
-        table.getColumnModel().getColumn(FileTableModel.COL_SIZE)
-            .setCellRenderer(new SizeCellRenderer());
-        table.getColumnModel().getColumn(FileTableModel.COL_MODIFIED)
-            .setCellRenderer(new ModifiedCellRenderer());
-        TableRowSorter<FileTableModel> sorter = new TableRowSorter<>(model);
-        sorter.setSortsOnUpdates(true);
-        table.setRowSorter(sorter);
-        table.addMouseListener(new MouseAdapter() {
-            @Override
-            public void mouseClicked(MouseEvent e) {
-                if (e.getClickCount() == 2 && SwingUtilities.isLeftMouseButton(e)) {
-                    onRowActivated(table.getSelectedRow());
-                }
-            }
+        browser.addDoubleClickListener(this::onRowActivatedWithEntry);
 
+        JBTable table = browser.getTable();
+        table.setDragEnabled(true);
+        table.setDropMode(DropMode.ON);
+        table.setTransferHandler(new RemoteRowTransferHandler());
+        table.addMouseListener(new MouseAdapter() {
             @Override
             public void mousePressed(MouseEvent e) {
                 maybeShowPopup(e);
@@ -109,10 +93,8 @@ public final class RemoteFilePane extends JPanel {
                 maybeShowPopup(e);
             }
         });
-        table.setDragEnabled(true);
-        table.setDropMode(DropMode.ON);
-        table.setTransferHandler(new RemoteRowTransferHandler());
-        add(new JScrollPane(table), BorderLayout.CENTER);
+
+        add(browser.getComponent(), BorderLayout.CENTER);
 
         JPanel south = new JPanel(new BorderLayout());
         statusLabel.setBorder(JBUI.Borders.empty(4, 6));
@@ -216,10 +198,8 @@ public final class RemoteFilePane extends JPanel {
         }
     }
 
-    private void onRowActivated(int viewRow) {
-        if (viewRow < 0 || activeSession == null || currentRemotePath == null) return;
-        int modelRow = table.convertRowIndexToModel(viewRow);
-        var entry = model.getEntryAt(modelRow);
+    private void onRowActivatedWithEntry(@NotNull FileEntry entry) {
+        if (activeSession == null || currentRemotePath == null) return;
         if (!(entry instanceof RemoteFileEntry remote)) return;
         if (remote.isDirectory()) {
             navigateRemote(joinPath(currentRemotePath, remote.name()));
@@ -307,7 +287,7 @@ public final class RemoteFilePane extends JPanel {
                 }
                 currentRemotePath = path;
                 pathField.setText(path);
-                model.setEntries(snapshot);
+                browser.setEntries(snapshot);
                 fireConnectionStateChanged();
             });
         });
@@ -322,7 +302,7 @@ public final class RemoteFilePane extends JPanel {
         currentHost = null;
         currentRemotePath = null;
         pathField.setText("");
-        model.setEntries(List.of());
+        browser.setEntries(List.of());
         statusLabel.setText("Disconnected");
         updateButtons();
         fireConnectionStateChanged();
@@ -395,11 +375,12 @@ public final class RemoteFilePane extends JPanel {
      */
     public @NotNull List<String> selectedRemotePaths() {
         if (currentRemotePath == null) return List.of();
+        JBTable table = browser.getTable();
         int[] viewRows = table.getSelectedRows();
         List<String> paths = new ArrayList<>(viewRows.length);
         for (int viewRow : viewRows) {
             int modelRow = table.convertRowIndexToModel(viewRow);
-            var entry = model.getEntryAt(modelRow);
+            var entry = ((FileTableModel) table.getModel()).getEntryAt(modelRow);
             if (entry instanceof RemoteFileEntry remote) {
                 paths.add(joinPath(currentRemotePath, remote.name()));
             }
@@ -408,7 +389,7 @@ public final class RemoteFilePane extends JPanel {
     }
 
     public void addSelectionListener(@NotNull ListSelectionListener listener) {
-        table.getSelectionModel().addListSelectionListener(listener);
+        browser.getTable().getSelectionModel().addListSelectionListener(listener);
     }
 
     /**
@@ -436,6 +417,7 @@ public final class RemoteFilePane extends JPanel {
     private void maybeShowPopup(@NotNull MouseEvent e) {
         if (!e.isPopupTrigger()) return;
         if (activeSession == null) return;
+        JBTable table = browser.getTable();
         int viewRow = table.rowAtPoint(e.getPoint());
         if (viewRow >= 0 && !table.isRowSelected(viewRow)) {
             table.setRowSelectionInterval(viewRow, viewRow);
@@ -566,6 +548,7 @@ public final class RemoteFilePane extends JPanel {
 
         @Override
         protected @NotNull FileRowsTransferable createTransferable(JComponent c) {
+            JBTable table = browser.getTable();
             int[] viewRows = table.getSelectedRows();
             int[] modelRows = new int[viewRows.length];
             for (int i = 0; i < viewRows.length; i++) {
@@ -579,11 +562,12 @@ public final class RemoteFilePane extends JPanel {
             if (!support.isDrop()) return false;
             if (!support.isDataFlavorSupported(FileRowsTransferable.FLAVOR)) return false;
             if (activeSession == null) return false;
+            JBTable table = browser.getTable();
             JTable.DropLocation drop = (JTable.DropLocation) support.getDropLocation();
             int viewRow = drop.getRow();
             if (viewRow < 0 || viewRow >= table.getRowCount()) return false;
             int modelRow = table.convertRowIndexToModel(viewRow);
-            var entry = model.getEntryAt(modelRow);
+            var entry = ((FileTableModel) table.getModel()).getEntryAt(modelRow);
             if (!(entry instanceof RemoteFileEntry target) || !target.isDirectory()) return false;
             try {
                 FileRowsTransferable data = (FileRowsTransferable)
@@ -601,9 +585,10 @@ public final class RemoteFilePane extends JPanel {
         @Override
         public boolean importData(TransferSupport support) {
             if (!canImport(support) || currentRemotePath == null) return false;
+            JBTable table = browser.getTable();
             JTable.DropLocation drop = (JTable.DropLocation) support.getDropLocation();
             int targetModelRow = table.convertRowIndexToModel(drop.getRow());
-            var targetEntry = model.getEntryAt(targetModelRow);
+            var targetEntry = ((FileTableModel) table.getModel()).getEntryAt(targetModelRow);
             if (!(targetEntry instanceof RemoteFileEntry target) || !target.isDirectory()) return false;
             String destDir = joinPath(currentRemotePath, target.name());
 
@@ -616,7 +601,7 @@ public final class RemoteFilePane extends JPanel {
             }
             List<String> sources = new ArrayList<>();
             for (int modelRow : data.modelRows()) {
-                var entry = model.getEntryAt(modelRow);
+                var entry = ((FileTableModel) table.getModel()).getEntryAt(modelRow);
                 if (entry instanceof RemoteFileEntry remote) {
                     sources.add(joinPath(currentRemotePath, remote.name()));
                 }
