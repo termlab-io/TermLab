@@ -47,7 +47,7 @@
         <virtualFileSystem
             implementationClass="com.conch.sftp.vfs.SftpVirtualFileSystem"
             key="sftp"
-            physical="true"/>
+            physical="false"/>
     </extensions>
 
     <actions>

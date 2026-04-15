@@ -35,7 +35,8 @@ public final class SftpVirtualFile extends VirtualFile {
     private volatile boolean isDirectory;
     private volatile long length = -1;
     private volatile long timestamp = 0;
-    private volatile long modificationStamp = 0;
+    private final java.util.concurrent.atomic.AtomicLong modificationStamp =
+        new java.util.concurrent.atomic.AtomicLong(0);
     private volatile boolean valid = true;
     private volatile SftpVirtualFile parent;
     private volatile VirtualFile[] cachedChildren;
@@ -74,7 +75,7 @@ public final class SftpVirtualFile extends VirtualFile {
             if (attrs.getModifyTime() != null) {
                 this.timestamp = attrs.getModifyTime().toMillis();
             }
-            this.modificationStamp++;
+            this.modificationStamp.incrementAndGet();
             return true;
         } catch (IOException e) {
             LOG.warn("Stat failed for " + remotePath + ": " + e.getMessage());
@@ -154,7 +155,7 @@ public final class SftpVirtualFile extends VirtualFile {
 
     @Override
     public long getModificationStamp() {
-        return modificationStamp;
+        return modificationStamp.get();
     }
 
     @Override
@@ -232,14 +233,17 @@ public final class SftpVirtualFile extends VirtualFile {
             @Override
             public void close() throws IOException {
                 super.close();
-                writeAtomically(this.toByteArray());
-                modificationStamp = newModificationStamp >= 0
-                    ? newModificationStamp
-                    : SftpVirtualFile.this.modificationStamp + 1;
+                byte[] bytes = this.toByteArray();
+                writeAtomically(bytes);
+                if (newModificationStamp >= 0) {
+                    modificationStamp.set(newModificationStamp);
+                } else {
+                    modificationStamp.incrementAndGet();
+                }
                 if (newTimeStamp >= 0) {
                     timestamp = newTimeStamp;
                 }
-                length = this.toByteArray().length;
+                length = bytes.length;
                 // Notify VFS listeners that contents changed.
                 fs.fireContentsChangedExternally(SftpVirtualFile.this);
             }
@@ -247,22 +251,71 @@ public final class SftpVirtualFile extends VirtualFile {
     }
 
     private void writeAtomically(byte @NotNull [] content) throws IOException {
-        String tmpPath = remotePath + "." + Long.toHexString(ThreadLocalRandom.current().nextLong()) + ".tmp";
+        SftpClient client = session.client();
+        String randomSuffix = Long.toHexString(ThreadLocalRandom.current().nextLong());
+        String writeTmp = remotePath + "." + randomSuffix + ".tmp";
+        String backupTmp = remotePath + "." + randomSuffix + ".bak";
+
+        // Step 1: write the new content to a sibling temp file.
         try {
-            try (OutputStream out = session.client().write(tmpPath)) {
+            try (OutputStream out = client.write(writeTmp)) {
                 out.write(content);
             }
+        } catch (IOException e) {
+            // Write failed; remove the partial temp and propagate.
+            try { client.remove(writeTmp); } catch (IOException ignored) {}
+            throw e;
+        }
+
+        // Step 2: try the simple atomic rename. POSIX SFTP servers
+        // succeed even if the target exists.
+        try {
+            client.rename(writeTmp, remotePath);
+            return;
+        } catch (IOException renameErr) {
+            LOG.warn("Atomic rename failed for " + remotePath
+                + " (" + renameErr.getMessage() + "), falling back to backup+rename");
+        }
+
+        // Step 3: fallback for non-POSIX servers — back up the original,
+        // then rename the new content into place. If anything fails,
+        // restore from backup so the user never loses data.
+        boolean backedUp = false;
+        try {
+            // 3a. Move original to a backup temp (atomic on the server).
+            //     If the original doesn't exist, this fails; that's fine —
+            //     we can skip straight to the final rename below.
             try {
-                session.client().rename(tmpPath, remotePath);
-            } catch (IOException renameErr) {
-                // Fallback: target may already exist on a non-POSIX server.
-                LOG.warn("Atomic rename failed for " + remotePath
-                    + " (" + renameErr.getMessage() + "), falling back to delete+rename");
-                try { session.client().remove(remotePath); } catch (IOException ignored) {}
-                session.client().rename(tmpPath, remotePath);
+                client.rename(remotePath, backupTmp);
+                backedUp = true;
+            } catch (IOException backupErr) {
+                LOG.warn("Backup rename failed for " + remotePath
+                    + " (" + backupErr.getMessage() + "); proceeding without backup");
+            }
+            // 3b. Move the new content into place.
+            try {
+                client.rename(writeTmp, remotePath);
+            } catch (IOException finalRenameErr) {
+                // Restore from backup if we made one.
+                if (backedUp) {
+                    try {
+                        client.rename(backupTmp, remotePath);
+                    } catch (IOException restoreErr) {
+                        LOG.error("CRITICAL: failed to restore " + remotePath
+                            + " from backup " + backupTmp
+                            + ". Original content is at " + backupTmp
+                            + ". New content is at " + writeTmp, restoreErr);
+                    }
+                }
+                throw finalRenameErr;
+            }
+            // 3c. Success — remove the backup.
+            if (backedUp) {
+                try { client.remove(backupTmp); } catch (IOException ignored) {}
             }
         } catch (IOException e) {
-            try { session.client().remove(tmpPath); } catch (IOException ignored) {}
+            // Clean up the write-tmp if it's still there.
+            try { client.remove(writeTmp); } catch (IOException ignored) {}
             throw e;
         }
     }
