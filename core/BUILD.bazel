@@ -1,3 +1,4 @@
+load("@rules_java//java:defs.bzl", "java_binary")
 load("@rules_jvm//:jvm.bzl", "jvm_library", "resourcegroup")
 
 resourcegroup(
@@ -36,6 +37,32 @@ jvm_library(
         "@lib//:jetbrains-annotations",
         "@lib//:gson",
         "@lib//:kotlin-stdlib",
+    ],
+)
+
+jvm_library(
+    name = "core_test_lib",
+    module_name = "intellij.conch.core.tests",
+    visibility = ["//visibility:public"],
+    srcs = glob(["test/**/*.java"], allow_empty = True),
+    deps = [
+        ":core",
+        "//conch/sdk",
+        "//libraries/junit5",
+        "//libraries/junit5-jupiter",
+        "//libraries/junit5-launcher",
+        "@lib//:jetbrains-annotations",
+        "@lib//:kotlin-stdlib",
+    ],
+)
+
+java_binary(
+    name = "core_test_runner",
+    main_class = "com.conch.core.TestRunner",
+    runtime_deps = [
+        ":core_test_lib",
+        "//libraries/junit5-jupiter",
+        "//libraries/junit5-launcher",
     ],
 )
 
