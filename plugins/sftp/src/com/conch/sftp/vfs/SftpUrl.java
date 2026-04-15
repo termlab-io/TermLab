@@ -21,9 +21,18 @@ public record SftpUrl(@NotNull UUID hostId, @NotNull String remotePath) {
     public static final String PROTOCOL = "sftp";
     private static final String PROTOCOL_PREFIX = PROTOCOL + "://";
 
+    private static boolean containsParentTraversal(@NotNull String remotePath) {
+        return remotePath.equals("/..")
+            || remotePath.endsWith("/..")
+            || remotePath.contains("/../");
+    }
+
     public static @NotNull String compose(@NotNull UUID hostId, @NotNull String remotePath) {
         if (!remotePath.startsWith("/")) {
             throw new IllegalArgumentException("remotePath must be absolute (start with /): " + remotePath);
+        }
+        if (containsParentTraversal(remotePath)) {
+            throw new IllegalArgumentException("remotePath must not contain '..' segments: " + remotePath);
         }
         return PROTOCOL_PREFIX + hostId + "/" + remotePath;
     }
@@ -37,6 +46,7 @@ public record SftpUrl(@NotNull UUID hostId, @NotNull String remotePath) {
         String hostIdString = afterProtocol.substring(0, firstSlash);
         String remotePath = afterProtocol.substring(firstSlash + 1);
         if (remotePath.isEmpty() || !remotePath.startsWith("/")) return null;
+        if (containsParentTraversal(remotePath)) return null;
         UUID hostId;
         try {
             hostId = UUID.fromString(hostIdString);

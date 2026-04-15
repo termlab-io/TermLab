@@ -82,4 +82,16 @@ class SftpUrlTest {
         SftpUrl b = new SftpUrl(UUID_B, "/etc/foo");
         assertEquals(false, a.equals(b));
     }
+
+    @Test
+    void composeRejectsPathTraversal() {
+        org.junit.jupiter.api.Assertions.assertThrows(
+            IllegalArgumentException.class,
+            () -> SftpUrl.compose(UUID_A, "/etc/../passwd"));
+    }
+
+    @Test
+    void parseRejectsPathTraversal() {
+        assertNull(SftpUrl.parse("sftp://550e8400-e29b-41d4-a716-446655440000//etc/../passwd"));
+    }
 }
