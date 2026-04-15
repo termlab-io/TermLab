@@ -18,7 +18,7 @@ import java.util.List;
 /**
  * Opens an empty scratch buffer as a {@link LightVirtualFile} in
  * the main editor area. Pops up a curated file-type picker first.
- * First save triggers a Save-As dialog via {@link ScratchSaveListener}.
+ * First save triggers a Save-As dialog via {@link SaveAsHelper}.
  */
 public final class NewScratchAction extends AnAction {
 

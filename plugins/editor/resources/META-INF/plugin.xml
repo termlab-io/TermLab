@@ -31,11 +31,6 @@
         <remoteFileOpener implementation="com.conch.editor.sftp.EditorRemoteFileOpener"/>
     </extensions>
 
-    <applicationListeners>
-        <listener class="com.conch.editor.scratch.ScratchSaveListener"
-                  topic="com.intellij.openapi.fileEditor.FileDocumentManagerListener"/>
-    </applicationListeners>
-
     <actions>
         <action id="Conch.Editor.SaveCurrentFile"
                 class="com.conch.editor.scratch.SaveCurrentFileAction"
@@ -55,10 +50,10 @@
             <keyboard-shortcut keymap="Mac OS X 10.5+" first-keystroke="meta N" replace-all="true"/>
             <keyboard-shortcut keymap="Mac OS X" first-keystroke="meta N" replace-all="true"/>
         </action>
-        <action id="Conch.Editor.SaveScratchToRemote"
-                class="com.conch.editor.scratch.SaveScratchToRemoteAction"
-                text="Save Scratch to Remote…"
-                description="Save the current scratch file to a connected SFTP host">
+        <action id="Conch.Editor.SaveAs"
+                class="com.conch.editor.scratch.SaveAsAction"
+                text="Save As…"
+                description="Save the current file to a local or remote location">
             <add-to-group group-id="FileMenu" anchor="after" relative-to-action="Conch.Editor.NewScratch"/>
             <keyboard-shortcut keymap="$default" first-keystroke="control alt S"/>
             <keyboard-shortcut keymap="Mac OS X 10.5+" first-keystroke="meta alt S" replace-all="true"/>

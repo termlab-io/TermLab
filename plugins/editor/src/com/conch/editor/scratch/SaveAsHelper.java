@@ -7,12 +7,8 @@ import com.intellij.ide.util.PropertiesComponent;
 import com.intellij.notification.Notification;
 import com.intellij.notification.NotificationType;
 import com.intellij.notification.Notifications;
-import com.intellij.openapi.actionSystem.ActionUpdateThread;
-import com.intellij.openapi.actionSystem.AnAction;
-import com.intellij.openapi.actionSystem.AnActionEvent;
 import com.intellij.openapi.editor.Document;
 import com.intellij.openapi.fileEditor.FileDocumentManager;
-import com.intellij.openapi.fileEditor.FileEditor;
 import com.intellij.openapi.fileEditor.FileEditorManager;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.vfs.LocalFileSystem;
@@ -28,57 +24,36 @@ import java.nio.file.Paths;
 import java.util.UUID;
 
 /**
- * Save the active scratch file to a local directory or a remote SFTP
- * host via the unified file picker. Bound to Cmd+Alt+S / Ctrl+Alt+S.
+ * Shared Save As flow used by both the Save action (for unnamed
+ * scratches) and the Save As action (for any file with a Document).
+ * Opens the unified file picker, writes the document contents, closes
+ * the scratch tab if appropriate, and opens the saved file.
  */
-public final class SaveScratchToRemoteAction extends AnAction {
+final class SaveAsHelper {
 
     private static final String NOTIFICATION_GROUP = "Conch SFTP";
     private static final String LAST_SOURCE_KEY = "conch.editor.lastRemoteSourceId";
 
-    @Override
-    public void update(@NotNull AnActionEvent e) {
-        e.getPresentation().setEnabledAndVisible(canRun(e));
-    }
+    private SaveAsHelper() {}
 
-    @Override
-    public @NotNull ActionUpdateThread getActionUpdateThread() {
-        return ActionUpdateThread.BGT;
-    }
-
-    private static boolean canRun(@NotNull AnActionEvent e) {
-        Project project = e.getProject();
-        if (project == null) return false;
-        return activeScratchFile(project) != null;
-    }
-
-    private static @Nullable VirtualFile activeScratchFile(@NotNull Project project) {
-        FileEditor editor = FileEditorManager.getInstance(project).getSelectedEditor();
-        if (editor == null) return null;
-        VirtualFile file = editor.getFile();
-        if (!(file instanceof LightVirtualFile lvf)) return null;
-        if (lvf.getUserData(ScratchMarker.KEY) != Boolean.TRUE) return null;
-        return file;
-    }
-
-    @Override
-    public void actionPerformed(@NotNull AnActionEvent e) {
-        Project project = e.getProject();
-        if (project == null) return;
-        VirtualFile scratch = activeScratchFile(project);
-        if (scratch == null) return;
+    /**
+     * Run the unified Save As flow for the given file. The file must
+     * have a backing {@link Document}; if it is a scratch
+     * {@link LightVirtualFile} its tab will be closed after a
+     * successful save and the new file opened in its place.
+     */
+    static void saveAs(@NotNull Project project, @NotNull VirtualFile file) {
+        Document doc = FileDocumentManager.getInstance().getDocument(file);
+        if (doc == null) return;
 
         FilePickerResult result = UnifiedFilePickerDialog.showSaveDialog(
             project,
-            "Save Scratch",
-            scratch.getName(),
+            "Save As",
+            file.getName(),
             lastUsedSourceId());
         if (result == null) return;
 
-        Document doc = FileDocumentManager.getInstance().getDocument(scratch);
-        if (doc == null) return;
         byte[] bytes = doc.getText().getBytes(StandardCharsets.UTF_8);
-
         try {
             result.source().writeFile(result.absolutePath(), bytes);
         } catch (IOException ioe) {
@@ -89,9 +64,13 @@ public final class SaveScratchToRemoteAction extends AnAction {
         rememberLastUsedSource(result.source().id());
 
         VirtualFile saved = resolveSavedVirtualFile(result);
+        FileEditorManager mgr = FileEditorManager.getInstance(project);
+        boolean isScratch = file instanceof LightVirtualFile lvf
+            && lvf.getUserData(ScratchMarker.KEY) == Boolean.TRUE;
         if (saved != null) {
-            FileEditorManager mgr = FileEditorManager.getInstance(project);
-            mgr.closeFile(scratch);
+            if (isScratch) {
+                mgr.closeFile(file);
+            }
             mgr.openFile(saved, true);
         }
 
@@ -100,7 +79,8 @@ public final class SaveScratchToRemoteAction extends AnAction {
             NotificationType.INFORMATION);
     }
 
-    private static @Nullable String lastUsedSourceId() {
+    /** Last-used source id, used by callers that preload the picker. */
+    public static @Nullable String lastUsedSourceId() {
         return PropertiesComponent.getInstance().getValue(LAST_SOURCE_KEY);
     }
 
@@ -133,7 +113,7 @@ public final class SaveScratchToRemoteAction extends AnAction {
 
     private static void notify(@NotNull Project project, @NotNull String message, @NotNull NotificationType type) {
         Notifications.Bus.notify(
-            new Notification(NOTIFICATION_GROUP, "Save Scratch", message, type), project);
+            new Notification(NOTIFICATION_GROUP, "Save As", message, type), project);
     }
 
     private static void notifyError(@NotNull Project project, @NotNull String message) {
