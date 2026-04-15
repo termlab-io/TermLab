@@ -61,5 +61,14 @@
             <keyboard-shortcut keymap="Mac OS X 10.5+" first-keystroke="meta N" replace-all="true"/>
             <keyboard-shortcut keymap="Mac OS X" first-keystroke="meta N" replace-all="true"/>
         </action>
+        <action id="Conch.Editor.SaveScratchToRemote"
+                class="com.conch.editor.scratch.SaveScratchToRemoteAction"
+                text="Save Scratch to Remote…"
+                description="Save the current scratch file to a connected SFTP host">
+            <add-to-group group-id="FileMenu" anchor="after" relative-to-action="Conch.Editor.NewScratch"/>
+            <keyboard-shortcut keymap="$default" first-keystroke="control shift S"/>
+            <keyboard-shortcut keymap="Mac OS X 10.5+" first-keystroke="meta shift S" replace-all="true"/>
+            <keyboard-shortcut keymap="Mac OS X" first-keystroke="meta shift S" replace-all="true"/>
+        </action>
     </actions>
 </idea-plugin>
