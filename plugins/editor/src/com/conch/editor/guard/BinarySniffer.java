@@ -1,5 +1,6 @@
 package com.conch.editor.guard;
 
+import com.intellij.openapi.vfs.VirtualFile;
 import org.jetbrains.annotations.NotNull;
 
 import java.io.IOException;
@@ -25,6 +26,19 @@ public final class BinarySniffer {
                 if (b == 0) return true;
             }
             return false;
+        }
+    }
+
+    public static boolean isBinaryByContent(@NotNull VirtualFile file) {
+        try (InputStream in = file.getInputStream()) {
+            byte[] buf = in.readNBytes(SNIFF_BYTES);
+            for (byte b : buf) {
+                if (b == 0) return true;
+            }
+            return false;
+        } catch (IOException e) {
+            // Treat read failures as binary so we err on the side of refusing
+            return true;
         }
     }
 }

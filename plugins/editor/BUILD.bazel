@@ -47,6 +47,8 @@ jvm_library(
         "//libraries/junit5",
         "//libraries/junit5-jupiter",
         "//libraries/junit5-launcher",
+        "//platform/core-api:core",
+        "//platform/util",
         "@lib//:jetbrains-annotations",
         "@lib//:kotlin-stdlib",
     ],
