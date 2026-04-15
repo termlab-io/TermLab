@@ -41,7 +41,7 @@ public final class SftpVirtualFile extends VirtualFile {
     private volatile SftpVirtualFile parent;
     private volatile VirtualFile[] cachedChildren;
 
-    SftpVirtualFile(
+    public SftpVirtualFile(
         @NotNull SftpVirtualFileSystem fs,
         @NotNull UUID hostId,
         @NotNull String remotePath,
