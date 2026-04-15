@@ -37,11 +37,20 @@
     </applicationListeners>
 
     <actions>
+        <action id="Conch.Editor.SaveCurrentFile"
+                class="com.conch.editor.scratch.SaveCurrentFileAction"
+                text="Save"
+                description="Save the current file (or show Save As… for an unnamed scratch)">
+            <add-to-group group-id="FileMenu" anchor="first"/>
+            <keyboard-shortcut keymap="$default" first-keystroke="control S"/>
+            <keyboard-shortcut keymap="Mac OS X 10.5+" first-keystroke="meta S" replace-all="true"/>
+            <keyboard-shortcut keymap="Mac OS X" first-keystroke="meta S" replace-all="true"/>
+        </action>
         <action id="Conch.Editor.NewScratch"
                 class="com.conch.editor.scratch.NewScratchAction"
                 text="New Scratch File"
                 description="Create a new empty scratch text file">
-            <add-to-group group-id="FileMenu" anchor="first"/>
+            <add-to-group group-id="FileMenu" anchor="after" relative-to-action="Conch.Editor.SaveCurrentFile"/>
             <keyboard-shortcut keymap="$default" first-keystroke="control N"/>
             <keyboard-shortcut keymap="Mac OS X 10.5+" first-keystroke="meta N" replace-all="true"/>
             <keyboard-shortcut keymap="Mac OS X" first-keystroke="meta N" replace-all="true"/>
@@ -51,9 +60,9 @@
                 text="Save Scratch to Remote…"
                 description="Save the current scratch file to a connected SFTP host">
             <add-to-group group-id="FileMenu" anchor="after" relative-to-action="Conch.Editor.NewScratch"/>
-            <keyboard-shortcut keymap="$default" first-keystroke="control shift S"/>
-            <keyboard-shortcut keymap="Mac OS X 10.5+" first-keystroke="meta shift S" replace-all="true"/>
-            <keyboard-shortcut keymap="Mac OS X" first-keystroke="meta shift S" replace-all="true"/>
+            <keyboard-shortcut keymap="$default" first-keystroke="control alt S"/>
+            <keyboard-shortcut keymap="Mac OS X 10.5+" first-keystroke="meta alt S" replace-all="true"/>
+            <keyboard-shortcut keymap="Mac OS X" first-keystroke="meta alt S" replace-all="true"/>
         </action>
     </actions>
 </idea-plugin>
