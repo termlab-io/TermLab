@@ -1,0 +1,116 @@
+{
+  "name": "TermLab Light",
+  "dark": false,
+  "author": "Dustin McKennaWatts",
+  "editorScheme": "/themes/termlab-flow-day.xml",
+  "colors": {
+    "background": "#E3E8EF",
+    "foreground": "#1F2933",
+    "caret": "#1F2933",
+    "selectionBackground": "#CAD4E2",
+    "selectionForeground": "#1F2933",
+    "inactiveSelectionBackground": "#E3E8EF"
+  },
+  "ui": {
+    "*": {
+      "background": "#E3E8EF",
+      "foreground": "#1F2933"
+    },
+    "Panel": {
+      "background": "#E3E8EF",
+      "foreground": "#1F2933"
+    },
+    "Editor": {
+      "background": "#F4F7FA",
+      "foreground": "#1F2933",
+      "selectionBackground": "#CAD4E2"
+    },
+    "ToolWindow": {
+      "background": "#E3E8EF"
+    },
+    "ToolWindow.Header": {
+      "background": "#D6DDE6",
+      "foreground": "#1F2933"
+    },
+    "TabbedPane": {
+      "background": "#D6DDE6"
+    },
+    "TabbedPane.selected": {
+      "background": "#F4F7FA"
+    },
+    "List": {
+      "background": "#F4F7FA",
+      "selectionBackground": "#5E7293",
+      "selectionForeground": "#FFFFFF"
+    },
+    "Tree": {
+      "background": "#F4F7FA",
+      "selectionBackground": "#5E7293",
+      "selectionForeground": "#FFFFFF"
+    },
+    "Table": {
+      "background": "#F4F7FA",
+      "selectionBackground": "#5E7293",
+      "selectionForeground": "#FFFFFF"
+    },
+    "ComboBox": {
+      "background": "#F4F7FA",
+      "selectionBackground": "#5E7293"
+    },
+    "TextField": {
+      "background": "#DCE3EA",
+      "foreground": "#1F2933"
+    },
+    "ScrollBar": {
+      "thumbColor": "#C5CDD6",
+      "trackColor": "#DCE3EA"
+    },
+    "Separator": {
+      "separatorColor": "#C5CDD6"
+    },
+    "Button.foreground": "#1F2933",
+    "Button.startBackground": "#D6DDE6",
+    "Button.endBackground": "#D6DDE6",
+    "Button.startBorderColor": "#C5CDD6",
+    "Button.endBorderColor": "#C5CDD6",
+    "Button.focusedBorderColor": "#6B80A1",
+    "Button.disabledBorderColor": "#D6DDE6",
+    "Button.disabledText": "#8A94A3",
+    "Button.default.foreground": "#FFFFFF",
+    "Button.default.startBackground": "#6B80A1",
+    "Button.default.endBackground": "#5E7293",
+    "Button.default.startBorderColor": "#5E7293",
+    "Button.default.endBorderColor": "#5E7293",
+    "Button.default.focusedBorderColor": "#6B80A1",
+    "Button.default.focusColor": "#6B80A1",
+    "ActionButton.hoverBackground": "#D6DDE6",
+    "ActionButton.hoverBorderColor": "#C5CDD6",
+    "ActionButton.pressedBackground": "#CAD4E2",
+    "ActionButton.pressedBorderColor": "#C5CDD6",
+    "Borders.color": "#C5CDD6",
+    "Borders.ContrastBorderColor": "#C5CDD6",
+    "Component.borderColor": "#C5CDD6",
+    "Component.focusedBorderColor": "#6B80A1",
+    "Component.disabledBorderColor": "#D6DDE6",
+    "RootPane.background": "#DCE3EA",
+    "Panel.background": "#E3E8EF",
+    "Dialog.background": "#E3E8EF",
+    "DialogWrapper.southPanelBackground": "#E3E8EF",
+    "DialogWrapper.southPanelDivider": "#C5CDD6",
+    "Viewport.background": "#F4F7FA",
+    "Table.stripeColor": "#E3E8EF",
+    "Table.gridColor": "#C5CDD6",
+    "Tree.rowHeight": 20,
+    "TabbedPane.contentAreaColor": "#F4F7FA"
+  },
+  "icons": {
+    "ColorPalette": {
+      "Actions.Blue": "#6B80A1",
+      "Actions.Grey": "#8A94A3",
+      "Actions.Green": "#6B80A1",
+      "Actions.Red": "#5E7293",
+      "Actions.Yellow": "#6B80A1"
+    }
+  },
+  "accentColor": "#6B80A1"
+}

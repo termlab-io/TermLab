@@ -59,25 +59,36 @@
             implementation="com.conch.core.ConchHomeDirNoProjectHandler"/>
 
         <!--
-          Conch Dark UI theme. Inherits Darcula and retargets the
-          background, panel, tab, list, and popup colors to the Conch
-          brand palette. Referenced as the product default LaF in
-          ConchApplicationInfo.xml via <default-laf dark-classic="Conch Dark"/>.
+          TermLab Dark UI theme. Referenced as the product default LaF
+          in ConchApplicationInfo.xml via
+          <default-laf light-classic="TermLab Light"
+                       dark-classic="TermLab Dark"/>.
         -->
-        <themeProvider id="conch.dark"
-                       path="/themes/Conch.theme.json"
+        <themeProvider id="termlab.dark"
+                       path="/themes/TermLabDark.theme.json"
                        targetUi="classic"/>
 
         <!--
-          Conch Dark editor + terminal color scheme. Inherits Darcula
-          and overrides the 16-color ANSI palette plus editor
+          TermLab Light UI theme. Complementary light variant of
+          TermLab Dark, loaded from the curated termlab-light JSON.
+        -->
+        <themeProvider id="termlab.light"
+                       path="/themes/TermLabLight.theme.json"
+                       targetUi="classic"/>
+
+        <!--
+          TermLab Dark editor + terminal color scheme. Inherits
+          Darcula and overrides the 16-color ANSI palette plus editor
           background/selection/caret colors. ConchTerminalSettings
           reads these ANSI keys at runtime to drive the terminal
           palette; the .theme.json above references this scheme via
           its `editorScheme` field.
         -->
-        <bundledColorScheme id="Conch Dark"
-                            path="/colorSchemes/ConchDark"/>
+        <bundledColorScheme id="TermLab Dark"
+                            path="/colorSchemes/TermLabDark"/>
+
+        <bundledColorScheme id="TermLab Light"
+                            path="/themes/termlab-flow-day"/>
 
         <fileEditorProvider
             implementation="com.conch.core.terminal.ConchTerminalEditorProvider"/>
@@ -176,6 +187,20 @@
           ConchMacDockIconCustomizer for the detailed rationale.
         -->
         <listener class="com.conch.core.ConchMacDockIconCustomizer"
+                  topic="com.intellij.ide.AppLifecycleListener"/>
+
+        <!--
+          Removes built-in Darcula / IntelliJ Light theme providers so only
+          TermLab themes appear in the theme picker.
+        -->
+        <listener class="com.conch.core.ConchBuiltInThemeStripper"
+                  topic="com.intellij.ide.AppLifecycleListener"/>
+
+        <!--
+          Points OS theme sync to TermLab Light / TermLab Dark instead of
+          IntelliJ defaults, and keeps first-launch fallback on TermLab Light.
+        -->
+        <listener class="com.conch.core.ConchThemeSyncCustomizer"
                   topic="com.intellij.ide.AppLifecycleListener"/>
 
         <!--

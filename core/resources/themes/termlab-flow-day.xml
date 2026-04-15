@@ -1,0 +1,62 @@
+<!--
+  TermLab Light editor color scheme.
+
+  Light companion scheme for the TermLab Light UI theme. Keeps editor
+  foreground/background and console defaults aligned with the palette
+  shipped in icons/termlab-light.json.
+-->
+<scheme name="TermLab Light" parent_scheme="Default" version="1">
+  <metaInfo>
+    <property name="created">2026-04-15T18:05:00</property>
+    <property name="ide">Conch Workbench</property>
+    <property name="ideVersion">262.SNAPSHOT</property>
+    <property name="originalScheme">TermLab Light</property>
+  </metaInfo>
+
+  <colors>
+    <option name="CARET_COLOR" value="1F2933" />
+    <option name="CARET_ROW_COLOR" value="EAF0F6" />
+    <option name="CONSOLE_BACKGROUND_KEY" value="F4F7FA" />
+    <option name="GUTTER_BACKGROUND" value="E3E8EF" />
+    <option name="INDENT_GUIDE" value="CAD4E2" />
+    <option name="SELECTED_INDENT_GUIDE" value="B6C2D0" />
+    <option name="LINE_NUMBERS_COLOR" value="6F7B87" />
+    <option name="SELECTION_BACKGROUND" value="CAD4E2" />
+    <option name="SELECTION_FOREGROUND" value="1F2933" />
+    <option name="RIGHT_MARGIN_COLOR" value="D6DDE6" />
+    <option name="WHITESPACES" value="D6DDE6" />
+    <option name="VISUAL_INDENT_GUIDE" value="CAD4E2" />
+    <option name="TEARLINE_COLOR" value="D6DDE6" />
+  </colors>
+
+  <attributes>
+    <option name="TEXT">
+      <value>
+        <option name="FOREGROUND" value="1F2933" />
+        <option name="BACKGROUND" value="F4F7FA" />
+      </value>
+    </option>
+
+    <option name="CONSOLE_NORMAL_OUTPUT">
+      <value>
+        <option name="FOREGROUND" value="1F2933" />
+      </value>
+    </option>
+    <option name="CONSOLE_SYSTEM_OUTPUT">
+      <value>
+        <option name="FOREGROUND" value="5E7293" />
+      </value>
+    </option>
+    <option name="CONSOLE_USER_INPUT">
+      <value>
+        <option name="FOREGROUND" value="1F2933" />
+        <option name="FONT_TYPE" value="2" />
+      </value>
+    </option>
+    <option name="CONSOLE_ERROR_OUTPUT">
+      <value>
+        <option name="FOREGROUND" value="A4465B" />
+      </value>
+    </option>
+  </attributes>
+</scheme>

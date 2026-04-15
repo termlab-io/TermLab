@@ -7,13 +7,12 @@
   <names product="Conch" fullname="Conch Workbench" script="conch"
          motto="Terminal-Driven Workstation"/>
   <!--
-    Product default LaF. LafManagerImpl reads `dark-classic` via
-    ApplicationInfoEx.defaultClassicDarkLaf because Conch ships with
-    classic UI (New UI is disabled via -Dide.experimental.ui=false).
-    The value is looked up first by theme id, then by display name —
-    "Conch Dark" matches the `name` field in Conch.theme.json.
+    Product default LaF for Classic UI (New UI is disabled via
+    -Dide.experimental.ui=false). Light classic defaults to TermLab
+    Light; dark classic defaults to TermLab Dark. Values are looked up
+    by theme id, then by display name.
   -->
-  <default-laf dark-classic="Conch Dark"/>
+  <default-laf light-classic="TermLab Light" dark-classic="TermLab Dark"/>
   <essential-plugin>com.conch.core</essential-plugin>
   <essential-plugin>com.conch.ssh</essential-plugin>
   <essential-plugin>com.conch.vault</essential-plugin>

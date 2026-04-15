@@ -180,7 +180,8 @@ java_binary(
         # Use Classic UI by default (disable new UI)
         "-Dide.experimental.ui=false",
         # Default theme for new installations is wired via
-        # <default-laf dark-classic="Conch Dark"/> in
+        # <default-laf light-classic="TermLab Light"
+        #              dark-classic="TermLab Dark"/> in
         # ConchApplicationInfo.xml — LafManagerImpl reads
         # ApplicationInfoEx.defaultClassicDarkLaf on first launch.
     ],
