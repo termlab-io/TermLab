@@ -14,18 +14,24 @@ import org.jetbrains.annotations.Nullable;
 public interface SftpConnector {
 
     /**
-     * Opens a new SFTP session to the given host. Resolves credentials via
-     * {@link HostCredentialBundle#resolveForHost} unless an injected
-     * implementation supplies them differently.
+     * Opens a new SFTP session to the given host. The caller is
+     * responsible for resolving credentials (on the EDT) and passing
+     * the resulting bundle. This method is safe to call from any
+     * thread — it does not show any UI.
      *
      * @return a freshly-opened session.
      * @throws SshConnectException if the connection fails for any reason.
      */
-    @NotNull SshSftpSession open(@NotNull SshHost host) throws SshConnectException;
+    @NotNull SshSftpSession open(@NotNull SshHost host, @NotNull HostCredentialBundle bundle) throws SshConnectException;
 
     /**
-     * Resolves credentials for the given host. Production code goes
-     * through the vault plugin; tests can return a stub.
+     * Resolves credentials for the given host. Must be called on the
+     * Event Dispatch Thread because vault credential providers may
+     * show a {@link com.intellij.openapi.ui.DialogWrapper} to prompt
+     * for a vault password.
+     *
+     * @return the resolved bundle, or null if credentials could not
+     *         be resolved (user cancelled, no provider available).
      */
     @Nullable HostCredentialBundle resolveCredentials(@NotNull SshHost host);
 }

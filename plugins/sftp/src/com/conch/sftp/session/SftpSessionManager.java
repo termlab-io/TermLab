@@ -2,6 +2,7 @@ package com.conch.sftp.session;
 
 import com.conch.sftp.client.SshSftpSession;
 import com.conch.ssh.client.SshConnectException;
+import com.conch.ssh.credentials.HostCredentialBundle;
 import com.conch.ssh.model.SshHost;
 import com.intellij.openapi.Disposable;
 import com.intellij.openapi.components.Service;
@@ -91,7 +92,13 @@ public final class SftpSessionManager implements Disposable {
 
         // Slow path: open the session OUTSIDE the lock so other threads can
         // acquire/release for different hosts in parallel.
-        SshSftpSession session = connector.open(host);
+        HostCredentialBundle bundle = resolveCredentialsOnEdt(host);
+        if (bundle == null) {
+            throw new SshConnectException(
+                SshConnectException.Kind.AUTH_FAILED,
+                "Could not resolve credentials for " + host.label());
+        }
+        SshSftpSession session = connector.open(host, bundle);
 
         lock.lock();
         try {
@@ -204,6 +211,28 @@ public final class SftpSessionManager implements Disposable {
             }
         }
         return null;
+    }
+
+    /**
+     * Resolve credentials for {@code host} on the EDT. Uses
+     * {@link ApplicationManager#invokeAndWait} to hop to the EDT when
+     * called from a background thread (e.g., from inside a
+     * {@link com.intellij.openapi.progress.Task.Modal#run} body).
+     * Credential resolution may show a vault unlock dialog, which
+     * requires the EDT.
+     */
+    private @Nullable HostCredentialBundle resolveCredentialsOnEdt(@NotNull SshHost host) {
+        com.intellij.openapi.application.Application app =
+            com.intellij.openapi.application.ApplicationManager.getApplication();
+        if (app == null || app.isDispatchThread()) {
+            // Null-app path: unit tests run without an Application.
+            // EDT path: no hop needed.
+            return connector.resolveCredentials(host);
+        }
+        java.util.concurrent.atomic.AtomicReference<HostCredentialBundle> ref =
+            new java.util.concurrent.atomic.AtomicReference<>();
+        app.invokeAndWait(() -> ref.set(connector.resolveCredentials(host)));
+        return ref.get();
     }
 
     @Override

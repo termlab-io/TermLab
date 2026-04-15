@@ -2,11 +2,9 @@ package com.conch.sftp.vfs;
 
 import com.conch.sftp.client.SshSftpSession;
 import com.conch.sftp.session.SftpSessionManager;
-import com.conch.ssh.client.SshConnectException;
 import com.conch.ssh.model.HostStore;
 import com.conch.ssh.model.SshHost;
 import com.intellij.openapi.application.ApplicationManager;
-import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.vfs.DeprecatedVirtualFileSystem;
 import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.openapi.vfs.VirtualFileManager;
@@ -27,8 +25,6 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 public final class SftpVirtualFileSystem extends DeprecatedVirtualFileSystem {
 
-    private static final Logger LOG = Logger.getInstance(SftpVirtualFileSystem.class);
-
     /** Hash-cons cache: same (hostId, remotePath) → same SftpVirtualFile instance. */
     private final Map<String, SftpVirtualFile> instances = new ConcurrentHashMap<>();
 
@@ -46,22 +42,17 @@ public final class SftpVirtualFileSystem extends DeprecatedVirtualFileSystem {
     }
 
     /**
-     * Resolves a VFS path to an {@link SftpVirtualFile}. The session is
-     * acquired only for the duration of the remote stat call and released
-     * immediately afterwards.
+     * Resolves a VFS path to an {@link SftpVirtualFile}. This method is
+     * strictly passive: it only succeeds when some other consumer (the SFTP
+     * tool window or the save action) has already acquired a session for the
+     * target host via {@link SftpSessionManager#acquire}. If no session is
+     * currently held, this method returns {@code null}.
      *
-     * <p><b>Known limitation:</b> callers should hold their own session
-     * reference (e.g. via {@link SftpSessionManager#acquire}) before calling
-     * this method. If no other consumer holds a reference for the target host,
-     * the session is opened, used for the stat, and immediately torn down,
-     * leaving the returned {@code SftpVirtualFile} with a dead session until
-     * some other consumer re-acquires it.
-     *
-     * <p>In the normal flow, the SFTP tool window pane holds the session open
-     * before the user can double-click a file, so this constraint is
-     * transparently satisfied. {@link com.conch.editor.sftp.EditorRemoteFileOpener}
-     * also acquires a tab-scoped reference (via {@link SftpEditorTabListener})
-     * before calling {@link com.intellij.openapi.fileEditor.FileEditorManager#openFile}.
+     * <p>This design prevents spurious auto-connections at startup (e.g. when
+     * {@code EditorHistoryManager.loadState} tries to resolve stale
+     * {@code sftp://} history entries), which would otherwise trigger
+     * credential dialogs from a worker thread and crash with
+     * "Access is allowed from Event Dispatch Thread (EDT) only".
      */
     @Override
     public @Nullable VirtualFile findFileByPath(@NotNull String path) {
@@ -74,31 +65,23 @@ public final class SftpVirtualFileSystem extends DeprecatedVirtualFileSystem {
         SftpVirtualFile cached = instances.get(key);
         if (cached != null && cached.isValid()) return cached;
 
-        SshHost host = lookupHost(parsed.hostId());
-        if (host == null) return null;
-
-        SshSftpSession session;
-        try {
-            session = SftpSessionManager.getInstance().acquire(host, this);
-        } catch (SshConnectException e) {
-            LOG.warn("findFileByPath could not acquire session for " + host.label(), e);
+        SshSftpSession session = SftpSessionManager.getInstance().peek(parsed.hostId());
+        if (session == null) {
+            // Don't auto-connect from findFileByPath. The VFS is passive:
+            // it only works when some other consumer (the SFTP tool window
+            // or the save action) has already acquired a session for this
+            // host. Returning null here means stale editor-history entries
+            // for disconnected hosts are silently dropped — the platform
+            // handles null gracefully.
             return null;
         }
-        // Release immediately — findFileByPath only needs the session for
-        // the duration of the stat call. Other consumers (the SFTP tool
-        // window pane, or editor tabs via SftpEditorTabListener) hold
-        // longer-lived references that keep the session alive between calls.
-        try {
-            SftpVirtualFile vf = new SftpVirtualFile(this, parsed.hostId(), parsed.remotePath(), session, /*isDirectory=*/false);
-            // Remote-stat to determine isDirectory and existence.
-            if (!vf.statAndUpdate()) {
-                return null;
-            }
-            instances.putIfAbsent(key, vf);
-            return instances.get(key);
-        } finally {
-            SftpSessionManager.getInstance().release(parsed.hostId(), this);
+
+        SftpVirtualFile vf = new SftpVirtualFile(this, parsed.hostId(), parsed.remotePath(), session, /*isDirectory=*/false);
+        if (!vf.statAndUpdate()) {
+            return null;
         }
+        instances.putIfAbsent(key, vf);
+        return instances.get(key);
     }
 
     @Override

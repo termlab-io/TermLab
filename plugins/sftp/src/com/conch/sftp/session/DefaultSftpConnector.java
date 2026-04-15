@@ -11,13 +11,9 @@ import org.jetbrains.annotations.Nullable;
 public final class DefaultSftpConnector implements SftpConnector {
 
     @Override
-    public @NotNull SshSftpSession open(@NotNull SshHost host) throws SshConnectException {
-        HostCredentialBundle bundle = HostCredentialBundle.resolveForHost(host);
-        if (bundle == null) {
-            throw new SshConnectException(
-                SshConnectException.Kind.AUTH_FAILED,
-                "Could not resolve credentials for " + host.label());
-        }
+    public @NotNull SshSftpSession open(@NotNull SshHost host, @NotNull HostCredentialBundle bundle)
+        throws SshConnectException
+    {
         return ConchSftpConnector.open(host, bundle.target(), bundle.bastion());
     }
 

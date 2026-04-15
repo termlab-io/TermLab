@@ -2,6 +2,7 @@ package com.conch.sftp.session;
 
 import com.conch.sftp.client.SshSftpSession;
 import com.conch.ssh.client.SshConnectException;
+import com.conch.ssh.client.SshResolvedCredential;
 import com.conch.ssh.credentials.HostCredentialBundle;
 import com.conch.ssh.model.PromptPasswordAuth;
 import com.conch.ssh.model.SshHost;
@@ -74,14 +75,17 @@ class SftpSessionManagerTest {
         final AtomicInteger openCount = new AtomicInteger();
 
         @Override
-        public @NotNull SshSftpSession open(@NotNull SshHost host) {
+        public @NotNull SshSftpSession open(@NotNull SshHost host, @NotNull HostCredentialBundle bundle) {
             openCount.incrementAndGet();
             return noOpSession();
         }
 
         @Override
         public @Nullable HostCredentialBundle resolveCredentials(@NotNull SshHost host) {
-            return null;
+            // Tests don't need real credentials — FakeConnector.open() ignores the bundle.
+            // Build a minimal stub using the public record constructor.
+            SshResolvedCredential stub = SshResolvedCredential.password("test-user", new char[0]);
+            return new HostCredentialBundle(stub, null);
         }
     }
 
