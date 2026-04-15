@@ -57,8 +57,7 @@ import java.util.stream.Collectors;
 public final class RemoteFilePane extends JPanel {
 
     private final Project project;
-    private final FileBrowserTable browser =
-        new FileBrowserTable(ListSelectionModel.MULTIPLE_INTERVAL_SELECTION);
+    private final FileBrowserTable browser;
     private final JComboBox<SshHost> hostPicker = new JComboBox<>();
     private final JTextField pathField = new JTextField();
     private final JLabel statusLabel = new JLabel("Not connected");
@@ -73,11 +72,13 @@ public final class RemoteFilePane extends JPanel {
     public RemoteFilePane(@NotNull Project project) {
         super(new BorderLayout());
         this.project = project;
+        this.browser = new FileBrowserTable(
+            ListSelectionModel.MULTIPLE_INTERVAL_SELECTION,
+            new RemoteRowTransferHandler());
 
         add(buildNorth(), BorderLayout.NORTH);
 
         browser.addDoubleClickListener(this::onRowActivatedWithEntry);
-        browser.enableDragAndDrop(new RemoteRowTransferHandler());
 
         browser.getTable().addMouseListener(new MouseAdapter() {
             @Override

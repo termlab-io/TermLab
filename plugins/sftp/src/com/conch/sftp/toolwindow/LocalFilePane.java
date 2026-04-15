@@ -50,8 +50,7 @@ import java.util.stream.Stream;
 public final class LocalFilePane extends JPanel {
 
     private final Project project;
-    private final FileBrowserTable browser =
-        new FileBrowserTable(ListSelectionModel.MULTIPLE_INTERVAL_SELECTION);
+    private final FileBrowserTable browser;
     private final JTextField pathField = new JTextField();
 
     private Path currentDir;
@@ -60,6 +59,9 @@ public final class LocalFilePane extends JPanel {
     public LocalFilePane(@NotNull Project project) {
         super(new BorderLayout());
         this.project = project;
+        this.browser = new FileBrowserTable(
+            ListSelectionModel.MULTIPLE_INTERVAL_SELECTION,
+            new LocalRowTransferHandler());
 
         JPanel north = new JPanel(new BorderLayout());
         north.add(buildToolbar().getComponent(), BorderLayout.WEST);
@@ -71,7 +73,6 @@ public final class LocalFilePane extends JPanel {
         add(north, BorderLayout.NORTH);
 
         browser.addDoubleClickListener(this::onRowActivatedWithEntry);
-        browser.enableDragAndDrop(new LocalRowTransferHandler());
 
         browser.getTable().addMouseListener(new MouseAdapter() {
             @Override

@@ -47,7 +47,7 @@ public final class FileBrowserTable {
      * Use {@link #FileBrowserTable(int)} to override.
      */
     public FileBrowserTable() {
-        this(ListSelectionModel.SINGLE_SELECTION);
+        this(ListSelectionModel.SINGLE_SELECTION, null);
     }
 
     /**
@@ -57,6 +57,31 @@ public final class FileBrowserTable {
      * multi-file delete / DnD work correctly.
      */
     public FileBrowserTable(int selectionMode) {
+        this(selectionMode, null);
+    }
+
+    /**
+     * Create a widget with the given selection mode and an optional
+     * {@link TransferHandler} for drag-and-drop. Passing the handler here
+     * — rather than calling {@link #enableDragAndDrop} after construction —
+     * ensures that {@code dragEnabled}, {@code dropMode}, and
+     * {@code transferHandler} are all set before the terminal
+     * {@link javax.swing.JComponent#updateUI()} call that re-installs the
+     * L&amp;F delegate. Some L&amp;F implementations (e.g. the IntelliJ
+     * Darcula/New UI delegate) cache drag-recognition state at
+     * {@code installUI} time; passing {@code null} here is equivalent to
+     * calling the two-argument constructor.
+     */
+    public FileBrowserTable(int selectionMode, @Nullable TransferHandler transferHandler) {
+        // Configure drag/drop FIRST, before any other table setup. The
+        // BasicTableUI may check these properties at install time and we
+        // want them in their final state as early as possible.
+        table.setDragEnabled(true);
+        table.setDropMode(DropMode.ON);
+        if (transferHandler != null) {
+            table.setTransferHandler(transferHandler);
+        }
+
         table.setAutoResizeMode(JBTable.AUTO_RESIZE_LAST_COLUMN);
         table.setShowGrid(false);
         table.setFillsViewportHeight(true);
@@ -72,21 +97,8 @@ public final class FileBrowserTable {
         sorter.setSortsOnUpdates(true);
         table.setRowSorter(sorter);
 
-        // Enable drag BEFORE adding any further mouse listeners and BEFORE
-        // wrapping in a JScrollPane.  Swing's BasicTableUI.MouseInputHandler
-        // reads the dragEnabled property during mousePressed to decide whether
-        // to hand control to the DragRecognitionSupport machinery or fall back
-        // to plain row-selection.  If the JScrollPane is constructed (which
-        // internally triggers addNotify / updateUI on the viewport peer) before
-        // dragEnabled is set, the L&F mouse handler is wired up in
-        // "selection-only" mode and a later setDragEnabled(true) call cannot
-        // retro-fit the drag recogniser — the flag is checked at event time,
-        // but the handler's internal pressed-point bookkeeping has already been
-        // initialised without drag awareness.  Setting it here, before both the
-        // JScrollPane construction and our own addMouseListener call, restores
-        // the ordering that the pre-refactor panes used and that DnD requires.
-        table.setDragEnabled(true);
-
+        // Install the double-click listener AFTER drag setup so
+        // BasicTableUI's MouseInputHandler is already registered.
         table.addMouseListener(new MouseAdapter() {
             @Override
             public void mouseClicked(MouseEvent e) {
@@ -111,6 +123,13 @@ public final class FileBrowserTable {
         });
 
         scrollPane = new JScrollPane(table);
+
+        // Force BasicTableUI to uninstall + reinstall after all properties
+        // are set. Some L&F implementations cache dragEnabled / transferHandler
+        // state at install time; the retroactive flag flips don't affect the
+        // already-installed MouseInputHandler. updateUI() triggers a full
+        // re-install with dragEnabled=true and transferHandler in place.
+        table.updateUI();
     }
 
     public void setEntries(@NotNull List<? extends FileEntry> entries) {
