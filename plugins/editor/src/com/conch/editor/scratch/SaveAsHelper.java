@@ -1,6 +1,7 @@
 package com.conch.editor.scratch;
 
 import com.conch.core.filepicker.FilePickerResult;
+import com.conch.core.filepicker.FileSource;
 import com.conch.core.filepicker.ui.UnifiedFilePickerDialog;
 import com.conch.sftp.vfs.SftpUrl;
 import com.intellij.ide.util.PropertiesComponent;
@@ -54,11 +55,22 @@ final class SaveAsHelper {
         if (result == null) return;
 
         byte[] bytes = doc.getText().getBytes(StandardCharsets.UTF_8);
+        // Dialog released its source reference on dispose; re-acquire for the write.
+        FileSource source = result.source();
+        Object writeToken = new Object();
         try {
-            result.source().writeFile(result.absolutePath(), bytes);
+            source.open(project, writeToken);
         } catch (IOException ioe) {
             notifyError(project, "Save failed: " + ioe.getMessage());
             return;
+        }
+        try {
+            source.writeFile(result.absolutePath(), bytes);
+        } catch (IOException ioe) {
+            notifyError(project, "Save failed: " + ioe.getMessage());
+            return;
+        } finally {
+            source.close(writeToken);
         }
 
         rememberLastUsedSource(result.source().id());
