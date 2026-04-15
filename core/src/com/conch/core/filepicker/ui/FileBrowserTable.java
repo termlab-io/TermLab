@@ -63,7 +63,6 @@ public final class FileBrowserTable {
     /**
      * Create a widget with the given selection mode and an optional
      * {@link TransferHandler} for drag-and-drop. Passing the handler here
-     * — rather than calling {@link #enableDragAndDrop} after construction —
      * ensures that {@code dragEnabled}, {@code dropMode}, and
      * {@code transferHandler} are all set before the terminal
      * {@link javax.swing.JComponent#updateUI()} call that re-installs the
@@ -149,23 +148,6 @@ public final class FileBrowserTable {
     }
 
     /**
-     * Configure this table as a drag-and-drop source and target.
-     * Sets {@link DropMode#ON} and the given {@link TransferHandler} on
-     * the underlying table.  {@code dragEnabled} is already set to
-     * {@code true} in the constructor (it must be set before the internal
-     * mouse listener and the JScrollPane are created); this method only
-     * supplies the drop mode and the transfer handler, which can safely be
-     * set at any point before the widget is shown.
-     *
-     * <p>Call this method instead of reaching through {@link #getTable()}
-     * to configure DnD individually.
-     */
-    public void enableDragAndDrop(@NotNull TransferHandler handler) {
-        table.setDropMode(DropMode.ON);
-        table.setTransferHandler(handler);
-    }
-
-    /**
      * The embeddable component. Put this into your layout wherever you
      * want the table to appear.
      */
@@ -174,10 +156,9 @@ public final class FileBrowserTable {
     }
 
     /**
-     * Direct access to the underlying {@link JBTable}. Used by the
-     * existing SFTP tool window panes for DnD source/target setup.
-     * New callers should prefer the higher-level API methods on this
-     * class (e.g. {@link #enableDragAndDrop}).
+     * Direct access to the underlying {@link JBTable}. Use for
+     * advanced configuration not exposed by the higher-level API
+     * methods on this class.
      */
     public @NotNull JBTable getTable() {
         return table;

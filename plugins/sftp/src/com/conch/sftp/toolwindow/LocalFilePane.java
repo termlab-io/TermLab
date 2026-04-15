@@ -29,7 +29,6 @@ import javax.swing.*;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.awt.*;
 import java.awt.datatransfer.StringSelection;
-import java.awt.datatransfer.UnsupportedFlavorException;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.io.IOException;
@@ -103,35 +102,6 @@ public final class LocalFilePane extends JPanel {
                 maybeShowPopup(e);
             }
         });
-        // Drop side: standard Swing mechanism. This works regardless of
-        // whether BasicTableUI's drag recognition fires.
-        table.setDropMode(DropMode.ON);
-        table.setTransferHandler(new LocalRowTransferHandler());
-
-        // Drag side: install an explicit DragGestureRecognizer via AWT's
-        // DragSource. JTable.setDragEnabled(true) is supposed to do this
-        // internally via BasicTableUI, but for reasons we can't pin down
-        // it's not working in this codebase — possibly JBTable overrides,
-        // possibly a platform version interaction. Driving the gesture
-        // recognizer ourselves sidesteps the whole question.
-        java.awt.dnd.DragSource dragSource = java.awt.dnd.DragSource.getDefaultDragSource();
-        dragSource.createDefaultDragGestureRecognizer(
-            table,
-            java.awt.dnd.DnDConstants.ACTION_MOVE,
-            event -> {
-                // Ensure the row under the press point is selected so the
-                // transfer handler has source rows to export.
-                java.awt.Point origin = event.getDragOrigin();
-                int row = table.rowAtPoint(origin);
-                if (row >= 0 && !table.isRowSelected(row)) {
-                    table.setRowSelectionInterval(row, row);
-                }
-                javax.swing.TransferHandler handler = table.getTransferHandler();
-                if (handler != null && table.getSelectedRowCount() > 0) {
-                    handler.exportAsDrag(table, event.getTriggerEvent(),
-                        javax.swing.TransferHandler.MOVE);
-                }
-            });
         add(new JScrollPane(table), BorderLayout.CENTER);
 
         reload(initialDirectory());
@@ -251,80 +221,6 @@ public final class LocalFilePane extends JPanel {
     @FunctionalInterface
     private interface ThrowingRunnable {
         Object run() throws Exception;
-    }
-
-    private final class LocalRowTransferHandler extends TransferHandler {
-        @Override
-        public int getSourceActions(JComponent c) {
-            return MOVE;
-        }
-
-        @Override
-        protected @NotNull FileRowsTransferable createTransferable(JComponent c) {
-            int[] viewRows = table.getSelectedRows();
-            int[] modelRows = new int[viewRows.length];
-            for (int i = 0; i < viewRows.length; i++) {
-                modelRows[i] = table.convertRowIndexToModel(viewRows[i]);
-            }
-            return new FileRowsTransferable(LocalFilePane.this, modelRows);
-        }
-
-        @Override
-        public boolean canImport(TransferSupport support) {
-            if (!support.isDrop()) return false;
-            if (!support.isDataFlavorSupported(FileRowsTransferable.FLAVOR)) return false;
-            JTable.DropLocation drop = (JTable.DropLocation) support.getDropLocation();
-            int viewRow = drop.getRow();
-            if (viewRow < 0 || viewRow >= table.getRowCount()) return false;
-            int modelRow = table.convertRowIndexToModel(viewRow);
-            var entry = model.getEntryAt(modelRow);
-            if (!(entry instanceof LocalFileEntry target) || !target.isDirectory()) return false;
-            // Reject drops onto a row inside the currently-dragged set
-            // (moving into yourself is a no-op at best, a disaster at worst).
-            try {
-                FileRowsTransferable data = (FileRowsTransferable)
-                    support.getTransferable().getTransferData(FileRowsTransferable.FLAVOR);
-                if (data.sourceToken() != LocalFilePane.this) return false;
-                for (int row : data.modelRows()) {
-                    if (row == modelRow) return false;
-                }
-            } catch (UnsupportedFlavorException | IOException e) {
-                return false;
-            }
-            return true;
-        }
-
-        @Override
-        public boolean importData(TransferSupport support) {
-            if (!canImport(support)) return false;
-            JTable.DropLocation drop = (JTable.DropLocation) support.getDropLocation();
-            int targetModelRow = table.convertRowIndexToModel(drop.getRow());
-            var targetEntry = model.getEntryAt(targetModelRow);
-            if (!(targetEntry instanceof LocalFileEntry target) || !target.isDirectory()) return false;
-            Path destDir = target.path();
-
-            FileRowsTransferable data;
-            try {
-                data = (FileRowsTransferable)
-                    support.getTransferable().getTransferData(FileRowsTransferable.FLAVOR);
-            } catch (UnsupportedFlavorException | IOException e) {
-                return false;
-            }
-            List<Path> sources = new ArrayList<>();
-            for (int modelRow : data.modelRows()) {
-                var entry = model.getEntryAt(modelRow);
-                if (entry instanceof LocalFileEntry local) sources.add(local.path());
-            }
-            if (sources.isEmpty()) return false;
-
-            runOps("Move", () -> {
-                for (Path source : sources) {
-                    LocalFileOps.move(source, destDir);
-                }
-                return null;
-            });
-            return true;
-        }
     }
 
     private @NotNull ActionToolbar buildToolbar() {

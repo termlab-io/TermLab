@@ -38,7 +38,6 @@ import javax.swing.table.TableRowSorter;
 import javax.swing.*;
 import java.awt.*;
 import java.awt.datatransfer.StringSelection;
-import java.awt.datatransfer.UnsupportedFlavorException;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.io.IOException;
@@ -109,35 +108,6 @@ public final class RemoteFilePane extends JPanel {
                 maybeShowPopup(e);
             }
         });
-        // Drop side: standard Swing mechanism. This works regardless of
-        // whether BasicTableUI's drag recognition fires.
-        table.setDropMode(DropMode.ON);
-        table.setTransferHandler(new RemoteRowTransferHandler());
-
-        // Drag side: install an explicit DragGestureRecognizer via AWT's
-        // DragSource. JTable.setDragEnabled(true) is supposed to do this
-        // internally via BasicTableUI, but for reasons we can't pin down
-        // it's not working in this codebase — possibly JBTable overrides,
-        // possibly a platform version interaction. Driving the gesture
-        // recognizer ourselves sidesteps the whole question.
-        java.awt.dnd.DragSource dragSource = java.awt.dnd.DragSource.getDefaultDragSource();
-        dragSource.createDefaultDragGestureRecognizer(
-            table,
-            java.awt.dnd.DnDConstants.ACTION_MOVE,
-            event -> {
-                // Ensure the row under the press point is selected so the
-                // transfer handler has source rows to export.
-                java.awt.Point origin = event.getDragOrigin();
-                int row = table.rowAtPoint(origin);
-                if (row >= 0 && !table.isRowSelected(row)) {
-                    table.setRowSelectionInterval(row, row);
-                }
-                javax.swing.TransferHandler handler = table.getTransferHandler();
-                if (handler != null && table.getSelectedRowCount() > 0) {
-                    handler.exportAsDrag(table, event.getTriggerEvent(),
-                        javax.swing.TransferHandler.MOVE);
-                }
-            });
         add(new JScrollPane(table), BorderLayout.CENTER);
 
         JPanel south = new JPanel(new BorderLayout());
@@ -580,83 +550,6 @@ public final class RemoteFilePane extends JPanel {
     @FunctionalInterface
     private interface RemoteOp {
         Object run(@NotNull SshSftpSession session) throws Exception;
-    }
-
-    // -- DnD (intra-pane move) ----------------------------------------------
-
-    private final class RemoteRowTransferHandler extends TransferHandler {
-        @Override
-        public int getSourceActions(JComponent c) {
-            return MOVE;
-        }
-
-        @Override
-        protected @NotNull FileRowsTransferable createTransferable(JComponent c) {
-            int[] viewRows = table.getSelectedRows();
-            int[] modelRows = new int[viewRows.length];
-            for (int i = 0; i < viewRows.length; i++) {
-                modelRows[i] = table.convertRowIndexToModel(viewRows[i]);
-            }
-            return new FileRowsTransferable(RemoteFilePane.this, modelRows);
-        }
-
-        @Override
-        public boolean canImport(TransferSupport support) {
-            if (!support.isDrop()) return false;
-            if (!support.isDataFlavorSupported(FileRowsTransferable.FLAVOR)) return false;
-            if (activeSession == null) return false;
-            JTable.DropLocation drop = (JTable.DropLocation) support.getDropLocation();
-            int viewRow = drop.getRow();
-            if (viewRow < 0 || viewRow >= table.getRowCount()) return false;
-            int modelRow = table.convertRowIndexToModel(viewRow);
-            var entry = model.getEntryAt(modelRow);
-            if (!(entry instanceof RemoteFileEntry target) || !target.isDirectory()) return false;
-            try {
-                FileRowsTransferable data = (FileRowsTransferable)
-                    support.getTransferable().getTransferData(FileRowsTransferable.FLAVOR);
-                if (data.sourceToken() != RemoteFilePane.this) return false;
-                for (int row : data.modelRows()) {
-                    if (row == modelRow) return false;
-                }
-            } catch (UnsupportedFlavorException | IOException e) {
-                return false;
-            }
-            return true;
-        }
-
-        @Override
-        public boolean importData(TransferSupport support) {
-            if (!canImport(support) || currentRemotePath == null) return false;
-            JTable.DropLocation drop = (JTable.DropLocation) support.getDropLocation();
-            int targetModelRow = table.convertRowIndexToModel(drop.getRow());
-            var targetEntry = model.getEntryAt(targetModelRow);
-            if (!(targetEntry instanceof RemoteFileEntry target) || !target.isDirectory()) return false;
-            String destDir = joinPath(currentRemotePath, target.name());
-
-            FileRowsTransferable data;
-            try {
-                data = (FileRowsTransferable)
-                    support.getTransferable().getTransferData(FileRowsTransferable.FLAVOR);
-            } catch (UnsupportedFlavorException | IOException e) {
-                return false;
-            }
-            List<String> sources = new ArrayList<>();
-            for (int modelRow : data.modelRows()) {
-                var entry = model.getEntryAt(modelRow);
-                if (entry instanceof RemoteFileEntry remote) {
-                    sources.add(joinPath(currentRemotePath, remote.name()));
-                }
-            }
-            if (sources.isEmpty()) return false;
-
-            runOps("Move", session -> {
-                for (String source : sources) {
-                    RemoteFileOps.move(session.client(), source, destDir);
-                }
-                return null;
-            });
-            return true;
-        }
     }
 
     private static final class HostPickerRenderer extends DefaultListCellRenderer {
