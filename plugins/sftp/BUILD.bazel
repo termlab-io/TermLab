@@ -1,3 +1,4 @@
+load("@rules_java//java:defs.bzl", "java_binary")
 load("@rules_jvm//:jvm.bzl", "jvm_library", "resourcegroup")
 
 resourcegroup(
@@ -30,6 +31,35 @@ jvm_library(
         "//libraries/sshd-osgi",
         "@lib//:jetbrains-annotations",
         "@lib//:kotlin-stdlib",
+    ],
+)
+
+jvm_library(
+    name = "sftp_test_lib",
+    module_name = "intellij.conch.sftp.tests",
+    visibility = ["//visibility:public"],
+    srcs = glob(["test/**/*.java"], allow_empty = True),
+    deps = [
+        ":sftp",
+        "//conch/sdk",
+        "//conch/plugins/ssh",
+        "//conch/plugins/sftp/libs:sshd_sftp",
+        "//libraries/sshd-osgi",
+        "//libraries/junit5",
+        "//libraries/junit5-jupiter",
+        "//libraries/junit5-launcher",
+        "@lib//:jetbrains-annotations",
+        "@lib//:kotlin-stdlib",
+    ],
+)
+
+java_binary(
+    name = "sftp_test_runner",
+    main_class = "com.conch.sftp.TestRunner",
+    runtime_deps = [
+        ":sftp_test_lib",
+        "//libraries/junit5-jupiter",
+        "//libraries/junit5-launcher",
     ],
 )
 
