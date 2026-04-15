@@ -55,7 +55,7 @@ public final class SftpVirtualFile extends VirtualFile {
         this.isDirectory = isDirectoryHint;
     }
 
-    @NotNull UUID hostId() { return hostId; }
+    public @NotNull UUID hostId() { return hostId; }
     @NotNull String remotePath() { return remotePath; }
 
     /**

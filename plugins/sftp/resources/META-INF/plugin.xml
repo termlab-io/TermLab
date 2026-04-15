@@ -50,6 +50,11 @@
             physical="false"/>
     </extensions>
 
+    <projectListeners>
+        <listener class="com.conch.sftp.session.SftpEditorTabListener"
+                  topic="com.intellij.openapi.fileEditor.FileEditorManagerListener"/>
+    </projectListeners>
+
     <actions>
         <!--
           "New SFTP Session…" — Cmd+Shift+K on macOS, Ctrl+Shift+K on

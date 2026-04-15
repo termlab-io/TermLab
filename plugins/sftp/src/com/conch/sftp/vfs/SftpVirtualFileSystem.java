@@ -45,6 +45,24 @@ public final class SftpVirtualFileSystem extends DeprecatedVirtualFileSystem {
         return SftpUrl.PROTOCOL;
     }
 
+    /**
+     * Resolves a VFS path to an {@link SftpVirtualFile}. The session is
+     * acquired only for the duration of the remote stat call and released
+     * immediately afterwards.
+     *
+     * <p><b>Known limitation:</b> callers should hold their own session
+     * reference (e.g. via {@link SftpSessionManager#acquire}) before calling
+     * this method. If no other consumer holds a reference for the target host,
+     * the session is opened, used for the stat, and immediately torn down,
+     * leaving the returned {@code SftpVirtualFile} with a dead session until
+     * some other consumer re-acquires it.
+     *
+     * <p>In the normal flow, the SFTP tool window pane holds the session open
+     * before the user can double-click a file, so this constraint is
+     * transparently satisfied. {@link com.conch.editor.sftp.EditorRemoteFileOpener}
+     * also acquires a tab-scoped reference (via {@link SftpEditorTabListener})
+     * before calling {@link com.intellij.openapi.fileEditor.FileEditorManager#openFile}.
+     */
     @Override
     public @Nullable VirtualFile findFileByPath(@NotNull String path) {
         // path here is the URL-without-protocol form: "<hostId>//<absolute-remote-path>"
@@ -66,19 +84,21 @@ public final class SftpVirtualFileSystem extends DeprecatedVirtualFileSystem {
             LOG.warn("findFileByPath could not acquire session for " + host.label(), e);
             return null;
         }
-
-        // We hold a session reference for the lifetime of the VFS instance.
-        // The reference is never released; sessions are torn down by:
-        // (a) explicit forceDisconnect from the SFTP tool window
-        // (b) IDE shutdown via SftpSessionManager.dispose()
-
-        SftpVirtualFile vf = new SftpVirtualFile(this, parsed.hostId(), parsed.remotePath(), session, /*isDirectory=*/false);
-        // Remote-stat to determine isDirectory and existence.
-        if (!vf.statAndUpdate()) {
-            return null;
+        // Release immediately — findFileByPath only needs the session for
+        // the duration of the stat call. Other consumers (the SFTP tool
+        // window pane, or editor tabs via SftpEditorTabListener) hold
+        // longer-lived references that keep the session alive between calls.
+        try {
+            SftpVirtualFile vf = new SftpVirtualFile(this, parsed.hostId(), parsed.remotePath(), session, /*isDirectory=*/false);
+            // Remote-stat to determine isDirectory and existence.
+            if (!vf.statAndUpdate()) {
+                return null;
+            }
+            instances.putIfAbsent(key, vf);
+            return instances.get(key);
+        } finally {
+            SftpSessionManager.getInstance().release(parsed.hostId(), this);
         }
-        instances.putIfAbsent(key, vf);
-        return instances.get(key);
     }
 
     @Override

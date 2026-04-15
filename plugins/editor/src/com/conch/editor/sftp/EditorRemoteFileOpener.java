@@ -42,6 +42,15 @@ public final class EditorRemoteFileOpener implements RemoteFileOpener {
             return;
         }
 
+        // Acquire a tab-scoped session reference; SftpEditorTabListener
+        // releases it when the editor tab closes.
+        try {
+            com.conch.sftp.session.SftpSessionManager.getInstance().acquire(host, vf);
+        } catch (com.conch.ssh.client.SshConnectException e) {
+            notifyError(project, "Session lost for " + host.label() + ": " + e.getMessage());
+            return;
+        }
+
         FileEditorManager.getInstance(project).openFile(vf, true);
     }
 
