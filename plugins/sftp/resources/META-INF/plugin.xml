@@ -32,6 +32,9 @@
         <applicationService
             serviceImplementation="com.conch.sftp.persistence.ConchSftpConfig"/>
 
+        <applicationService
+            serviceImplementation="com.conch.sftp.session.SftpSessionManager"/>
+
         <toolWindow
             id="Conch SFTP"
             anchor="bottom"
