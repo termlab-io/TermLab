@@ -34,6 +34,7 @@ class TermLabProperties(private val communityHomeDir: Path) : JetBrainsProductPr
       "intellij.termlab.ssh",
       "intellij.termlab.vault",
       "intellij.termlab.tunnels",
+      "intellij.termlab.share",
       "intellij.termlab.sftp",
       "intellij.termlab.editor",
       "intellij.classic.ui",

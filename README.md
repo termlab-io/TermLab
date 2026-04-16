@@ -2,7 +2,7 @@
 
 TermLab is an Integrated SysOps Environment built on the IntelliJ Product Platform.
 
-It is designed as a one-stop shop for home lab enthusiasts and infrastructure professionals who want terminal-first workflows, remote access tooling, and systems management capabilities in one desktop application. Today, TermLab focuses on SSH access, credential management, SFTP workflows, and tunnel management. Over time, it is intended to grow into a broader operations workstation with first-class cluster, container, and platform tooling.
+It is designed as a one-stop shop for home lab enthusiasts and infrastructure professionals who want terminal-first workflows, remote access tooling, and systems management capabilities in one desktop application. Today, TermLab focuses on SSH access, credential management, SFTP workflows, tunnel management, and encrypted sharing of remote-connection setups. Over time, it is intended to grow into a broader operations workstation with first-class cluster, container, and platform tooling.
 
 ## What TermLab Is
 
@@ -17,6 +17,7 @@ Compared with a full IntelliJ IDE, TermLab removes large portions of the traditi
 - SSH key generation inside the vault
 - Dual-pane SFTP UI for local and remote file browsing
 - SSH tunnel management for local and remote forwarding
+- Encrypted bundle export/import for SSH hosts, tunnels, and vault-backed credentials
 - Command Palette and workspace-oriented terminal workflow
 - IntelliJ-based settings, actions, shortcuts, and plugin structure
 
@@ -92,6 +93,7 @@ Once TermLab is running, the usual starting points are:
 2. Open or unlock the Credential Vault.
 3. Add or select an SSH host.
 4. Start an SSH session, open SFTP, or create a tunnel.
+5. Use `Tools | Export TermLab Bundle...` or `Tools | Import TermLab Bundle...` to share or restore connection setups.
 
 ### Core Product Shortcuts
 

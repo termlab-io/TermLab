@@ -123,6 +123,11 @@ public final class HostsToolWindow extends JPanel {
         group.add(new EditHostAction());
         group.add(new DeleteHostAction());
         group.addSeparator();
+        AnAction exportAction = ActionManager.getInstance().getAction("TermLab.Share.Export.Hosts");
+        AnAction importAction = ActionManager.getInstance().getAction("TermLab.Share.Import.Hosts");
+        if (exportAction != null) group.add(exportAction);
+        if (importAction != null) group.add(importAction);
+        group.addSeparator();
         group.add(new RefreshAction());
 
         ActionToolbar toolbar = ActionManager.getInstance()

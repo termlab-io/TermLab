@@ -72,33 +72,40 @@ TERMLAB_MODULES=(
   "termlab/plugins/ssh/intellij.termlab.ssh.iml"
   "termlab/plugins/vault/intellij.termlab.vault.iml"
   "termlab/plugins/tunnels/intellij.termlab.tunnels.iml"
+  "termlab/plugins/share/intellij.termlab.share.iml"
   "termlab/plugins/sftp/intellij.termlab.sftp.iml"
   "termlab/plugins/editor/intellij.termlab.editor.iml"
 )
 
-if grep -q "intellij.termlab.main.iml" "$MODULES_XML"; then
+MISSING_MODULES=()
+for path in "${TERMLAB_MODULES[@]}"; do
+  if ! grep -Fq "$path" "$MODULES_XML"; then
+    MISSING_MODULES+=("$path")
+  fi
+done
+
+if [ ${#MISSING_MODULES[@]} -eq 0 ]; then
   echo "==> TermLab modules already registered in $MODULES_XML"
 else
-  echo "==> Registering termlab modules in $MODULES_XML"
-
-  # Build the block of <module .../> lines to insert.
-  INSERT_BLOCK=""
-  for path in "${TERMLAB_MODULES[@]}"; do
-    line="      <module fileurl=\"file://\$PROJECT_DIR\$/$path\" filepath=\"\$PROJECT_DIR\$/$path\" />"
-    INSERT_BLOCK+="$line"$'\n'
+  echo "==> Registering missing TermLab modules in $MODULES_XML"
+  for path in "${MISSING_MODULES[@]}"; do
+    echo "    + $path"
   done
 
-  # Find the anchor line and inject the block right after it.
+  # Find the anchor line and inject only the missing module entries
+  # right after it.
   ANCHOR='intellij.compose.ide.plugin.shared.tests.iml'
   if ! grep -q "$ANCHOR" "$MODULES_XML"; then
     echo "ERROR: anchor line not found in $MODULES_XML." >&2
     echo "       The intellij-community version may have changed." >&2
     echo "       Manually add these lines to .idea/modules.xml inside <modules>:" >&2
-    printf "%s" "$INSERT_BLOCK" >&2
+    for path in "${MISSING_MODULES[@]}"; do
+      echo "      <module fileurl=\"file://\$PROJECT_DIR\$/$path\" filepath=\"\$PROJECT_DIR\$/$path\" />" >&2
+    done
     exit 1
   fi
 
-  python3 - "$MODULES_XML" "$ANCHOR" "${TERMLAB_MODULES[@]}" <<'PYEOF'
+  python3 - "$MODULES_XML" "$ANCHOR" "${MISSING_MODULES[@]}" <<'PYEOF'
 import sys
 
 path, anchor, *modules = sys.argv[1:]

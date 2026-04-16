@@ -11,6 +11,7 @@ import org.junit.jupiter.api.io.TempDir;
 import java.nio.file.Path;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
 
@@ -180,6 +181,80 @@ class LockManagerTest {
         VaultFile.save(file, new Vault(), "pw".getBytes());
         LockManager lm = new LockManager(file);
         assertThrows(IllegalStateException.class, lm::save);
+    }
+
+    @Test
+    void createVault_writesFileAndUnlocks(@TempDir Path tmp) throws Exception {
+        Path vaultPath = tmp.resolve("vault.enc");
+        LockManager lm = new LockManager(vaultPath);
+        byte[] password = "hunter22hunter22".getBytes();
+
+        try {
+            lm.createVault(password);
+            assertFalse(lm.isLocked());
+            assertTrue(VaultFile.exists(vaultPath));
+            Vault vault = lm.getVault();
+            assertNotNull(vault);
+            assertTrue(vault.accounts.isEmpty());
+            assertTrue(vault.keys.isEmpty());
+        } finally {
+            Arrays.fill(password, (byte) 0);
+        }
+    }
+
+    @Test
+    void createVault_failsIfFileAlreadyExists(@TempDir Path tmp) throws Exception {
+        Path vaultPath = tmp.resolve("vault.enc");
+        LockManager lm1 = new LockManager(vaultPath);
+        byte[] password = "hunter22hunter22".getBytes();
+        try {
+            lm1.createVault(password);
+            LockManager lm2 = new LockManager(vaultPath);
+            assertThrows(IllegalStateException.class, () -> lm2.createVault(password));
+        } finally {
+            Arrays.fill(password, (byte) 0);
+        }
+    }
+
+    @Test
+    void withUnlocked_runsOperationAndAutoLocks(@TempDir Path tmp) throws Exception {
+        Path vaultPath = tmp.resolve("vault.enc");
+        LockManager lm = new LockManager(vaultPath);
+        byte[] password = "hunter22hunter22".getBytes();
+
+        try {
+            lm.createVault(password);
+            lm.lock();
+            assertTrue(lm.isLocked());
+
+            String result = lm.withUnlocked(password, vault -> {
+                assertNotNull(vault);
+                return "ok-" + vault.accounts.size();
+            });
+
+            assertEquals("ok-0", result);
+            assertTrue(lm.isLocked(), "withUnlocked should auto-lock when it was locked on entry");
+        } finally {
+            Arrays.fill(password, (byte) 0);
+        }
+    }
+
+    @Test
+    void withUnlocked_doesNotLockIfAlreadyUnlocked(@TempDir Path tmp) throws Exception {
+        Path vaultPath = tmp.resolve("vault.enc");
+        LockManager lm = new LockManager(vaultPath);
+        byte[] password = "hunter22hunter22".getBytes();
+
+        try {
+            lm.createVault(password);
+            assertFalse(lm.isLocked());
+
+            lm.withUnlocked(password, vault -> null);
+
+            assertFalse(lm.isLocked(), "withUnlocked must not lock when already unlocked on entry");
+        } finally {
+            Arrays.fill(password, (byte) 0);
+        }
     }
 
     @Test

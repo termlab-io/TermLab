@@ -1,0 +1,43 @@
+<idea-plugin>
+    <id>com.termlab.share</id>
+    <name>TermLab Share</name>
+    <vendor>TermLab</vendor>
+    <description>Export and import SSH hosts, tunnels, and credentials as encrypted bundles.</description>
+
+    <depends>com.termlab.core</depends>
+    <depends>com.termlab.vault</depends>
+    <depends>com.termlab.ssh</depends>
+    <depends>com.termlab.tunnels</depends>
+
+    <actions>
+        <action id="TermLab.Share.Export.Hosts"
+                class="com.termlab.share.actions.ExportAction"
+                text="Export..."
+                description="Export to a TermLab share bundle"/>
+        <action id="TermLab.Share.Import.Hosts"
+                class="com.termlab.share.actions.ImportAction"
+                text="Import..."
+                description="Import from a TermLab share bundle"/>
+        <action id="TermLab.Share.Export.Tunnels"
+                class="com.termlab.share.actions.ExportActionTunnels"
+                text="Export..."
+                description="Export to a TermLab share bundle"/>
+        <action id="TermLab.Share.Import.Tunnels"
+                class="com.termlab.share.actions.ImportAction"
+                text="Import..."
+                description="Import from a TermLab share bundle"/>
+
+        <action id="TermLab.Share.Export.Menu"
+                class="com.termlab.share.actions.ExportAction"
+                text="Export TermLab Bundle..."
+                description="Export SSH hosts and tunnels as an encrypted share bundle">
+            <add-to-group group-id="ToolsMenu" anchor="last"/>
+        </action>
+        <action id="TermLab.Share.Import.Menu"
+                class="com.termlab.share.actions.ImportAction"
+                text="Import TermLab Bundle..."
+                description="Import SSH hosts, tunnels, and credentials from a share bundle">
+            <add-to-group group-id="ToolsMenu" anchor="last"/>
+        </action>
+    </actions>
+</idea-plugin>

@@ -10,9 +10,11 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.function.Function;
 import java.util.function.Supplier;
 
 /**
@@ -133,6 +135,61 @@ public final class LockManager {
             unlockedVault = null;
             setState(VaultState.LOCKED);
             throw e;
+        }
+    }
+
+    /**
+     * Create a brand new empty vault and unlock it using the provided
+     * password.
+     *
+     * @throws IllegalStateException if the manager is not locked or a vault
+     *                               file already exists at the configured path
+     * @throws IOException           if writing the new vault file fails
+     */
+    public synchronized void createVault(@NotNull byte[] password) throws IOException {
+        if (state != VaultState.LOCKED) {
+            throw new IllegalStateException("cannot create vault when one is already unlocked");
+        }
+        Path path = vaultPathSupplier.get();
+        if (VaultFile.exists(path)) {
+            throw new IllegalStateException("vault file already exists at " + path);
+        }
+        Path parent = path.getParent();
+        if (parent != null) {
+            Files.createDirectories(parent);
+        }
+        VaultFile.save(path, new Vault(), password);
+        try {
+            unlock(password);
+        } catch (WrongPasswordException | VaultCorruptedException impossible) {
+            throw new IllegalStateException("freshly created vault failed to unlock", impossible);
+        }
+    }
+
+    /**
+     * Run a vault operation with the vault unlocked, auto-saving afterwards.
+     * If the manager was locked on entry, it is re-locked in a finally block.
+     */
+    public synchronized <T> T withUnlocked(
+        @NotNull byte[] password,
+        @NotNull Function<Vault, T> operation
+    ) throws IOException, WrongPasswordException, VaultCorruptedException {
+        boolean wasLocked = isLocked();
+        if (wasLocked) {
+            unlock(password);
+        }
+        try {
+            Vault vault = getVault();
+            if (vault == null) {
+                throw new IllegalStateException("vault is unexpectedly locked after unlock()");
+            }
+            T result = operation.apply(vault);
+            save();
+            return result;
+        } finally {
+            if (wasLocked) {
+                lock();
+            }
         }
     }
 

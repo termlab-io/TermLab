@@ -53,6 +53,7 @@ java_binary(
         "//termlab/plugins/vault",
         "//termlab/plugins/ssh",
         "//termlab/plugins/tunnels",
+        "//termlab/plugins/share",
         "//termlab/plugins/sftp",
         # Light editor: scratch files + SFTP-triggered file editing.
         "//termlab/plugins/editor",
