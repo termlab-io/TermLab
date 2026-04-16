@@ -57,6 +57,8 @@ java_binary(
         "//termlab/plugins/sftp",
         # Light editor: scratch files + SFTP-triggered file editing.
         "//termlab/plugins/editor",
+        # Script runner: lightweight script execution on local/remote hosts.
+        "//termlab/plugins/runner",
         # Runtime implementation of PasswordSafe — required by the vault
         # plugin so it can store the device secret in the cross-platform
         # credential store (Keychain / Credential Manager / KWallet /

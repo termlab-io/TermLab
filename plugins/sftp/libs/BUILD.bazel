@@ -24,6 +24,7 @@ java_import(
     visibility = [
         "//termlab/plugins/sftp:__pkg__",
         "//termlab/plugins/editor:__pkg__",
+        "//termlab/plugins/runner:__pkg__",
     ],
 )
 
