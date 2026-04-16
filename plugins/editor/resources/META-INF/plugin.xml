@@ -20,11 +20,13 @@
             displayType="BALLOON"/>
 
         <postStartupActivity
-            implementation="com.termlab.editor.debug.TextMateBuiltinBundleEnabler"/>
-
-        <postStartupActivity
             implementation="com.termlab.editor.sftp.LegacyTempDirCleanup"/>
     </extensions>
+
+    <applicationListeners>
+        <listener class="com.termlab.editor.debug.TextMateBuiltinBundleEnabler"
+                  topic="com.intellij.ide.AppLifecycleListener"/>
+    </applicationListeners>
 
     <extensions defaultExtensionNs="com.termlab.sftp">
         <localFileOpener implementation="com.termlab.editor.sftp.EditorLocalFileOpener"/>
