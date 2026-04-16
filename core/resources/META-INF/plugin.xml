@@ -362,6 +362,15 @@
                 <keyboard-shortcut keymap="Mac OS X" first-keystroke="meta shift D" replace-all="true"/>
             </action>
 
+            <action id="TermLab.PopOutTerminalTab"
+                    class="com.termlab.core.actions.PopOutTerminalTabAction"
+                    text="Pop Out Terminal Tab"
+                    description="Move the active terminal tab into its own window">
+                <keyboard-shortcut keymap="$default" first-keystroke="control shift alt ENTER"/>
+                <keyboard-shortcut keymap="Mac OS X 10.5+" first-keystroke="meta alt shift ENTER" replace-all="true"/>
+                <keyboard-shortcut keymap="Mac OS X" first-keystroke="meta alt shift ENTER" replace-all="true"/>
+            </action>
+
             <separator/>
 
             <action id="TermLab.FocusTerminalLeft"

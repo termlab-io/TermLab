@@ -107,6 +107,7 @@ These are the product-specific shortcuts currently wired into the app:
 | Close Terminal Tab | `Cmd+W` | `Ctrl+Shift+W` |
 | Split Terminal Right | `Cmd+D` | `Ctrl+Shift+E` |
 | Split Terminal Down | `Cmd+Shift+D` | `Ctrl+Shift+O` |
+| Pop Out Terminal Tab | `Cmd+Option+Shift+Enter` | `Ctrl+Shift+Alt+Enter` |
 | Save Workspace As | `Cmd+Shift+S` | `Ctrl+Alt+S` |
 | Rename Tab | `F2` | `F2` |
 
