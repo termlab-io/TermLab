@@ -14,7 +14,7 @@ import org.jetbrains.annotations.Nullable;
  */
 public final class TransferNotifications {
 
-    public static final String GROUP_ID = "TermLab SFTP";
+    public static final String GROUP_ID = "SFTP";
 
     private TransferNotifications() {
     }

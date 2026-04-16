@@ -1,6 +1,6 @@
 <idea-plugin>
     <id>com.termlab.sftp</id>
-    <name>TermLab SFTP</name>
+    <name>SFTP</name>
     <version>0.1.0</version>
     <vendor>TermLab</vendor>
     <description>
@@ -25,9 +25,9 @@
 
     <extensions defaultExtensionNs="com.intellij">
         <notificationGroup
-            id="TermLab SFTP"
+            id="SFTP"
             displayType="BALLOON"
-            toolWindowId="TermLab SFTP"/>
+            toolWindowId="SFTP"/>
 
         <applicationService
             serviceImplementation="com.termlab.sftp.persistence.TermLabSftpConfig"/>
@@ -36,7 +36,7 @@
             serviceImplementation="com.termlab.sftp.session.SftpSessionManager"/>
 
         <toolWindow
-            id="TermLab SFTP"
+            id="SFTP"
             anchor="bottom"
             icon="AllIcons.Nodes.ExtractedFolder"
             factoryClass="com.termlab.sftp.toolwindow.SftpToolWindowFactory"/>

@@ -32,7 +32,7 @@ import java.util.UUID;
  */
 final class SaveAsHelper {
 
-    private static final String NOTIFICATION_GROUP = "TermLab SFTP";
+    private static final String NOTIFICATION_GROUP = "SFTP";
     private static final String LAST_SOURCE_KEY = "termlab.editor.lastRemoteSourceId";
 
     private SaveAsHelper() {}

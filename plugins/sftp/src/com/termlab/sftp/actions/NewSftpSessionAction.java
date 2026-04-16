@@ -33,7 +33,7 @@ import java.util.UUID;
  * "New SFTP Session…" — the Cmd+Shift+K / Ctrl+Shift+K entry point
  * that mirrors the SSH plugin's Cmd+K popup. Shows a filterable
  * list of every saved {@link SshHost} from {@link HostStore};
- * picking a host opens the TermLab SFTP tool window (if not already
+ * picking a host opens the SFTP tool window (if not already
  * visible) and kicks off
  * {@link RemoteFilePane#connectTo(UUID)} against that host.
  *

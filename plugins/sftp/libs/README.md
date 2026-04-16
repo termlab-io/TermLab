@@ -1,4 +1,4 @@
-# Vendored libraries — TermLab SFTP plugin
+# Vendored libraries — SFTP plugin
 
 ## sshd-sftp-2.15.0.jar
 
@@ -16,7 +16,7 @@ directory entry / file attribute types used by this plugin.
 
 This jar is committed to the repo rather than pulled through
 `intellij-community`'s auto-generated `lib/MODULE.bazel` system so the
-TermLab SFTP plugin stays fully self-contained. The `maven libs` section
+SFTP plugin stays fully self-contained. The `maven libs` section
 of that file is regenerated periodically, which would wipe out any
 addition we made there.
 

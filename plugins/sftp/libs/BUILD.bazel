@@ -4,7 +4,7 @@ load("@rules_java//java:defs.bzl", "java_import")
 # provenance (Apache MINA SSHD 2.15.0 pulled from Maven Central,
 # SHA-1 verified). The jar is committed to the repo rather than
 # pulled through intellij-community's auto-generated
-# lib/MODULE.bazel system so the TermLab SFTP plugin stays fully
+# lib/MODULE.bazel system so the SFTP plugin stays fully
 # self-contained — the `maven libs` section is regenerated
 # periodically and would wipe out any addition we made there.
 #

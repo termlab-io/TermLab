@@ -8,7 +8,7 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Application-level persistence for the TermLab SFTP plugin. Keeps
+ * Application-level persistence for the SFTP plugin. Keeps
  * track of the user's last local directory and last connected host
  * so the tool window restores sensible context across restarts.
  */

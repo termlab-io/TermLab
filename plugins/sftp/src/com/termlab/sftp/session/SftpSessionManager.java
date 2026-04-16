@@ -195,7 +195,7 @@ public final class SftpSessionManager implements Disposable {
     ) {
         com.intellij.openapi.wm.ToolWindow tw =
             com.intellij.openapi.wm.ToolWindowManager.getInstance(project)
-                .getToolWindow("TermLab SFTP");
+                .getToolWindow("SFTP");
         if (tw == null) return null;
         var contents = tw.getContentManager().getContents();
         for (var content : contents) {

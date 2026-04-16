@@ -13,7 +13,7 @@ import org.jetbrains.annotations.NotNull;
 public final class OpenGuards {
 
     public static final long SIZE_CAP_BYTES = 5L * 1024 * 1024;
-    private static final String NOTIFICATION_GROUP = "TermLab SFTP";
+    private static final String NOTIFICATION_GROUP = "SFTP";
 
     private OpenGuards() {}
 

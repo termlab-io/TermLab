@@ -14,7 +14,7 @@ import org.jetbrains.annotations.NotNull;
 
 public final class EditorLocalFileOpener implements LocalFileOpener {
 
-    private static final String NOTIFICATION_GROUP = "TermLab SFTP";
+    private static final String NOTIFICATION_GROUP = "SFTP";
 
     @Override
     public void open(@NotNull Project project, @NotNull LocalFileEntry entry) {
@@ -22,7 +22,7 @@ public final class EditorLocalFileOpener implements LocalFileOpener {
         VirtualFile vf = LocalFileSystem.getInstance().refreshAndFindFileByNioFile(entry.path());
         if (vf == null) {
             Notifications.Bus.notify(
-                new Notification(NOTIFICATION_GROUP, "TermLab SFTP",
+                new Notification(NOTIFICATION_GROUP, "SFTP",
                     "Could not open " + entry.path(), NotificationType.ERROR),
                 project);
             return;

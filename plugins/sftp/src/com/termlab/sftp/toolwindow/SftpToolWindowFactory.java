@@ -9,7 +9,7 @@ import org.jetbrains.annotations.NotNull;
 
 public final class SftpToolWindowFactory implements ToolWindowFactory {
 
-    public static final String ID = "TermLab SFTP";
+    public static final String ID = "SFTP";
 
     @Override
     public void createToolWindowContent(@NotNull Project project, @NotNull ToolWindow toolWindow) {

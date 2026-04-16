@@ -106,6 +106,10 @@
         <actionConfigurationCustomizer
             implementation="com.termlab.core.actions.TermLabActionConfigurationCustomizer"/>
 
+        <defaultToolWindowLayout
+            implementation="com.termlab.core.TermLabDefaultToolWindowLayout"
+            order="last"/>
+
         <projectService
             serviceImplementation="com.termlab.core.workspace.WorkspaceManager"/>
 

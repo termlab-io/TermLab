@@ -18,7 +18,7 @@ import org.jetbrains.annotations.NotNull;
 
 public final class EditorRemoteFileOpener implements RemoteFileOpener {
 
-    private static final String NOTIFICATION_GROUP = "TermLab SFTP";
+    private static final String NOTIFICATION_GROUP = "SFTP";
 
     @Override
     public void open(
@@ -56,7 +56,7 @@ public final class EditorRemoteFileOpener implements RemoteFileOpener {
 
     private static void notifyError(@NotNull Project project, @NotNull String message) {
         Notifications.Bus.notify(
-            new Notification(NOTIFICATION_GROUP, "TermLab SFTP", message, NotificationType.ERROR),
+            new Notification(NOTIFICATION_GROUP, "SFTP", message, NotificationType.ERROR),
             project);
     }
 }

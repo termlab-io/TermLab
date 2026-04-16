@@ -1,195 +1,197 @@
 # TermLab
 
-A terminal-driven workstation built on top of the IntelliJ Platform — a stripped-down IDE that boots straight to terminals, with workspace persistence, CWD-aware file explorer, command palette, and a JediTerm-based emulator embedded in the editor area.
+TermLab is an Integrated SysOps Environment built on the IntelliJ Product Platform.
 
-## What's in this repo
+It is designed as a one-stop shop for home lab enthusiasts and infrastructure professionals who want terminal-first workflows, remote access tooling, and systems management capabilities in one desktop application. Today, TermLab focuses on SSH access, credential management, SFTP workflows, and tunnel management. Over time, it is intended to grow into a broader operations workstation with first-class cluster, container, and platform tooling.
 
-```
-termlab_workbench/
-├── BUILD.bazel              # Bazel target for the termlab product
-├── Makefile                 # Build & run helpers (delegates to bazel in intellij root)
-├── INTELLIJ_REF             # Pinned intellij-community SHA
-├── setup.sh                 # One-time bootstrap (shallow-clones intellij + symlinks)
-├── core/                    # Plugin code: terminal editor, workspace, palette, mini-window
-├── customization/           # Branding, ApplicationInfo, plugin XML
-├── sdk/                     # Plugin SDK interfaces (TerminalSessionProvider, etc.)
-└── docs/                    # Design notes
-```
+## What TermLab Is
 
-This repo contains *only* TermLab source. It's built by checking it out alongside an [intellij-community](https://github.com/JetBrains/intellij-community) tree and symlinking it into `intellij-community/termlab/`. Bazel reads the source from disk and treats TermLab like any other in-tree IntelliJ module.
+TermLab is a stripped-down IntelliJ Platform product tailored for SysOps work instead of general software development.
 
-## The git landscape
+Compared with a full IntelliJ IDE, TermLab removes large portions of the traditional IDE surface area and keeps the pieces that matter for terminal, remote access, and operator workflows. Under the hood it still benefits from the IntelliJ Product Platform's windowing model, action system, settings infrastructure, keymaps, search UI, plugin architecture, and cross-platform desktop runtime.
 
-TermLab follows the same model Google uses for Android Studio: **two independent repos, joined at the working tree**.
+## Current Capabilities
 
-```
-~/projects/
-├── termlab_workbench/                 ← THIS repo (your code)
-│   └── ...
-└── intellij-community/              ← upstream from JetBrains, vendored
-    ├── platform/                    ← intellij sources
-    ├── plugins/                     ← intellij sources
-    └── termlab  →  ../termlab_workbench  (symlink, created by setup.sh)
-```
+- SSH host connection and session launching
+- Encrypted credential vault for passwords, keys, and passphrases
+- SSH key generation inside the vault
+- Dual-pane SFTP UI for local and remote file browsing
+- SSH tunnel management for local and remote forwarding
+- Command Palette and workspace-oriented terminal workflow
+- IntelliJ-based settings, actions, shortcuts, and plugin structure
 
-- **termlab_workbench** is your code. Push it, branch it, version it normally.
-- **intellij-community** is treated as a vendored snapshot. You don't push to it. You shallow-clone it once at a known-good SHA (the one stored in `INTELLIJ_REF`) and only update when you decide to take a new "drop" from upstream.
-- The **symlink** is the only thing connecting them. Bazel doesn't know or care that `intellij-community/termlab` is a symlink — it sees the files on disk.
+## Planned Direction
 
-### Why this layout?
+The current roadmap includes expanding TermLab beyond the SSH-centric core into broader homelab and infrastructure management workflows, including:
 
-- **Clean history.** This repo only contains commits that touched TermLab — no IntelliJ noise.
-- **Small clones.** New contributors fetch ~1-2 GB (shallow intellij clone) instead of ~30 GB.
-- **Updates on your schedule.** Bumping `INTELLIJ_REF` is a one-line change. Until you bump it, your build is reproducible against a fixed upstream.
-- **No fork sprawl.** You're not maintaining a fork of intellij-community on GitHub. Upstream stays upstream.
+- Proxmox plugin support for managing Proxmox clusters
+- A fuller Kubernetes management experience
+- Local container management for tools such as Podman and Docker
+- Additional systems-management plugins built on the same product foundation
 
-This is conceptually identical to Android Studio's split between [`platform/tools/idea`](https://android.googlesource.com/platform/tools/idea/) (the vendored intellij) and [`platform/tools/adt/idea`](https://android.googlesource.com/platform/tools/adt/idea/) (the Android-specific code). They use Google's `repo` tool to glue them together; we use a single symlink.
+These are forward-looking plans, not features that are complete today.
 
-## Quick start
+## Quick Start
 
-Requirements: macOS or Linux, Bash, Git, ~5 GB free disk space.
+### Requirements
+
+- macOS or Linux
+- Bash
+- Git
+- Python 3
+- Enough disk space for a shallow `intellij-community` checkout plus build output
+
+### Clone and Bootstrap
 
 ```bash
-# 1. Clone this repo wherever you keep projects.
-git clone https://github.com/an0nn30/termlab_workbench ~/projects/termlab_workbench
-cd ~/projects/termlab_workbench
-
-# 2. Bootstrap: shallow-clones intellij-community next door and symlinks
-#    this repo into intellij-community/termlab.
+git clone https://github.com/an0nn30/conch_workbench ~/projects/conch_workbench
+cd ~/projects/conch_workbench
 ./setup.sh
+```
 
-# 3. Build and run.
+`setup.sh` does the initial platform wiring:
+
+- reads the pinned upstream IntelliJ ref from `INTELLIJ_REF`
+- shallow-clones `intellij-community`
+- symlinks this repo into `intellij-community/termlab`
+- writes `.intellij-root` so local build commands can find the platform checkout
+- installs an IntelliJ run configuration and module registrations for debugging
+
+### Build and Run
+
+```bash
 make termlab
 ```
 
-The first build takes a while (Bazel compiles a lot of intellij modules from scratch). Subsequent builds are incremental and fast.
+Useful targets:
 
-### Custom intellij location
+| Target | Purpose |
+| --- | --- |
+| `make termlab` | Build and run TermLab |
+| `make termlab-build` | Build without launching |
+| `make termlab-clean` | Clean Bazel build artifacts |
+| `make termlab-installers` | Build installer artifacts for supported platforms |
+| `make termlab-installers-mac` | Build macOS installers |
+| `make termlab-installers-linux` | Build Linux installers |
+| `make termlab-installers-windows` | Build Windows installers |
+| `make termlab-perf-benchmark` | Run the idle-footprint benchmark harness |
+| `make termlab-perf-budget` | Check the latest benchmark against budget thresholds |
 
-By default, `setup.sh` creates `intellij-community/` as a sibling of `termlab_workbench/`. To put it elsewhere:
+If your `intellij-community` checkout lives somewhere other than the default sibling directory:
 
 ```bash
 ./setup.sh ~/some/other/path/intellij-community
-```
-
-`make termlab` will then need `INTELLIJ_ROOT` set:
-
-```bash
 INTELLIJ_ROOT=~/some/other/path/intellij-community make termlab
 ```
 
-## Updating the pinned intellij-community ref
+## Getting Started in the App
 
-When JetBrains ships a new IntelliJ release that has fixes you want, bump `INTELLIJ_REF` and re-pull:
+Once TermLab is running, the usual starting points are:
 
-```bash
-# Find the SHA you want — e.g. a release tag from
-# https://github.com/JetBrains/intellij-community/tags
-NEW_REF=<sha-or-tag>
+1. Open the Command Palette to discover available TermLab actions.
+2. Open or unlock the Credential Vault.
+3. Add or select an SSH host.
+4. Start an SSH session, open SFTP, or create a tunnel.
 
-echo "$NEW_REF" > INTELLIJ_REF
+### Core Product Shortcuts
 
-# Re-fetch in your existing intellij-community checkout
-cd ../intellij-community
-git fetch --depth 1 origin "$NEW_REF"
-git checkout FETCH_HEAD
+These are the product-specific shortcuts currently wired into the app:
 
-# Verify TermLab still builds against the new ref
-cd ../termlab_workbench
-make termlab-build
+| Action | macOS | Linux / Windows |
+| --- | --- | --- |
+| Command Palette | `Cmd+Shift+P` | `Ctrl+Shift+P` |
+| New SSH Session | `Cmd+K` | `Ctrl+K` |
+| New SFTP Session | `Cmd+Shift+K` | `Ctrl+Shift+K` |
+| Open Vault | `Cmd+Shift+V` | `Ctrl+Shift+V` |
+| New Terminal Tab | `Cmd+T` | `Ctrl+Shift+T` |
+| Close Terminal Tab | `Cmd+W` | `Ctrl+Shift+W` |
+| Split Terminal Right | `Cmd+D` | `Ctrl+Shift+E` |
+| Split Terminal Down | `Cmd+Shift+D` | `Ctrl+Shift+O` |
+| Save Workspace As | `Cmd+Shift+S` | `Ctrl+Alt+S` |
+| Rename Tab | `F2` | `F2` |
 
-# Commit the bump if it works
-git add INTELLIJ_REF
-git commit -m "chore: bump intellij-community to <ref>"
+## JetBrains Help and Shortcut References
+
+Because TermLab is built on the IntelliJ Product Platform, many interaction patterns, settings screens, and keyboard behaviors follow JetBrains conventions.
+
+Useful JetBrains documentation:
+
+- Keyboard shortcuts: https://www.jetbrains.com/help/idea/mastering-keyboard-shortcuts.html
+- Search Everywhere and action search concepts: https://www.jetbrains.com/help/idea/searching-everywhere.html
+- Configuring keymaps: https://www.jetbrains.com/help/idea/configuring-keyboard-and-mouse-shortcuts.html
+- IntelliJ IDEA help index: https://www.jetbrains.com/help/idea/discover-intellij-idea.html
+
+TermLab intentionally reshapes parts of that experience, but those docs are still the best reference for general platform behaviors, navigation patterns, and shortcut customization.
+
+## Development Layout
+
+This repository contains the TermLab source tree, not a full IntelliJ fork.
+
+TermLab is developed alongside a separate `intellij-community` checkout:
+
+```text
+~/projects/
+├── conch_workbench/            # this repository
+└── intellij-community/         # JetBrains platform checkout
+    └── termlab -> ../conch_workbench
 ```
 
-If the build breaks because of an upstream API change, fix it in this repo (the same way you'd patch any other dependency upgrade), commit the fix and the bump together.
+That split keeps the product code isolated while still letting Bazel and the IntelliJ project model treat TermLab as an in-tree platform product.
 
-## Make targets
+High-level layout:
 
-| Target            | What it does                                                |
-| ----------------- | ----------------------------------------------------------- |
-| `make termlab`      | Build and run TermLab (opens `$HOME` as workspace root by default). |
-| `make termlab-build`| Build only — useful for CI or quick "does it compile" runs. |
-| `make termlab-clean`| `bazel clean` in the intellij tree.                         |
-| `make termlab-perf-benchmark` | Launch TermLab, sample idle RSS/CPU in a dedicated local perf workspace, and write CSV+JSON+env artifacts under `perf-results/`. |
-| `make termlab-perf-budget` | Read the latest benchmark summary and print Stage A/Stage B budget status. |
-
-All targets resolve `INTELLIJ_ROOT` from this Makefile's location (`..`). Override the env var if your layout differs.
-You can also override the workspace root explicitly with `TERMLAB_WORKSPACE=/path make termlab`.
-
-### Performance benchmarking loop
-
-TermLab includes a reproducible idle-footprint harness for the dev path (`make termlab`):
-
-```bash
-make termlab-perf-benchmark
-make termlab-perf-budget
+```text
+.
+├── core/             # core product behavior, actions, themes, workspace flow
+├── customization/    # branding, application info, product identity
+├── sdk/              # shared extension interfaces for TermLab plugins
+├── plugins/          # product features such as SSH, Vault, SFTP, Tunnels, Editor
+├── docs/             # plans, specs, and design notes
+├── scripts/          # setup, IDE integration, perf, and build helpers
+├── setup.sh          # bootstrap script
+└── Makefile          # main build and run entry points
 ```
 
-The benchmark target:
+## Running and Debugging from IntelliJ IDEA
 
-- launches TermLab through `make termlab`
-- uses `$(WORKBENCH_DIR)/.perf-workspace` as the default benchmark workspace (override with `TERMLAB_PERF_WORKSPACE=/path`)
-- waits for warmup, then samples process RSS/CPU at a fixed interval
-- captures `jcmd` snapshots (`VM.native_memory`, `GC.heap_info`, `VM.flags`)
-- writes artifacts to `perf-results/<timestamp>/`:
-  - `metrics.csv`
-  - `summary.json`
-  - `summary.env`
-  - `jcmd-thread-print.txt`
-  - `jcmd-class-histogram.txt`
-  - `termlab.log`
-
-It also updates:
-
-- `perf-results/latest_summary.json`
-- `perf-results/latest_summary.env`
-- `perf-results/latest_metrics.csv`
-
-Default gate policy:
-
-- Stage A: `<=200MB` average RSS and `<=1%` average CPU
-- Stage B (stretch): `<=100MB` average RSS and `<=1%` average CPU
-
-You can tune the run without editing scripts:
+After `./setup.sh`, open the `intellij-community` checkout in IntelliJ IDEA, not this repo by itself.
 
 ```bash
-make termlab-perf-benchmark \
-  TERMLAB_PERF_WORKSPACE=/tmp/termlab-bench-workspace \
-  TERMLAB_PERF_WARMUP_SEC=120 \
-  TERMLAB_PERF_SAMPLE_SEC=5 \
-  TERMLAB_PERF_DURATION_SEC=600 \
-  TERMLAB_PERF_OUT=/tmp/termlab-perf
+# Open this directory in IntelliJ IDEA:
+~/projects/intellij-community
 ```
 
-## Running and debugging from IntelliJ IDEA
+The bootstrap script installs:
 
-`setup.sh` automatically wires TermLab into the IntelliJ project that lives in `intellij-community/.idea/`, so you can run and debug from the IDE with breakpoints in termlab sources.
+- a `TermLab` run configuration under `.idea/runConfigurations/`
+- the TermLab module registrations in `.idea/modules.xml`
 
-It does two things:
+That gives you normal run and debug flows with breakpoints in the TermLab sources.
 
-1. Drops `TermLab.xml` into `intellij-community/.idea/runConfigurations/` — an `Application` run config that boots `com.intellij.idea.Main` with `-Didea.platform.prefix=TermLab` and the same JVM flags `make termlab` uses.
-2. Patches `intellij-community/.idea/modules.xml` to register the four termlab `.iml` files (`intellij.termlab.{main,core,sdk,customization}`) so IntelliJ can resolve their dependencies and compile them.
-
-To use it:
-
-```bash
-# Open the intellij-community tree as a project (NOT the termlab_workbench dir).
-# IntelliJ IDEA → Open → ~/projects/intellij-community
-```
-
-After indexing, the **TermLab** run configuration appears in the run dropdown. ▶ runs it; 🐞 debugs it. Set breakpoints anywhere under `termlab/` (the symlinked tree) and they'll fire.
-
-> **Note about `intellij-community/.idea/modules.xml`:** the patch shows up as a "modified" tracked file in the upstream tree. That's expected — your local intellij-community is a vendored snapshot and never gets pushed anywhere, so the local diff is harmless. If you want to hide it from `git status`, run `git -C ~/projects/intellij-community update-index --skip-worktree .idea/modules.xml`. Note that this also blocks future upstream changes to that file from being pulled cleanly; just toggle it back with `--no-skip-worktree` before running `git pull`.
-
-If you ever need to re-install the IDE config without re-running full setup:
+If you need to reinstall the IDE wiring:
 
 ```bash
 ./scripts/install-idea-config.sh
 ```
 
-It's idempotent.
+## Updating the Pinned IntelliJ Platform
+
+To move TermLab to a newer `intellij-community` ref:
+
+```bash
+echo "<sha-or-tag>" > INTELLIJ_REF
+cd ../intellij-community
+git fetch --depth 1 origin "$(cat ../conch_workbench/INTELLIJ_REF)"
+git checkout FETCH_HEAD
+cd ../conch_workbench
+make termlab-build
+```
+
+If the platform update introduces API breakage, fix the TermLab code in this repo and commit the code changes together with the `INTELLIJ_REF` bump.
+
+## Status
+
+TermLab is actively evolving. The current product already provides a usable foundation for SSH-driven systems work, but the longer-term vision is broader: a focused operations workstation built on top of the IntelliJ Product Platform rather than a general-purpose IDE.
 
 ## License
 

@@ -15,7 +15,7 @@ import org.jetbrains.annotations.Nullable;
 import java.io.IOException;
 
 /**
- * Bridges the TermLab SFTP plugin to the TermLab SSH plugin's
+ * Bridges the SFTP plugin to the TermLab SSH plugin's
  * {@link TermLabSshClient#connectSession} pipeline. Returns a
  * {@link SshSftpSession} that owns both the underlying
  * {@link ClientSession} and its {@link SftpClient} subsystem.

@@ -3,24 +3,24 @@
 generate_version.py — Stamp the product version and commit SHA into
 customization/resources/idea/TermLabApplicationInfo.xml in place.
 
-Only four attributes are touched, all on the <version> element:
+Three attributes on the <version> element are touched:
 
-    <version major="X" minor="Y" patch="Z" suffix="<short-sha>"/>
+    <version major="2026" minor="2" suffix="0.1.0 (abc1234)"/>
+
+major and minor are derived from $(INTELLIJ_ROOT)/build.txt so the
+installer build's platform assertion passes. The product version and
+git SHA go into suffix, which the IDE displays in the About dialog and
+window title bar.
 
 Everything else — the <build> tag, motto, logos, themes, essential-plugin
-list, comments, whitespace — is preserved byte-for-byte. The file is
-edited as raw text (targeted regex replacement) rather than parsed and
-re-serialized, so human edits survive regeneration.
+list, comments, whitespace — is preserved byte-for-byte.
 
 Inputs:
     $VERSION        If set, persisted to customization/version.properties
                     as product.version before the XML is rewritten.
-
-Version format:
-    X.Y or X.Y.Z (missing parts default to 0). Examples:
-        VERSION=0.1.0  → major=0 minor=1 patch=0
-        VERSION=0.1    → major=0 minor=1 patch=0
-        VERSION=1.2.3  → major=1 minor=2 patch=3
+    $INTELLIJ_ROOT  Override for upstream build.txt location. Falls back
+                    to .intellij-root, then to a sibling
+                    intellij-community directory (matches Makefile).
 """
 from __future__ import annotations
 
@@ -54,8 +54,6 @@ def read_props(path: Path) -> dict[str, str]:
 
 
 def write_prop(path: Path, key: str, value: str) -> None:
-    """Update `key` in a .properties file in place, preserving comments
-    and the order of other entries. Appends the key if missing."""
     lines = path.read_text(encoding="utf-8").splitlines(keepends=True)
     out: list[str] = []
     replaced = False
@@ -76,17 +74,22 @@ def write_prop(path: Path, key: str, value: str) -> None:
     path.write_text("".join(out), encoding="utf-8")
 
 
-def parse_version(raw: str) -> tuple[str, str, str]:
-    """'0.1.0' -> ('0', '1', '0'). Missing minor/patch default to '0'."""
-    parts = raw.strip().split(".")
-    if not (1 <= len(parts) <= 3):
-        die(f"version '{raw}' must be X, X.Y, or X.Y.Z")
-    for p in parts:
-        if not p.isdigit():
-            die(f"version '{raw}' component '{p}' is not numeric")
-    while len(parts) < 3:
-        parts.append("0")
-    return parts[0], parts[1], parts[2]
+def resolve_intellij_root() -> Path:
+    env = os.environ.get("INTELLIJ_ROOT", "").strip()
+    if env:
+        return Path(env)
+    root_file = WORKBENCH / ".intellij-root"
+    if root_file.exists():
+        return Path(root_file.read_text(encoding="utf-8").strip())
+    return WORKBENCH.parent / "intellij-community"
+
+
+def decode_platform_version(build_raw: str) -> tuple[str, str]:
+    """'262.SNAPSHOT' -> ('2026', '2')."""
+    prefix = build_raw.split(".", 1)[0]
+    if not prefix.isdigit() or len(prefix) < 3:
+        die(f"cannot decode platform version from build.txt prefix '{prefix}'")
+    return f"20{prefix[:2]}", prefix[2:]
 
 
 def git_sha() -> str:
@@ -152,20 +155,27 @@ def main() -> None:
     if not product_version:
         die("product.version missing from version.properties")
 
-    major, minor, patch = parse_version(product_version)
+    intellij_root = resolve_intellij_root()
+    build_txt = intellij_root / "build.txt"
+    if not build_txt.exists():
+        die(f"build.txt not found at {build_txt} — set INTELLIJ_ROOT or run ./setup.sh")
+    build_raw = build_txt.read_text(encoding="utf-8").strip()
+    platform_major, platform_minor = decode_platform_version(build_raw)
+
     sha = git_sha()
+    suffix = f"{product_version} ({sha})"
 
     text = APP_INFO_XML.read_text(encoding="utf-8")
-    text = set_attribute(text, "version", "major", major)
-    text = set_attribute(text, "version", "minor", minor)
-    text = set_attribute(text, "version", "patch", patch)
-    text = set_attribute(text, "version", "suffix", sha)
+    text = set_attribute(text, "version", "major", platform_major)
+    text = set_attribute(text, "version", "minor", platform_minor)
+    text = set_attribute(text, "version", "suffix", suffix)
     APP_INFO_XML.write_text(text, encoding="utf-8")
 
     rel = APP_INFO_XML.relative_to(WORKBENCH)
     print(f"[generate_version] updated {rel}")
-    print(f"  version : {major}.{minor}.{patch}")
-    print(f"  suffix  : {sha}")
+    print(f"  product version : {product_version}")
+    print(f"  platform        : {platform_major}.{platform_minor}  (build.txt={build_raw})")
+    print(f"  suffix          : {suffix}")
 
 
 if __name__ == "__main__":
