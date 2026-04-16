@@ -3,6 +3,9 @@ package com.termlab.core.terminal;
 import com.termlab.core.settings.TermLabTerminalConfig;
 import com.termlab.sdk.TerminalSessionProvider;
 import com.intellij.openapi.application.ApplicationManager;
+import com.intellij.openapi.editor.colors.EditorColorsListener;
+import com.intellij.openapi.editor.colors.EditorColorsManager;
+import com.intellij.openapi.editor.colors.EditorColorsScheme;
 import com.intellij.openapi.fileEditor.FileEditor;
 import com.intellij.openapi.fileEditor.FileEditorManager;
 import com.intellij.openapi.fileEditor.FileEditorState;
@@ -28,6 +31,7 @@ public final class TermLabTerminalEditor extends UserDataHolderBase implements F
     private final Project project;
     private final TermLabTerminalVirtualFile file;
     private final TermLabTerminalWidget terminalWidget;
+    private final com.intellij.util.messages.MessageBusConnection messageBusConnection;
     private TtyConnector connector;
 
     public TermLabTerminalEditor(@NotNull Project project,
@@ -35,7 +39,9 @@ public final class TermLabTerminalEditor extends UserDataHolderBase implements F
         this.project = project;
         this.file = file;
         this.terminalWidget = new TermLabTerminalWidget(new TermLabTerminalSettings());
+        this.messageBusConnection = ApplicationManager.getApplication().getMessageBus().connect();
         applyCursorShape();
+        installAppearanceListeners();
         initTerminalSession();
         installFileDropHandler();
     }
@@ -114,9 +120,25 @@ public final class TermLabTerminalEditor extends UserDataHolderBase implements F
 
     @Override
     public void dispose() {
+        messageBusConnection.disconnect();
         if (connector != null) {
             try { connector.close(); } catch (Exception ignored) {}
         }
+    }
+
+    private void installAppearanceListeners() {
+        messageBusConnection.subscribe(EditorColorsManager.TOPIC, new EditorColorsListener() {
+            @Override
+            public void globalSchemeChange(@Nullable EditorColorsScheme scheme) {
+                ApplicationManager.getApplication().invokeLater(() -> {
+                    if (project.isDisposed()) {
+                        return;
+                    }
+                    terminalWidget.refreshAppearance();
+                    applyCursorShape();
+                });
+            }
+        });
     }
 
     private void applyCursorShape() {

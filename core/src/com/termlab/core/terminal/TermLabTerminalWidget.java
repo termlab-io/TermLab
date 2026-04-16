@@ -4,9 +4,9 @@ import com.jediterm.terminal.TerminalDisplay;
 import com.jediterm.terminal.TerminalStarter;
 import com.jediterm.terminal.TtyBasedArrayDataStream;
 import com.jediterm.terminal.TtyConnector;
+import com.jediterm.terminal.model.StyleState;
 import com.jediterm.terminal.emulator.mouse.MouseMode;
 import com.jediterm.terminal.model.JediTerminal;
-import com.jediterm.terminal.model.StyleState;
 import com.jediterm.terminal.model.TerminalTextBuffer;
 import com.jediterm.terminal.ui.JediTermWidget;
 import com.jediterm.terminal.ui.TerminalAction;
@@ -29,9 +29,16 @@ public class TermLabTerminalWidget extends JediTermWidget {
 
     private static final String BRACKETED_PASTE_PREFIX = "\u001b[200~";
     private static final String BRACKETED_PASTE_SUFFIX = "\u001b[201~";
+    private StyleState styleState;
 
     public TermLabTerminalWidget(SettingsProvider settingsProvider) {
         super(settingsProvider);
+    }
+
+    @Override
+    protected StyleState createDefaultStyle() {
+        styleState = super.createDefaultStyle();
+        return styleState;
     }
 
     @Override
@@ -58,6 +65,14 @@ public class TermLabTerminalWidget extends JediTermWidget {
                                           @NotNull TerminalTextBuffer textBuffer,
                                           @NotNull StyleState styleState) {
         return new TermLabJediTerminal(display, textBuffer, styleState);
+    }
+
+    public void refreshAppearance() {
+        if (styleState != null) {
+            styleState.setDefaultStyle(mySettingsProvider.getDefaultStyle());
+            styleState.reset();
+        }
+        myTerminalPanel.repaint();
     }
 
     /**

@@ -30,6 +30,6 @@ public final class TermLabTerminalOnlyFileEditorListener implements FileEditorMa
 
     @Override
     public void fileClosed(@NotNull FileEditorManager source, @NotNull VirtualFile file) {
-        TermLabTabBarManager.applyPreferredTabSettings(source.getProject());
+        TermLabTabBarManager.schedulePreferredTabSettings(source.getProject());
     }
 }

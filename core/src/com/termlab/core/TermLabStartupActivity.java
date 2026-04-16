@@ -39,9 +39,14 @@ public final class TermLabStartupActivity implements ProjectActivity {
         // Quit the app when the last project window is closed (don't show welcome screen)
         GeneralSettings.getInstance().setShowWelcomeScreen(false);
 
+        // If TermLab launches already in Distraction Free Mode while a single
+        // tab is open, normalize the platform's saved "before" tab placement
+        // so new terminal tabs don't get forced through a single hidden slot.
+        TermLabTabBarManager.normalizeDistractionFreeModeTabPlacement();
+
         // Hide the tab bar when only one tab is open, but still allow tabs
         // to appear in Distraction Free Mode once multiple tabs exist.
-        TermLabTabBarManager.applyPreferredTabSettings(project);
+        TermLabTabBarManager.schedulePreferredTabSettings(project);
 
         return Unit.INSTANCE;
     }

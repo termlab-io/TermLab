@@ -13,7 +13,6 @@ import org.jetbrains.annotations.NotNull;
  * mode, which otherwise forces editor tabs completely off.
  */
 public final class TermLabDistractionFreeModeListener implements AnActionListener {
-
     @Override
     public void afterActionPerformed(@NotNull AnAction action,
                                      @NotNull AnActionEvent event,
@@ -21,14 +20,17 @@ public final class TermLabDistractionFreeModeListener implements AnActionListene
         if (!"ToggleDistractionFreeMode".equals(event.getActionManager().getId(action))) {
             return;
         }
+
+        TermLabTabBarManager.normalizeDistractionFreeModeTabPlacement();
+
         Project project = event.getProject();
         if (project != null) {
-            TermLabTabBarManager.applyPreferredTabSettings(project);
+            TermLabTabBarManager.schedulePreferredTabSettings(project);
             return;
         }
 
         for (Project openProject : ProjectManager.getInstance().getOpenProjects()) {
-            TermLabTabBarManager.applyPreferredTabSettings(openProject);
+            TermLabTabBarManager.schedulePreferredTabSettings(openProject);
         }
     }
 }

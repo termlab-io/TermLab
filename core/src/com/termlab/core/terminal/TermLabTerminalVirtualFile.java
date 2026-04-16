@@ -1,6 +1,7 @@
 package com.termlab.core.terminal;
 
 import com.termlab.sdk.TerminalSessionProvider;
+import com.intellij.openapi.fileEditor.FileEditorManagerKeys;
 import com.intellij.testFramework.LightVirtualFile;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -20,6 +21,7 @@ public final class TermLabTerminalVirtualFile extends LightVirtualFile {
         super(title, TermLabTerminalFileType.INSTANCE, "");
         this.sessionId = UUID.randomUUID().toString();
         this.provider = provider;
+        putUserData(FileEditorManagerKeys.FORBID_PREVIEW_TAB, true);
     }
 
     public @NotNull String getSessionId() { return sessionId; }
