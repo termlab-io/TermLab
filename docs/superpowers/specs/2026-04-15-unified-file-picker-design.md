@@ -9,17 +9,17 @@
 
 1. **Fix `Save Scratch to Remote`**: the current `FileChooser.chooseFile` call hits IntelliJ platform code that assumes local-filesystem semantics — it won't render the SFTP virtual filesystem tree and on macOS jumps to the native `NSOpenPanel` entirely. This spec delivers a working remote directory browser for the save flow.
 2. **Unified UX between local and remote**: one dialog widget, one look, one keyboard model. A user saving to local or SFTP sees the same controls in the same places.
-3. **Designed for reuse**: eventually every file-picker call site in Conch should use this dialog. The architecture must not hard-code SFTP assumptions; adding a new source type later is registering one interface implementation, not rewriting the dialog.
+3. **Designed for reuse**: eventually every file-picker call site in TermLab should use this dialog. The architecture must not hard-code SFTP assumptions; adding a new source type later is registering one interface implementation, not rewriting the dialog.
 4. **Shared with the SFTP tool window**: the core table widget used by the dialog is the same widget the existing SFTP tool window panes use. One `FileBrowserTable` implementation, one set of cell renderers, one place to fix bugs.
 
 ## Non-Goals
 
-- Replacing every existing file-picker call site in Conch (follow-up spec per call site).
+- Replacing every existing file-picker call site in TermLab (follow-up spec per call site).
 - A `File → Open Remote File…` action (follow-up; this spec only defines the dialog and wires it into Save Scratch to Remote).
 - Directory creation from within the dialog (follow-up).
 - Type-filter dropdown, hidden-file toggle, multi-select (follow-ups).
 - Replacing `ScratchSaveListener` or `SaveCurrentFileAction` or any local-save flow. Local Cmd+S continues going through `FileDocumentManager.saveDocument`.
-- Unit tests for the dialog widget itself — UI Swing tests require a heavy IntelliJ fixture that Conch doesn't currently have. Deferred to follow-up; manual E2E covers the dialog.
+- Unit tests for the dialog widget itself — UI Swing tests require a heavy IntelliJ fixture that TermLab doesn't currently have. Deferred to follow-up; manual E2E covers the dialog.
 
 ## Architecture
 
@@ -27,21 +27,21 @@ Three modules touch this feature:
 
 ### `core/` (new code)
 
-- `com.conch.core.filepicker.FileEntry` — interface lifted from `plugins/sftp/src/com/conch/sftp/model/FileEntry.java`. Kept small: `name()`, `size()`, `modified()`, `isDirectory()`, `isSymlink()`, `permissions()`.
-- `com.conch.core.filepicker.FileSource` — the pluggable source interface. See the interface section below.
-- `com.conch.core.filepicker.FileSourceProvider` — extension-point interface that returns a list of `FileSource` instances. Registered via `com.conch.core.fileSourceProvider`.
-- `com.conch.core.filepicker.LocalFileSource` / `com.conch.core.filepicker.LocalFileSourceProvider` — built-in always-registered source backed by `java.nio.file.Files`.
-- `com.conch.core.filepicker.FilePickerResult` — record `(FileSource source, String absolutePath)`.
-- `com.conch.core.filepicker.ui.FileBrowserTable` — the extracted table widget (`JBTable` + `FileTableModel` + cell renderers). Consumed by the dialog AND by the refactored `RemoteFilePane` / `LocalFilePane`.
-- `com.conch.core.filepicker.ui.UnifiedFilePickerDialog` — the dialog, extending `DialogWrapper`. Two public static entry points: `showSaveDialog(...)` and `showOpenDialog(...)`.
-- `com.conch.core.filepicker.ui.ErrorMessages` — tiny static helper that maps common IOException messages to friendly sentences.
+- `com.termlab.core.filepicker.FileEntry` — interface lifted from `plugins/sftp/src/com/termlab/sftp/model/FileEntry.java`. Kept small: `name()`, `size()`, `modified()`, `isDirectory()`, `isSymlink()`, `permissions()`.
+- `com.termlab.core.filepicker.FileSource` — the pluggable source interface. See the interface section below.
+- `com.termlab.core.filepicker.FileSourceProvider` — extension-point interface that returns a list of `FileSource` instances. Registered via `com.termlab.core.fileSourceProvider`.
+- `com.termlab.core.filepicker.LocalFileSource` / `com.termlab.core.filepicker.LocalFileSourceProvider` — built-in always-registered source backed by `java.nio.file.Files`.
+- `com.termlab.core.filepicker.FilePickerResult` — record `(FileSource source, String absolutePath)`.
+- `com.termlab.core.filepicker.ui.FileBrowserTable` — the extracted table widget (`JBTable` + `FileTableModel` + cell renderers). Consumed by the dialog AND by the refactored `RemoteFilePane` / `LocalFilePane`.
+- `com.termlab.core.filepicker.ui.UnifiedFilePickerDialog` — the dialog, extending `DialogWrapper`. Two public static entry points: `showSaveDialog(...)` and `showOpenDialog(...)`.
+- `com.termlab.core.filepicker.ui.ErrorMessages` — tiny static helper that maps common IOException messages to friendly sentences.
 
 ### `plugins/sftp/` (changes)
 
-- New: `com.conch.sftp.filepicker.SftpFileSource` — one instance per configured `SshHost`. Implements `FileSource`. `open(...)` acquires via `SftpSessionManager`, `close(...)` releases, `list(...)` calls `session.client().readDir(...)`, `writeFile(...)` delegates to a shared atomic-write helper.
-- New: `com.conch.sftp.filepicker.SftpFileSourceProvider` — registers via `com.conch.core.fileSourceProvider`. `listSources()` calls `HostStore.getHosts().stream().map(SftpFileSource::new).toList()`.
-- New: `com.conch.sftp.vfs.AtomicSftpWrite` (or integrated into an existing file) — the `.tmp`+rename helper extracted from `SftpVirtualFile.writeAtomically` so both the VFS and `SftpFileSource` call one copy.
-- `FileEntry` interface moves to core. `LocalFileEntry` and `RemoteFileEntry` records update their imports to point at `com.conch.core.filepicker.FileEntry`. No behavioral change.
+- New: `com.termlab.sftp.filepicker.SftpFileSource` — one instance per configured `SshHost`. Implements `FileSource`. `open(...)` acquires via `SftpSessionManager`, `close(...)` releases, `list(...)` calls `session.client().readDir(...)`, `writeFile(...)` delegates to a shared atomic-write helper.
+- New: `com.termlab.sftp.filepicker.SftpFileSourceProvider` — registers via `com.termlab.core.fileSourceProvider`. `listSources()` calls `HostStore.getHosts().stream().map(SftpFileSource::new).toList()`.
+- New: `com.termlab.sftp.vfs.AtomicSftpWrite` (or integrated into an existing file) — the `.tmp`+rename helper extracted from `SftpVirtualFile.writeAtomically` so both the VFS and `SftpFileSource` call one copy.
+- `FileEntry` interface moves to core. `LocalFileEntry` and `RemoteFileEntry` records update their imports to point at `com.termlab.core.filepicker.FileEntry`. No behavioral change.
 - `RemoteFilePane` and `LocalFilePane` refactored to embed the new `FileBrowserTable` from core. Internal `JBTable` construction code is removed; everything else (connect UI, transfer buttons, DnD, context menus) stays. Behavior-preserving.
 - `FileTableModel` stays in the SFTP plugin, but a few `instanceof` checks are replaced with `FileEntry` interface calls so the model works cleanly with any `FileEntry` implementation.
 
@@ -64,7 +64,7 @@ Core has no SFTP dependency. The SFTP plugin depends on core. The editor plugin 
 ## The `FileSource` interface
 
 ```java
-package com.conch.core.filepicker;
+package com.termlab.core.filepicker;
 
 import com.intellij.openapi.project.Project;
 import org.jetbrains.annotations.NotNull;
@@ -79,7 +79,7 @@ import java.util.List;
  * A backing source for the unified file picker. Each source represents
  * one navigable root (a local filesystem, one SFTP host, a cloud bucket,
  * etc.). Sources are contributed via the
- * {@code com.conch.core.fileSourceProvider} extension point.
+ * {@code com.termlab.core.fileSourceProvider} extension point.
  */
 public interface FileSource {
 
@@ -168,7 +168,7 @@ public interface FileSource {
 ## The `FileSourceProvider` extension point
 
 ```java
-package com.conch.core.filepicker;
+package com.termlab.core.filepicker;
 
 import com.intellij.openapi.extensions.ExtensionPointName;
 import org.jetbrains.annotations.NotNull;
@@ -178,7 +178,7 @@ import java.util.List;
 public interface FileSourceProvider {
 
     ExtensionPointName<FileSourceProvider> EP_NAME =
-        ExtensionPointName.create("com.conch.core.fileSourceProvider");
+        ExtensionPointName.create("com.termlab.core.fileSourceProvider");
 
     /**
      * Called by the picker when the source dropdown is being built.
@@ -194,7 +194,7 @@ Registered in `core/resources/META-INF/plugin.xml`:
 
 ```xml
 <extensionPoint name="fileSourceProvider"
-                interface="com.conch.core.filepicker.FileSourceProvider"
+                interface="com.termlab.core.filepicker.FileSourceProvider"
                 dynamic="true"/>
 ```
 
@@ -246,10 +246,10 @@ One instance per `SshHost`. Constructor takes `SshHost` (and optionally a `Sessi
 
 Currently `SftpVirtualFile.writeAtomically(byte[] content)` contains the `.tmp`+rename logic (with the backup-restore fallback). `SftpFileSource.writeFile(...)` needs the exact same behavior.
 
-Extract the method body into `com.conch.sftp.vfs.AtomicSftpWrite`:
+Extract the method body into `com.termlab.sftp.vfs.AtomicSftpWrite`:
 
 ```java
-package com.conch.sftp.vfs;
+package com.termlab.sftp.vfs;
 
 import org.apache.sshd.sftp.client.SftpClient;
 import org.jetbrains.annotations.NotNull;
@@ -277,7 +277,7 @@ Both `SftpVirtualFile.writeAtomically` and `SftpFileSource.writeFile` become one
 
 ## `FileBrowserTable` widget
 
-Lives at `com.conch.core.filepicker.ui.FileBrowserTable`. Consumer API:
+Lives at `com.termlab.core.filepicker.ui.FileBrowserTable`. Consumer API:
 
 ```java
 public final class FileBrowserTable extends JPanel {
@@ -300,7 +300,7 @@ public final class FileBrowserTable extends JPanel {
 }
 ```
 
-Internally it owns a `FileTableModel` (the existing class, moved to `com.conch.core.filepicker.ui`), a `JBTable`, the three cell renderers (Name, Size, Modified), and a `TableRowSorter`. The column layout matches today's `RemoteFilePane` / `LocalFilePane` exactly.
+Internally it owns a `FileTableModel` (the existing class, moved to `com.termlab.core.filepicker.ui`), a `JBTable`, the three cell renderers (Name, Size, Modified), and a `TableRowSorter`. The column layout matches today's `RemoteFilePane` / `LocalFilePane` exactly.
 
 Both the new picker dialog AND the existing SFTP tool window panes use this widget. The panes add their own surrounding chrome (host dropdown, connect buttons, transfer buttons, context menus, path field, toolbar), but the table in the center is `FileBrowserTable`. No code duplicated between the panes and the picker.
 
@@ -411,7 +411,7 @@ Triggered by double-click on a file OR by clicking Open OR by pressing Enter whe
 ### Result type
 
 ```java
-package com.conch.core.filepicker;
+package com.termlab.core.filepicker;
 
 import org.jetbrains.annotations.NotNull;
 
@@ -439,7 +439,7 @@ The dialog never blocks the EDT on a source call. Every source method that can d
 
 **Error rendering inside the dialog**: a `CardLayout`-managed file list area with three cards (`"table"`, `"loading"`, `"error"`). The error card shows the translated message, a Retry button (re-invokes the operation that failed), and a "Pick a different source" action (pops the source dropdown open).
 
-**`ErrorMessages` translation** (lives at `com.conch.core.filepicker.ui.ErrorMessages`):
+**`ErrorMessages` translation** (lives at `com.termlab.core.filepicker.ui.ErrorMessages`):
 
 ```java
 public static String translate(IOException e) {
@@ -517,11 +517,11 @@ public final class SaveScratchToRemoteAction extends AnAction {
     }
 
     private static @Nullable String lastUsedRemoteSourceId() {
-        return PropertiesComponent.getInstance().getValue("conch.editor.lastRemoteSourceId");
+        return PropertiesComponent.getInstance().getValue("termlab.editor.lastRemoteSourceId");
     }
 
     private static void rememberLastUsedSource(@NotNull String id) {
-        PropertiesComponent.getInstance().setValue("conch.editor.lastRemoteSourceId", id);
+        PropertiesComponent.getInstance().setValue("termlab.editor.lastRemoteSourceId", id);
     }
 
     /**
@@ -548,21 +548,21 @@ Net delta: ~150 lines removed from the action (host picker, connect flow, FileCh
 
 ## Refactor of existing panes
 
-`RemoteFilePane` and `LocalFilePane` at `plugins/sftp/src/com/conch/sftp/toolwindow/` currently construct their own `JBTable`, `FileTableModel`, column renderers, and row sorters. That setup code gets moved into `com.conch.core.filepicker.ui.FileBrowserTable`.
+`RemoteFilePane` and `LocalFilePane` at `plugins/sftp/src/com/termlab/sftp/toolwindow/` currently construct their own `JBTable`, `FileTableModel`, column renderers, and row sorters. That setup code gets moved into `com.termlab.core.filepicker.ui.FileBrowserTable`.
 
 Refactor steps (mechanical):
 
-1. Move `FileTableModel`, `FileNameCellRenderer`, `SizeCellRenderer`, `ModifiedCellRenderer` from `plugins/sftp/src/com/conch/sftp/toolwindow/` to `core/src/com/conch/core/filepicker/ui/`. Update the SFTP plugin's imports.
+1. Move `FileTableModel`, `FileNameCellRenderer`, `SizeCellRenderer`, `ModifiedCellRenderer` from `plugins/sftp/src/com/termlab/sftp/toolwindow/` to `core/src/com/termlab/core/filepicker/ui/`. Update the SFTP plugin's imports.
 2. Create `FileBrowserTable.java` in core that wraps the model + table + renderers + row sorter. Expose the consumer API above.
 3. In `RemoteFilePane`, replace the ~50-line `JBTable` construction block with `this.table = new FileBrowserTable(); table.addDoubleClickListener(this::onRowActivated); table.addSelectionListener(this::fireConnectionStateChanged);`. Remove the now-unused imports. The DnD transfer handler stays on the pane's surrounding JPanel.
 4. Same refactor in `LocalFilePane`.
-5. `FileEntry` interface moves from `plugins/sftp/src/com/conch/sftp/model/` to `core/src/com/conch/core/filepicker/`. `LocalFileEntry` and `RemoteFileEntry` records update their `implements` clauses to point at the new location. No behavior change.
+5. `FileEntry` interface moves from `plugins/sftp/src/com/termlab/sftp/model/` to `core/src/com/termlab/core/filepicker/`. `LocalFileEntry` and `RemoteFileEntry` records update their `implements` clauses to point at the new location. No behavior change.
 
 Rough LoC delta:
 - `core/` gains ~200 lines (the widget + interface + local source)
-- `plugins/sftp/src/com/conch/sftp/toolwindow/RemoteFilePane.java` loses ~60 lines
-- `plugins/sftp/src/com/conch/sftp/toolwindow/LocalFilePane.java` loses ~60 lines
-- `plugins/editor/src/com/conch/editor/scratch/SaveScratchToRemoteAction.java` loses ~150 lines, gains ~50
+- `plugins/sftp/src/com/termlab/sftp/toolwindow/RemoteFilePane.java` loses ~60 lines
+- `plugins/sftp/src/com/termlab/sftp/toolwindow/LocalFilePane.java` loses ~60 lines
+- `plugins/editor/src/com/termlab/editor/scratch/SaveScratchToRemoteAction.java` loses ~150 lines, gains ~50
 - Net: roughly neutral to slightly negative LoC, but the table logic and the remote-save logic each live in exactly one place.
 
 ## Testing
@@ -573,7 +573,7 @@ Unit-test what can be tested with pure JUnit 5; rely on manual E2E for the Swing
 
 The `core` plugin does not currently have a test runner. This spec adds one modeled on `vault_test_runner` and `sftp_test_runner`:
 
-- `core/test/com/conch/core/TestRunner.java` — shared JUnit 5 platform launcher (copy-paste from vault pattern)
+- `core/test/com/termlab/core/TestRunner.java` — shared JUnit 5 platform launcher (copy-paste from vault pattern)
 - `core/BUILD.bazel` — add `core_test_lib` + `core_test_runner` targets modeled on vault
 
 ### Unit tests (new)
@@ -612,7 +612,7 @@ The `core` plugin does not currently have a test runner. This spec adds one mode
 
 ### No UI tests
 
-`UnifiedFilePickerDialog`, `FileBrowserTable`, and the refactored panes are all Swing UI. Testing them properly requires a heavy IntelliJ platform fixture (`HeavyPlatformTestCase` or similar) that Conch doesn't currently have. This spec does NOT add that infrastructure.
+`UnifiedFilePickerDialog`, `FileBrowserTable`, and the refactored panes are all Swing UI. Testing them properly requires a heavy IntelliJ platform fixture (`HeavyPlatformTestCase` or similar) that TermLab doesn't currently have. This spec does NOT add that infrastructure.
 
 Instead, manual E2E verification covers:
 - Dialog renders with source dropdown, path bar, file list, (filename input for save), buttons
@@ -628,7 +628,7 @@ Instead, manual E2E verification covers:
 
 Run after implementation lands.
 
-1. **Build + launch**: `bash bazel.cmd run //conch:conch_run` — no startup errors.
+1. **Build + launch**: `bash bazel.cmd run //termlab:termlab_run` — no startup errors.
 2. **Save scratch to local**: `Cmd+N` → Java → type content → `Cmd+Alt+S` → picker opens with "Local" pre-selected → navigate to `~/scratch` → filename input shows `scratch-1.java` → click Save → file lands on disk → notification → scratch tab closes, new tab opens on the real file.
 3. **Save scratch to SFTP with active session**: Connect a host in the SFTP tool window → `Cmd+N` → Python → `Cmd+Alt+S` → picker opens with the connected host pre-selected → navigate remote tree → pick a directory → click Save → verify on the remote via shell.
 4. **Save scratch to SFTP with no active session**: Disconnect the SFTP tool window → `Cmd+N` → `Cmd+Alt+S` → picker opens → dropdown shows all saved hosts + Local → pick a host → modal "Connecting…" → file list appears → save → verify.
@@ -657,7 +657,7 @@ Run after implementation lands.
 ## Risks
 
 - **`FileBrowserTable` refactor touches two working classes.** `RemoteFilePane` and `LocalFilePane` are well-tested by hand via the SFTP tool window. The refactor is mechanical (move `JBTable` construction into the new widget), but any subtle behavior change (row selection events, column widths, sort state) would be visible. Mitigation: E2E checklist step 11.
-- **Modal-within-modal (dialog + Task.Modal for connect).** New UX pattern in Conch. Stacking should work — `DialogWrapper` is a real modal, `Task.Modal` creates its own sub-progress dialog. Watch for focus/escape anomalies during testing.
+- **Modal-within-modal (dialog + Task.Modal for connect).** New UX pattern in TermLab. Stacking should work — `DialogWrapper` is a real modal, `Task.Modal` creates its own sub-progress dialog. Watch for focus/escape anomalies during testing.
 - **`core_test_runner` is new infrastructure.** Adding it requires Bazel deps similar to `vault_test_runner`/`sftp_test_runner`. Low risk; same pattern.
 - **Extracting `AtomicSftpWrite` touches `SftpVirtualFile`.** `SftpVirtualFile.writeAtomically` becomes a delegate. Semantics must stay identical. Existing behavior is already well-exercised by manual E2E and by the fix from VFS-T7 review; extracting it should not introduce regressions, but verify with a round-trip test of an SFTP edit.
 - **`FileSource.id()` stability.** The spec requires stable IDs for the "last used source" preference. If a host is renamed, its UUID stays the same (→ `"sftp:" + uuid`), so the id is stable across renames. If a host is deleted and re-added, the new UUID won't match the old one, so the preference falls back to the first available source. Acceptable.
@@ -665,7 +665,7 @@ Run after implementation lands.
 ## Follow-ups (Out of Scope)
 
 1. **`File → Open Remote File…` action** using `UnifiedFilePickerDialog.showOpenDialog(...)`.
-2. **Migrate remaining existing file-picker call sites** in Conch to the unified picker.
+2. **Migrate remaining existing file-picker call sites** in TermLab to the unified picker.
 3. **New Folder button** inside the dialog.
 4. **Type filter dropdown**, **hidden-file toggle**, **multi-select** — incremental features as needed.
 5. **UI unit tests** for the dialog via `HeavyPlatformTestCase` or similar IntelliJ test fixture.

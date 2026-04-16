@@ -2,11 +2,11 @@
 
 **Goal:** Let users create, manage, and activate SSH tunnels (local and remote port forwarding) through a tool window that mirrors the Hosts manager's UX. Tunnels reference hosts from either the SSH plugin's HostStore or `~/.ssh/config` aliases.
 
-**Driving context:** This is Conch's last core plugin. It depends on the SSH plugin for host definitions, credential resolution, connection infrastructure, and host-key verification. It does NOT depend on having a terminal session open — tunnels have independent lifecycle.
+**Driving context:** This is TermLab's last core plugin. It depends on the SSH plugin for host definitions, credential resolution, connection infrastructure, and host-key verification. It does NOT depend on having a terminal session open — tunnels have independent lifecycle.
 
 ## Plugin structure
 
-Separate plugin at `plugins/tunnels/` with id `com.conch.tunnels`. Dependencies: `com.conch.core`, `com.conch.ssh`, `com.conch.vault`. Registered as an essential plugin in `ConchApplicationInfo.xml` and bundled in `ConchProperties.kt`.
+Separate plugin at `plugins/tunnels/` with id `com.termlab.tunnels`. Dependencies: `com.termlab.core`, `com.termlab.ssh`, `com.termlab.vault`. Registered as an essential plugin in `TermLabApplicationInfo.xml` and bundled in `TermLabProperties.kt`.
 
 ## Data model
 
@@ -53,7 +53,7 @@ Gson adapter uses `"type": "internal"` / `"type": "ssh_config"` discriminator, s
 
 ## Persistence
 
-`~/.config/conch/tunnels.json` with the same versioned-envelope + atomic-write pattern as `ssh-hosts.json`:
+`~/.config/termlab/tunnels.json` with the same versioned-envelope + atomic-write pattern as `ssh-hosts.json`:
 
 ```json
 {
@@ -100,7 +100,7 @@ class TunnelConnection implements AutoCloseable {
 
 2. **Resolve credentials.** Same path as SSH terminal sessions: `SshCredentialResolver.resolve()` for vault-saved credentials, `InlineCredentialPromptDialog` for prompt-password or key-file hosts, `SshCredentialPicker` as fallback.
 
-3. **Connect.** `ConchSshClient.connect(host, credential, new ConchServerKeyVerifier())` — reuses the SSH plugin's full connect flow including host-key verification (unknown → prompt, mismatch → hard reject).
+3. **Connect.** `TermLabSshClient.connect(host, credential, new TermLabServerKeyVerifier())` — reuses the SSH plugin's full connect flow including host-key verification (unknown → prompt, mismatch → hard reject).
 
 4. **Start forwarding.** For LOCAL: `session.startLocalPortForwarding(new SshdSocketAddress(bindAddress, bindPort), new SshdSocketAddress(targetHost, targetPort))`. For REMOTE: `session.startRemotePortForwarding(new SshdSocketAddress(bindAddress, bindPort), new SshdSocketAddress(targetHost, targetPort))`.
 
@@ -120,7 +120,7 @@ Same patterns as the SSH plugin's `SshSessionProvider`:
 
 ### Health monitoring
 
-Each active tunnel spawns a daemon thread (same pattern as `ConchTerminalEditor.startExitWatcher()`) that watches `session.waitFor(ClientSession.CLOSED)`. When the session closes unexpectedly, the thread fires a disconnect notification on the EDT and sets state → ERROR.
+Each active tunnel spawns a daemon thread (same pattern as `TermLabTerminalEditor.startExitWatcher()`) that watches `session.waitFor(ClientSession.CLOSED)`. When the session closes unexpectedly, the thread fires a disconnect notification on the EDT and sets state → ERROR.
 
 ### Session isolation
 
@@ -182,18 +182,18 @@ At connect time, MINA resolves the full connection details from `~/.ssh/config` 
 
 `TunnelsSearchEverywhereContributor` registered via `<searchEverywhereContributor>` in plugin.xml. Tab name "Tunnels", weight 45 (between Actions and Hosts). Selecting a tunnel toggles connect/disconnect. Same pattern as `HostsSearchEverywhereContributor`.
 
-`"ConchTunnels"` added to `ConchTabsCustomizationStrategy.ALLOWED_TAB_IDS`.
+`"TermLabTunnels"` added to `TermLabTabsCustomizationStrategy.ALLOWED_TAB_IDS`.
 
 ## Scope
 
 ### In scope (v1)
 
-- Tunnel CRUD with JSON persistence at `~/.config/conch/tunnels.json`
+- Tunnel CRUD with JSON persistence at `~/.config/termlab/tunnels.json`
 - Local (-L) and Remote (-R) port forwarding
 - Tool window with status indicators
 - Host picker from HostStore + `~/.ssh/config` aliases
 - Full auth flow (vault, key files, passphrase prompts)
-- Host key verification via `ConchServerKeyVerifier`
+- Host key verification via `TermLabServerKeyVerifier`
 - Health monitoring + disconnect notifications
 - Search Everywhere contributor
 - Essential plugin + bundled plugin registration

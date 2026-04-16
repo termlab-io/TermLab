@@ -1,8 +1,8 @@
 # Search Everywhere Contributors Design
 
-**Goal:** Make Conch's SSH hosts and vault entries actually reachable from the command palette (Cmd+Shift+P), and retire the dead `CommandPaletteContributor` SDK interface that's been pretending to do this work.
+**Goal:** Make TermLab's SSH hosts and vault entries actually reachable from the command palette (Cmd+Shift+P), and retire the dead `CommandPaletteContributor` SDK interface that's been pretending to do this work.
 
-**Driving context:** The "Conch command palette" is IntelliJ's Search Everywhere with a tab allowlist (`ConchTabsCustomizationStrategy`) and a built-in blocklist (`ConchSearchEverywhereCustomizer`). The only non-platform tab that currently shows up is `TerminalPaletteContributor` (`ConchTerminals`), which plugs directly into `com.intellij.ide.actions.searcheverywhere.SearchEverywhereContributor`. The SDK's `CommandPaletteContributor` interface and its `PaletteItem` carrier type are implemented by `HostsPaletteContributor` (SSH) and `VaultPaletteContributor` (vault), but **nothing reads the `<commandPaletteContributor>` extension point** — there is no bridge into Search Everywhere. Both classes are dead code.
+**Driving context:** The "TermLab command palette" is IntelliJ's Search Everywhere with a tab allowlist (`TermLabTabsCustomizationStrategy`) and a built-in blocklist (`TermLabSearchEverywhereCustomizer`). The only non-platform tab that currently shows up is `TerminalPaletteContributor` (`TermLabTerminals`), which plugs directly into `com.intellij.ide.actions.searcheverywhere.SearchEverywhereContributor`. The SDK's `CommandPaletteContributor` interface and its `PaletteItem` carrier type are implemented by `HostsPaletteContributor` (SSH) and `VaultPaletteContributor` (vault), but **nothing reads the `<commandPaletteContributor>` extension point** — there is no bridge into Search Everywhere. Both classes are dead code.
 
 ## Architecture
 
@@ -10,11 +10,11 @@ Drop the SDK's `CommandPaletteContributor` abstraction and have each plugin impl
 
 ## SSH plugin
 
-**New file:** `plugins/ssh/src/com/conch/ssh/palette/HostsSearchEverywhereContributor.java`.
+**New file:** `plugins/ssh/src/com/termlab/ssh/palette/HostsSearchEverywhereContributor.java`.
 
 Implements `SearchEverywhereContributor<SshHost>`. Structured like `TerminalPaletteContributor`:
 
-- `getSearchProviderId()` → `"ConchHosts"`
+- `getSearchProviderId()` → `"TermLabHosts"`
 - `getGroupName()` → `"Hosts"`
 - `getSortWeight()` → `50`
 - `isShownInSeparateTab()` → `true`
@@ -25,17 +25,17 @@ Implements `SearchEverywhereContributor<SshHost>`. Structured like `TerminalPale
 - `getDataForItem(element, dataId)` — returns `element` for any dataId (matches `TerminalPaletteContributor`).
 - Nested `Factory implements SearchEverywhereContributorFactory<SshHost>` that extracts the `Project` from `AnActionEvent` and constructs the contributor, matching `TerminalPaletteContributor.Factory`.
 
-**Registration:** `plugins/ssh/resources/META-INF/plugin.xml` gains `<searchEverywhereContributor implementation="com.conch.ssh.palette.HostsSearchEverywhereContributor$Factory"/>` in the `com.intellij` extensions block. The old `<commandPaletteContributor implementation="com.conch.ssh.palette.HostsPaletteContributor"/>` line in the `com.conch.core` extensions block is removed.
+**Registration:** `plugins/ssh/resources/META-INF/plugin.xml` gains `<searchEverywhereContributor implementation="com.termlab.ssh.palette.HostsSearchEverywhereContributor$Factory"/>` in the `com.intellij` extensions block. The old `<commandPaletteContributor implementation="com.termlab.ssh.palette.HostsPaletteContributor"/>` line in the `com.termlab.core` extensions block is removed.
 
-**Deletion:** `plugins/ssh/src/com/conch/ssh/palette/HostsPaletteContributor.java` is deleted.
+**Deletion:** `plugins/ssh/src/com/termlab/ssh/palette/HostsPaletteContributor.java` is deleted.
 
 ## Vault plugin
 
-**New file:** `plugins/vault/src/com/conch/vault/palette/VaultSearchEverywhereContributor.java`.
+**New file:** `plugins/vault/src/com/termlab/vault/palette/VaultSearchEverywhereContributor.java`.
 
 Implements `SearchEverywhereContributor<Object>`. The `Object` type parameter is necessary because the tab holds both `VaultAccount` and `VaultKey` values; the renderer and `processSelectedItem` dispatch with `instanceof`.
 
-- `getSearchProviderId()` → `"ConchVault"`
+- `getSearchProviderId()` → `"TermLabVault"`
 - `getGroupName()` → `"Vault"`
 - `getSortWeight()` → `60`
 - `isShownInSeparateTab()` → `true`
@@ -56,31 +56,31 @@ Implements `SearchEverywhereContributor<Object>`. The `Object` type parameter is
 
 **New `AnAction`s**:
 
-- `plugins/vault/src/com/conch/vault/actions/LockVaultAction.java` — calls `LockManager.lock()`. `update` disables when the vault is already locked or not yet created.
-- `plugins/vault/src/com/conch/vault/actions/GenerateSshKeyAction.java` — opens `KeyGenDialog`. `update` disables when the vault is locked.
+- `plugins/vault/src/com/termlab/vault/actions/LockVaultAction.java` — calls `LockManager.lock()`. `update` disables when the vault is already locked or not yet created.
+- `plugins/vault/src/com/termlab/vault/actions/GenerateSshKeyAction.java` — opens `KeyGenDialog`. `update` disables when the vault is locked.
 
 Both are registered in `plugins/vault/resources/META-INF/plugin.xml` alongside `OpenVaultAction`. No keyboard shortcuts — they're discoverable via the Actions tab of Search Everywhere.
 
-**Registration:** `plugins/vault/resources/META-INF/plugin.xml` gains `<searchEverywhereContributor implementation="com.conch.vault.palette.VaultSearchEverywhereContributor$Factory"/>`. The old `<commandPaletteContributor implementation="com.conch.vault.palette.VaultPaletteContributor"/>` line is removed.
+**Registration:** `plugins/vault/resources/META-INF/plugin.xml` gains `<searchEverywhereContributor implementation="com.termlab.vault.palette.VaultSearchEverywhereContributor$Factory"/>`. The old `<commandPaletteContributor implementation="com.termlab.vault.palette.VaultPaletteContributor"/>` line is removed.
 
-**Deletion:** `plugins/vault/src/com/conch/vault/palette/VaultPaletteContributor.java` is deleted.
+**Deletion:** `plugins/vault/src/com/termlab/vault/palette/VaultPaletteContributor.java` is deleted.
 
 ## Core
 
 Two edits:
 
-1. **`core/src/com/conch/core/palette/ConchTabsCustomizationStrategy.java`** — the `ALLOWED_TAB_IDS` set gains `"ConchHosts"` and `"ConchVault"`. Final contents: `{"ActionSearchEverywhereContributor", "ConchTerminals", "ConchHosts", "ConchVault"}`.
+1. **`core/src/com/termlab/core/palette/TermLabTabsCustomizationStrategy.java`** — the `ALLOWED_TAB_IDS` set gains `"TermLabHosts"` and `"TermLabVault"`. Final contents: `{"ActionSearchEverywhereContributor", "TermLabTerminals", "TermLabHosts", "TermLabVault"}`.
 
-2. **`core/resources/META-INF/plugin.xml`** — the `<extensionPoint name="commandPaletteContributor" interface="com.conch.sdk.CommandPaletteContributor" dynamic="true"/>` line is removed. Safe only after both plugins have stopped registering contributors under that EP name (enforced by commit ordering).
+2. **`core/resources/META-INF/plugin.xml`** — the `<extensionPoint name="commandPaletteContributor" interface="com.termlab.sdk.CommandPaletteContributor" dynamic="true"/>` line is removed. Safe only after both plugins have stopped registering contributors under that EP name (enforced by commit ordering).
 
-`ConchSearchEverywhereCustomizer` is untouched — its blocklist of unwanted built-in contributors is a separate concern.
+`TermLabSearchEverywhereCustomizer` is untouched — its blocklist of unwanted built-in contributors is a separate concern.
 
 ## SDK
 
 Two files deleted:
 
-- `sdk/src/com/conch/sdk/CommandPaletteContributor.java`
-- `sdk/src/com/conch/sdk/PaletteItem.java`
+- `sdk/src/com/termlab/sdk/CommandPaletteContributor.java`
+- `sdk/src/com/termlab/sdk/PaletteItem.java`
 
 Nothing imports them after the SSH and vault changes land.
 
@@ -106,7 +106,7 @@ No new unit tests. `SearchEverywhereContributor` implementations are thin glue o
 - SDK: delete `CommandPaletteContributor` and `PaletteItem`
 
 **Not in scope:**
-- Any change to `ConchSearchEverywhereCustomizer` or the blocklist of unwanted built-in contributors
+- Any change to `TermLabSearchEverywhereCustomizer` or the blocklist of unwanted built-in contributors
 - New palette behavior beyond what the dead code already designed
 - Tool window, dialog, or model changes in either plugin
 - Keyboard shortcuts for the two new AnActions — they're Actions-tab-only
@@ -119,6 +119,6 @@ The plan must land in three commits in this order to keep the build green at eac
 
 2. **Vault plugin.** Add `VaultSearchEverywhereContributor` + `LockVaultAction` + `GenerateSshKeyAction` and their registrations. Delete `VaultPaletteContributor` and its `<commandPaletteContributor>` line. At the end of this commit: no plugin uses the SDK interface anymore, but the interface files and the core extension point declaration are still on disk. Everything compiles.
 
-3. **Core + SDK cleanup.** Update `ConchTabsCustomizationStrategy.ALLOWED_TAB_IDS`, remove the `<extensionPoint name="commandPaletteContributor">` declaration from core plugin.xml, delete `CommandPaletteContributor.java` and `PaletteItem.java` from the SDK. Safe only because step 2 removed the last consumer.
+3. **Core + SDK cleanup.** Update `TermLabTabsCustomizationStrategy.ALLOWED_TAB_IDS`, remove the `<extensionPoint name="commandPaletteContributor">` declaration from core plugin.xml, delete `CommandPaletteContributor.java` and `PaletteItem.java` from the SDK. Safe only because step 2 removed the last consumer.
 
 A mid-sequence build failure would mean removing the SDK interface or the extension point before all consumers have stopped implementing it. The ordering above keeps each commit independently buildable.

@@ -9,12 +9,12 @@ resourcegroup(
 
 jvm_library(
     name = "core",
-    module_name = "intellij.conch.core",
+    module_name = "intellij.termlab.core",
     visibility = ["//visibility:public"],
     srcs = glob(["src/**/*.java", "src/**/*.kt"]),
     resources = [":core_resources"],
     deps = [
-        "//conch/sdk",
+        "//termlab/sdk",
         "//platform/core-api:core",
         "//platform/analysis-api:analysis",
         "//platform/platform-api:ide",
@@ -42,12 +42,12 @@ jvm_library(
 
 jvm_library(
     name = "core_test_lib",
-    module_name = "intellij.conch.core.tests",
+    module_name = "intellij.termlab.core.tests",
     visibility = ["//visibility:public"],
     srcs = glob(["test/**/*.java"], allow_empty = True),
     deps = [
         ":core",
-        "//conch/sdk",
+        "//termlab/sdk",
         "//libraries/junit5",
         "//libraries/junit5-jupiter",
         "//libraries/junit5-launcher",
@@ -58,7 +58,7 @@ jvm_library(
 
 java_binary(
     name = "core_test_runner",
-    main_class = "com.conch.core.TestRunner",
+    main_class = "com.termlab.core.TestRunner",
     runtime_deps = [
         ":core_test_lib",
         "//libraries/junit5-jupiter",
@@ -66,4 +66,4 @@ java_binary(
     ],
 )
 
-exports_files(["intellij.conch.core.iml"], visibility = ["//visibility:public"])
+exports_files(["intellij.termlab.core.iml"], visibility = ["//visibility:public"])

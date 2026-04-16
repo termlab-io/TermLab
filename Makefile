@@ -1,19 +1,27 @@
-# Conch Workbench — Build & Run
+# TermLab — Build & Run
 #
-# This Makefile lives at the root of conch_workbench. After running setup.sh,
-# the workbench is symlinked into intellij-community/conch, so running `make`
+# This Makefile lives at the root of termlab_workbench. After running setup.sh,
+# the workbench is symlinked into intellij-community/termlab, so running `make`
 # from the workbench dir delegates Bazel commands up to the intellij root.
 #
 # Usage:
-#   make conch                    — build and run Conch
-#   make conch-build              — build only (no run)
-#   make conch-clean              — clean build artifacts
-#   make conch-installers         — build all-platform distributions
-#   make conch-installers-mac     — build macOS distributions only (.sit)
-#   make conch-installers-linux   — build Linux distributions only (.tar.gz)
-#   make conch-installers-windows — build Windows distributions only (.win.zip)
+#   make termlab                    — build and run TermLab
+#   make termlab-build              — build only (no run)
+#   make termlab-clean              — clean build artifacts
+#   make termlab-installers         — build all-platform distributions
+#   make termlab-installers-mac     — build macOS distributions only (.sit)
+#   make termlab-installers-linux   — build Linux distributions only (.tar.gz)
+#   make termlab-installers-windows — build Windows distributions only (.win.zip)
+#   make termlab-version            — regenerate TermLabApplicationInfo.xml
 #
-# Installer artifacts land in: $(INTELLIJ_ROOT)/out/conch/artifacts/
+# Product version: pass VERSION=X.Y.Z on any build/run target to override and
+# persist the version in customization/version.properties, e.g.:
+#   VERSION=0.1.0 make termlab
+#   VERSION=0.2.0 make termlab-installers
+# The generated TermLabApplicationInfo.xml is a build artifact (gitignored);
+# the template lives at customization/TermLabApplicationInfo.xml.tmpl.
+#
+# Installer artifacts land in: $(INTELLIJ_ROOT)/out/termlab/artifacts/
 #
 # INTELLIJ_ROOT resolution order:
 #   1. Environment variable / `make INTELLIJ_ROOT=...`
@@ -35,19 +43,19 @@ endif
 
 BAZEL := cd $(INTELLIJ_ROOT) && bash bazel.cmd
 
-# Default workspace root for Conch. Override with:
-#   make conch CONCH_WORKSPACE=/path/to/workspace
-CONCH_WORKSPACE ?= $(HOME)
+# Default workspace root for TermLab. Override with:
+#   make termlab TERMLAB_WORKSPACE=/path/to/workspace
+TERMLAB_WORKSPACE ?= $(HOME)
 
 # Perf harness defaults. Override as needed, for example:
-#   make conch-perf-benchmark CONCH_PERF_WARMUP_SEC=120 CONCH_PERF_DURATION_SEC=600
-CONCH_PERF_OUT ?= $(WORKBENCH_DIR)/perf-results
-CONCH_PERF_WORKSPACE ?= $(WORKBENCH_DIR)/.perf-workspace
-CONCH_PERF_WARMUP_SEC ?= 90
-CONCH_PERF_SAMPLE_SEC ?= 5
-CONCH_PERF_DURATION_SEC ?= 300
+#   make termlab-perf-benchmark TERMLAB_PERF_WARMUP_SEC=120 TERMLAB_PERF_DURATION_SEC=600
+TERMLAB_PERF_OUT ?= $(WORKBENCH_DIR)/perf-results
+TERMLAB_PERF_WORKSPACE ?= $(WORKBENCH_DIR)/.perf-workspace
+TERMLAB_PERF_WARMUP_SEC ?= 90
+TERMLAB_PERF_SAMPLE_SEC ?= 5
+TERMLAB_PERF_DURATION_SEC ?= 300
 
-.PHONY: conch conch-build conch-clean conch-installers conch-installers-mac conch-installers-linux conch-installers-windows check-intellij conch-perf-benchmark conch-perf-budget
+.PHONY: termlab termlab-build termlab-clean termlab-installers termlab-installers-mac termlab-installers-linux termlab-installers-windows check-intellij termlab-version termlab-perf-benchmark termlab-perf-budget
 
 check-intellij:
 	@test -f "$(INTELLIJ_ROOT)/bazel.cmd" || { \
@@ -56,41 +64,50 @@ check-intellij:
 		exit 1; \
 	}
 
-conch: check-intellij
-	$(BAZEL) run //conch:conch_run -- $(CONCH_WORKSPACE)
+# Stamp version attributes into customization/resources/idea/TermLabApplicationInfo.xml
+# in place. Only <version major/minor/patch suffix> are touched; other
+# edits in that file (motto, logos, themes, plugins, ...) are preserved.
+# Pass VERSION=X.Y.Z to override (and persist) the product version:
+#   make termlab-version VERSION=0.2.0
+# Runs automatically before every termlab build/run target below.
+termlab-version:
+	python3 $(WORKBENCH_DIR)/scripts/generate_version.py
 
-conch-build: check-intellij
-	$(BAZEL) build //conch:conch_run
+termlab: check-intellij termlab-version
+	$(BAZEL) run //termlab:termlab_run -- $(TERMLAB_WORKSPACE)
 
-conch-clean: check-intellij
+termlab-build: check-intellij termlab-version
+	$(BAZEL) build //termlab:termlab_run
+
+termlab-clean: check-intellij
 	$(BAZEL) clean
 
-conch-installers: check-intellij
-	$(BAZEL) run //conch/build:conch_installers
-	@echo "→ Installer artifacts in $(INTELLIJ_ROOT)/out/conch/artifacts/"
+termlab-installers: check-intellij termlab-version
+	$(BAZEL) run //termlab/build:termlab_installers
+	@echo "→ Installer artifacts in $(INTELLIJ_ROOT)/out/termlab/artifacts/"
 
-conch-installers-mac: check-intellij
-	CONCH_TARGET_OS=mac $(BAZEL) run //conch/build:conch_installers
-	@echo "→ Installer artifacts in $(INTELLIJ_ROOT)/out/conch/artifacts/"
+termlab-installers-mac: check-intellij termlab-version
+	TERMLAB_TARGET_OS=mac $(BAZEL) run //termlab/build:termlab_installers
+	@echo "→ Installer artifacts in $(INTELLIJ_ROOT)/out/termlab/artifacts/"
 
-conch-installers-linux: check-intellij
-	CONCH_TARGET_OS=linux $(BAZEL) run //conch/build:conch_installers
-	@echo "→ Installer artifacts in $(INTELLIJ_ROOT)/out/conch/artifacts/"
+termlab-installers-linux: check-intellij termlab-version
+	TERMLAB_TARGET_OS=linux $(BAZEL) run //termlab/build:termlab_installers
+	@echo "→ Installer artifacts in $(INTELLIJ_ROOT)/out/termlab/artifacts/"
 
-conch-installers-windows: check-intellij
-	CONCH_TARGET_OS=windows $(BAZEL) run //conch/build:conch_installers
-	@echo "→ Installer artifacts in $(INTELLIJ_ROOT)/out/conch/artifacts/"
+termlab-installers-windows: check-intellij termlab-version
+	TERMLAB_TARGET_OS=windows $(BAZEL) run //termlab/build:termlab_installers
+	@echo "→ Installer artifacts in $(INTELLIJ_ROOT)/out/termlab/artifacts/"
 
-conch-perf-benchmark: check-intellij
-	mkdir -p "$(CONCH_PERF_WORKSPACE)"
+termlab-perf-benchmark: check-intellij
+	mkdir -p "$(TERMLAB_PERF_WORKSPACE)"
 	bash $(WORKBENCH_DIR)/scripts/perf/benchmark_idle.sh \
 		--intellij-root "$(INTELLIJ_ROOT)" \
-		--workspace "$(CONCH_PERF_WORKSPACE)" \
-		--warmup-sec "$(CONCH_PERF_WARMUP_SEC)" \
-		--sample-sec "$(CONCH_PERF_SAMPLE_SEC)" \
-		--duration-sec "$(CONCH_PERF_DURATION_SEC)" \
-		--out "$(CONCH_PERF_OUT)"
+		--workspace "$(TERMLAB_PERF_WORKSPACE)" \
+		--warmup-sec "$(TERMLAB_PERF_WARMUP_SEC)" \
+		--sample-sec "$(TERMLAB_PERF_SAMPLE_SEC)" \
+		--duration-sec "$(TERMLAB_PERF_DURATION_SEC)" \
+		--out "$(TERMLAB_PERF_OUT)"
 
-conch-perf-budget:
+termlab-perf-budget:
 	bash $(WORKBENCH_DIR)/scripts/perf/check_perf_budget.sh \
-		--summary "$(CONCH_PERF_OUT)/latest_summary.env"
+		--summary "$(TERMLAB_PERF_OUT)/latest_summary.env"

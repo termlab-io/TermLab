@@ -9,13 +9,13 @@ resourcegroup(
 
 jvm_library(
     name = "ssh",
-    module_name = "intellij.conch.ssh",
+    module_name = "intellij.termlab.ssh",
     visibility = ["//visibility:public"],
     srcs = glob(["src/**/*.java"], allow_empty = True),
     resources = [":ssh_resources"],
     deps = [
-        "//conch/sdk",
-        "//conch/core",
+        "//termlab/sdk",
+        "//termlab/core",
         "//platform/analysis-api:analysis",
         "//platform/core-api:core",
         "//platform/core-ui",
@@ -37,12 +37,12 @@ jvm_library(
 
 jvm_library(
     name = "ssh_test_lib",
-    module_name = "intellij.conch.ssh.tests",
+    module_name = "intellij.termlab.ssh.tests",
     visibility = ["//visibility:public"],
     srcs = glob(["test/**/*.java"], allow_empty = True),
     deps = [
         ":ssh",
-        "//conch/sdk",
+        "//termlab/sdk",
         "//libraries/junit5",
         "//libraries/junit5-jupiter",
         "//libraries/junit5-launcher",
@@ -58,7 +58,7 @@ jvm_library(
 # Standalone test runner — same pattern as plugins/vault.
 java_binary(
     name = "ssh_test_runner",
-    main_class = "com.conch.ssh.TestRunner",
+    main_class = "com.termlab.ssh.TestRunner",
     runtime_deps = [
         ":ssh_test_lib",
         "//libraries/junit5-jupiter",
@@ -66,4 +66,4 @@ java_binary(
     ],
 )
 
-exports_files(["intellij.conch.ssh.iml"], visibility = ["//visibility:public"])
+exports_files(["intellij.termlab.ssh.iml"], visibility = ["//visibility:public"])

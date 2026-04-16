@@ -17,24 +17,24 @@
 Read these files before starting:
 
 - `docs/superpowers/specs/2026-04-15-unified-file-picker-design.md` — the design doc for this feature
-- `plugins/sftp/src/com/conch/sftp/toolwindow/FileTableModel.java` — the existing 4-column `AbstractTableModel` (Name, Size, Modified, Permissions) that will move to core
-- `plugins/sftp/src/com/conch/sftp/model/FileEntry.java` — the existing interface that will move to core
-- `plugins/sftp/src/com/conch/sftp/toolwindow/RemoteFilePane.java` — existing pane that will refactor to use the new shared widget
-- `plugins/sftp/src/com/conch/sftp/toolwindow/LocalFilePane.java` — same
-- `plugins/sftp/src/com/conch/sftp/vfs/SftpVirtualFile.java` — contains the `writeAtomically(byte[])` helper that will extract into `AtomicSftpWrite`
-- `plugins/sftp/src/com/conch/sftp/session/SftpSessionManager.java` — session management used by `SftpFileSource`
-- `plugins/sftp/src/com/conch/sftp/vfs/SftpUrl.java` — URL format used for the post-save tab transition in `SaveScratchToRemoteAction`
-- `plugins/editor/src/com/conch/editor/scratch/SaveScratchToRemoteAction.java` — the immediate consumer that will shrink significantly
-- `plugins/vault/BUILD.bazel` + `plugins/vault/test/com/conch/vault/TestRunner.java` — template for the new `core_test_runner`
+- `plugins/sftp/src/com/termlab/sftp/toolwindow/FileTableModel.java` — the existing 4-column `AbstractTableModel` (Name, Size, Modified, Permissions) that will move to core
+- `plugins/sftp/src/com/termlab/sftp/model/FileEntry.java` — the existing interface that will move to core
+- `plugins/sftp/src/com/termlab/sftp/toolwindow/RemoteFilePane.java` — existing pane that will refactor to use the new shared widget
+- `plugins/sftp/src/com/termlab/sftp/toolwindow/LocalFilePane.java` — same
+- `plugins/sftp/src/com/termlab/sftp/vfs/SftpVirtualFile.java` — contains the `writeAtomically(byte[])` helper that will extract into `AtomicSftpWrite`
+- `plugins/sftp/src/com/termlab/sftp/session/SftpSessionManager.java` — session management used by `SftpFileSource`
+- `plugins/sftp/src/com/termlab/sftp/vfs/SftpUrl.java` — URL format used for the post-save tab transition in `SaveScratchToRemoteAction`
+- `plugins/editor/src/com/termlab/editor/scratch/SaveScratchToRemoteAction.java` — the immediate consumer that will shrink significantly
+- `plugins/vault/BUILD.bazel` + `plugins/vault/test/com/termlab/vault/TestRunner.java` — template for the new `core_test_runner`
 
 **Build commands** (run from `/Users/dustin/projects/intellij-community/`):
 
-- Build core: `bash bazel.cmd build //conch/core:core`
-- Build sftp: `bash bazel.cmd build //conch/plugins/sftp:sftp`
-- Build editor: `bash bazel.cmd build //conch/plugins/editor:editor`
-- Build product: `bash bazel.cmd build //conch:conch_run`
-- Run core tests: `bash bazel.cmd run //conch/core:core_test_runner` (target created in Task 1)
-- Run sftp tests: `bash bazel.cmd run //conch/plugins/sftp:sftp_test_runner`
+- Build core: `bash bazel.cmd build //termlab/core:core`
+- Build sftp: `bash bazel.cmd build //termlab/plugins/sftp:sftp`
+- Build editor: `bash bazel.cmd build //termlab/plugins/editor:editor`
+- Build product: `bash bazel.cmd build //termlab:termlab_run`
+- Run core tests: `bash bazel.cmd run //termlab/core:core_test_runner` (target created in Task 1)
+- Run sftp tests: `bash bazel.cmd run //termlab/plugins/sftp:sftp_test_runner`
 
 **Commit convention:** lowercase conventional-commit prefixes (`feat(core):`, `feat(sftp):`, `refactor(core):`, etc.). Each task ends with an explicit commit step.
 
@@ -50,7 +50,7 @@ The `core` plugin doesn't currently have a JUnit 5 test runner. Tasks 4 and 5 ne
 
 **Files:**
 - Modify: `core/BUILD.bazel`
-- Create: `core/test/com/conch/core/TestRunner.java`
+- Create: `core/test/com/termlab/core/TestRunner.java`
 
 - [ ] **Step 1: Add test targets to `core/BUILD.bazel`**
 
@@ -59,12 +59,12 @@ Read the current `core/BUILD.bazel` file. It contains a `jvm_library` called `co
 ```bazel
 jvm_library(
     name = "core_test_lib",
-    module_name = "intellij.conch.core.tests",
+    module_name = "intellij.termlab.core.tests",
     visibility = ["//visibility:public"],
     srcs = glob(["test/**/*.java"], allow_empty = True),
     deps = [
         ":core",
-        "//conch/sdk",
+        "//termlab/sdk",
         "//libraries/junit5",
         "//libraries/junit5-jupiter",
         "//libraries/junit5-launcher",
@@ -75,7 +75,7 @@ jvm_library(
 
 java_binary(
     name = "core_test_runner",
-    main_class = "com.conch.core.TestRunner",
+    main_class = "com.termlab.core.TestRunner",
     runtime_deps = [
         ":core_test_lib",
         "//libraries/junit5-jupiter",
@@ -88,10 +88,10 @@ Also add `load("@rules_java//java:defs.bzl", "java_binary")` near the top of `co
 
 - [ ] **Step 2: Create the test runner**
 
-`core/test/com/conch/core/TestRunner.java`:
+`core/test/com/termlab/core/TestRunner.java`:
 
 ```java
-package com.conch.core;
+package com.termlab.core;
 
 import org.junit.platform.engine.discovery.DiscoverySelectors;
 import org.junit.platform.launcher.Launcher;
@@ -107,14 +107,14 @@ import java.io.PrintWriter;
  * Standalone JUnit 5 runner for the core plugin's unit tests.
  *
  * <pre>
- *   bash bazel.cmd run //conch/core:core_test_runner
+ *   bash bazel.cmd run //termlab/core:core_test_runner
  * </pre>
  */
 public final class TestRunner {
 
     public static void main(String[] args) {
         LauncherDiscoveryRequest request = LauncherDiscoveryRequestBuilder.request()
-            .selectors(DiscoverySelectors.selectPackage("com.conch.core"))
+            .selectors(DiscoverySelectors.selectPackage("com.termlab.core"))
             .build();
 
         SummaryGeneratingListener listener = new SummaryGeneratingListener();
@@ -137,18 +137,18 @@ public final class TestRunner {
 
 - [ ] **Step 3: Build the test library**
 
-Run: `bash bazel.cmd build //conch/core:core_test_lib`
+Run: `bash bazel.cmd build //termlab/core:core_test_lib`
 Expected: `Build completed successfully`.
 
 - [ ] **Step 4: Run the empty test runner**
 
-Run: `bash bazel.cmd run //conch/core:core_test_runner`
+Run: `bash bazel.cmd run //termlab/core:core_test_runner`
 Expected: summary showing `0 tests found`, exit code 0.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add core/BUILD.bazel core/test/com/conch/core/TestRunner.java
+git add core/BUILD.bazel core/test/com/termlab/core/TestRunner.java
 git commit -m "feat(core): add JUnit 5 test runner target for core plugin"
 ```
 
@@ -156,21 +156,21 @@ git commit -m "feat(core): add JUnit 5 test runner target for core plugin"
 
 ## Task 2: Move `FileEntry` interface from SFTP to core
 
-The `FileEntry` interface is platform-agnostic and needs to be in core so `FileSource` can reference it. The existing `LocalFileEntry` and `RemoteFileEntry` records (in `plugins/sftp/src/com/conch/sftp/model/`) keep their package; only the interface moves and they update their `implements` clause.
+The `FileEntry` interface is platform-agnostic and needs to be in core so `FileSource` can reference it. The existing `LocalFileEntry` and `RemoteFileEntry` records (in `plugins/sftp/src/com/termlab/sftp/model/`) keep their package; only the interface moves and they update their `implements` clause.
 
 **Files:**
-- Create: `core/src/com/conch/core/filepicker/FileEntry.java`
-- Delete: `plugins/sftp/src/com/conch/sftp/model/FileEntry.java`
-- Modify: `plugins/sftp/src/com/conch/sftp/model/LocalFileEntry.java`
-- Modify: `plugins/sftp/src/com/conch/sftp/model/RemoteFileEntry.java`
-- Modify: `plugins/sftp/src/com/conch/sftp/toolwindow/FileTableModel.java`
+- Create: `core/src/com/termlab/core/filepicker/FileEntry.java`
+- Delete: `plugins/sftp/src/com/termlab/sftp/model/FileEntry.java`
+- Modify: `plugins/sftp/src/com/termlab/sftp/model/LocalFileEntry.java`
+- Modify: `plugins/sftp/src/com/termlab/sftp/model/RemoteFileEntry.java`
+- Modify: `plugins/sftp/src/com/termlab/sftp/toolwindow/FileTableModel.java`
 
 - [ ] **Step 1: Create the new interface in core**
 
-`core/src/com/conch/core/filepicker/FileEntry.java`:
+`core/src/com/termlab/core/filepicker/FileEntry.java`:
 
 ```java
-package com.conch.core.filepicker;
+package com.termlab.core.filepicker;
 
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -180,8 +180,8 @@ import java.time.Instant;
 /**
  * Platform-agnostic view of a single directory entry. Used by the
  * unified file picker and by the SFTP tool window panes. Implementations
- * include {@code com.conch.sftp.model.LocalFileEntry} (backed by
- * {@code java.nio.file.Path}) and {@code com.conch.sftp.model.RemoteFileEntry}
+ * include {@code com.termlab.sftp.model.LocalFileEntry} (backed by
+ * {@code java.nio.file.Path}) and {@code com.termlab.sftp.model.RemoteFileEntry}
  * (backed by Apache SSHD SFTP).
  */
 public interface FileEntry {
@@ -204,66 +204,66 @@ public interface FileEntry {
 - [ ] **Step 2: Delete the old interface**
 
 ```bash
-rm plugins/sftp/src/com/conch/sftp/model/FileEntry.java
+rm plugins/sftp/src/com/termlab/sftp/model/FileEntry.java
 ```
 
 - [ ] **Step 3: Update `LocalFileEntry.java` imports**
 
-Read `plugins/sftp/src/com/conch/sftp/model/LocalFileEntry.java`. Find the `implements FileEntry` clause (the interface is currently in the same package, so no import is needed). After the move, `FileEntry` lives in `com.conch.core.filepicker`. Add the import and leave the `implements FileEntry` clause as-is.
+Read `plugins/sftp/src/com/termlab/sftp/model/LocalFileEntry.java`. Find the `implements FileEntry` clause (the interface is currently in the same package, so no import is needed). After the move, `FileEntry` lives in `com.termlab.core.filepicker`. Add the import and leave the `implements FileEntry` clause as-is.
 
 Add this import to the file's import block:
 
 ```java
-import com.conch.core.filepicker.FileEntry;
+import com.termlab.core.filepicker.FileEntry;
 ```
 
 - [ ] **Step 4: Update `RemoteFileEntry.java` imports**
 
-Same change to `plugins/sftp/src/com/conch/sftp/model/RemoteFileEntry.java`:
+Same change to `plugins/sftp/src/com/termlab/sftp/model/RemoteFileEntry.java`:
 
 ```java
-import com.conch.core.filepicker.FileEntry;
+import com.termlab.core.filepicker.FileEntry;
 ```
 
 - [ ] **Step 5: Update `FileTableModel.java` imports**
 
-`plugins/sftp/src/com/conch/sftp/toolwindow/FileTableModel.java` imports `com.conch.sftp.model.FileEntry`. Change that line to:
+`plugins/sftp/src/com/termlab/sftp/toolwindow/FileTableModel.java` imports `com.termlab.sftp.model.FileEntry`. Change that line to:
 
 ```java
-import com.conch.core.filepicker.FileEntry;
+import com.termlab.core.filepicker.FileEntry;
 ```
 
 - [ ] **Step 6: Grep for any other references**
 
 Run:
 ```
-cd /Users/dustin/projects/conch_workbench && grep -rn "com.conch.sftp.model.FileEntry" --include="*.java"
+cd /Users/dustin/projects/termlab_workbench && grep -rn "com.termlab.sftp.model.FileEntry" --include="*.java"
 ```
 
 Expected: no matches. If any match appears, update that file's import the same way.
 
 - [ ] **Step 7: Verify the SFTP plugin depends on core**
 
-Read `plugins/sftp/BUILD.bazel`. Confirm `//conch/core` is in the `sftp` jvm_library's `deps`. It should already be there (the SFTP plugin already depends on core for many things). If not, add it.
+Read `plugins/sftp/BUILD.bazel`. Confirm `//termlab/core` is in the `sftp` jvm_library's `deps`. It should already be there (the SFTP plugin already depends on core for many things). If not, add it.
 
 - [ ] **Step 8: Build**
 
-Run: `bash bazel.cmd build //conch/plugins/sftp:sftp //conch/core:core`
+Run: `bash bazel.cmd build //termlab/plugins/sftp:sftp //termlab/core:core`
 Expected: both build successfully.
 
 - [ ] **Step 9: Run existing sftp tests**
 
-Run: `bash bazel.cmd run //conch/plugins/sftp:sftp_test_runner`
+Run: `bash bazel.cmd run //termlab/plugins/sftp:sftp_test_runner`
 Expected: all 20+ tests still pass.
 
 - [ ] **Step 10: Commit**
 
 ```bash
-git add core/src/com/conch/core/filepicker/FileEntry.java plugins/sftp/src/com/conch/sftp/model/LocalFileEntry.java plugins/sftp/src/com/conch/sftp/model/RemoteFileEntry.java plugins/sftp/src/com/conch/sftp/toolwindow/FileTableModel.java
-git commit -m "refactor(core): move FileEntry interface to com.conch.core.filepicker"
+git add core/src/com/termlab/core/filepicker/FileEntry.java plugins/sftp/src/com/termlab/sftp/model/LocalFileEntry.java plugins/sftp/src/com/termlab/sftp/model/RemoteFileEntry.java plugins/sftp/src/com/termlab/sftp/toolwindow/FileTableModel.java
+git commit -m "refactor(core): move FileEntry interface to com.termlab.core.filepicker"
 ```
 
-(The deletion of `plugins/sftp/src/com/conch/sftp/model/FileEntry.java` is staged by `git add` on the renamed location — verify with `git status` before committing.)
+(The deletion of `plugins/sftp/src/com/termlab/sftp/model/FileEntry.java` is staged by `git add` on the renamed location — verify with `git status` before committing.)
 
 ---
 
@@ -272,15 +272,15 @@ git commit -m "refactor(core): move FileEntry interface to com.conch.core.filepi
 Pluggable data source for the picker. Declared in core, has no implementation yet.
 
 **Files:**
-- Create: `core/src/com/conch/core/filepicker/FileSource.java`
-- Create: `core/src/com/conch/core/filepicker/FilePickerResult.java`
+- Create: `core/src/com/termlab/core/filepicker/FileSource.java`
+- Create: `core/src/com/termlab/core/filepicker/FilePickerResult.java`
 
 - [ ] **Step 1: Create `FileSource.java`**
 
-`core/src/com/conch/core/filepicker/FileSource.java`:
+`core/src/com/termlab/core/filepicker/FileSource.java`:
 
 ```java
-package com.conch.core.filepicker;
+package com.termlab.core.filepicker;
 
 import com.intellij.openapi.project.Project;
 import org.jetbrains.annotations.NotNull;
@@ -295,7 +295,7 @@ import java.util.List;
  * A backing source for the unified file picker. Each source represents
  * one navigable root (a local filesystem, one SFTP host, a cloud bucket,
  * etc.). Sources are contributed via the
- * {@code com.conch.core.fileSourceProvider} extension point.
+ * {@code com.termlab.core.fileSourceProvider} extension point.
  */
 public interface FileSource {
 
@@ -378,10 +378,10 @@ public interface FileSource {
 
 - [ ] **Step 2: Create `FilePickerResult.java`**
 
-`core/src/com/conch/core/filepicker/FilePickerResult.java`:
+`core/src/com/termlab/core/filepicker/FilePickerResult.java`:
 
 ```java
-package com.conch.core.filepicker;
+package com.termlab.core.filepicker;
 
 import org.jetbrains.annotations.NotNull;
 
@@ -400,13 +400,13 @@ public record FilePickerResult(
 
 - [ ] **Step 3: Build core**
 
-Run: `bash bazel.cmd build //conch/core:core`
+Run: `bash bazel.cmd build //termlab/core:core`
 Expected: `Build completed successfully`.
 
 - [ ] **Step 4: Commit**
 
 ```bash
-git add core/src/com/conch/core/filepicker/FileSource.java core/src/com/conch/core/filepicker/FilePickerResult.java
+git add core/src/com/termlab/core/filepicker/FileSource.java core/src/com/termlab/core/filepicker/FilePickerResult.java
 git commit -m "feat(core): FileSource interface and FilePickerResult record"
 ```
 
@@ -417,15 +417,15 @@ git commit -m "feat(core): FileSource interface and FilePickerResult record"
 Providers contribute lists of sources to the picker. The core plugin declares the extension point; sources are registered by their respective plugins.
 
 **Files:**
-- Create: `core/src/com/conch/core/filepicker/FileSourceProvider.java`
+- Create: `core/src/com/termlab/core/filepicker/FileSourceProvider.java`
 - Modify: `core/resources/META-INF/plugin.xml`
 
 - [ ] **Step 1: Create the interface**
 
-`core/src/com/conch/core/filepicker/FileSourceProvider.java`:
+`core/src/com/termlab/core/filepicker/FileSourceProvider.java`:
 
 ```java
-package com.conch.core.filepicker;
+package com.termlab.core.filepicker;
 
 import com.intellij.openapi.extensions.ExtensionPointName;
 import org.jetbrains.annotations.NotNull;
@@ -442,7 +442,7 @@ import java.util.List;
 public interface FileSourceProvider {
 
     ExtensionPointName<FileSourceProvider> EP_NAME =
-        ExtensionPointName.create("com.conch.core.fileSourceProvider");
+        ExtensionPointName.create("com.termlab.core.fileSourceProvider");
 
     @NotNull List<FileSource> listSources();
 }
@@ -454,7 +454,7 @@ Read `core/resources/META-INF/plugin.xml`. Find the existing `<extensionPoints>`
 
 ```xml
         <extensionPoint name="fileSourceProvider"
-                        interface="com.conch.core.filepicker.FileSourceProvider"
+                        interface="com.termlab.core.filepicker.FileSourceProvider"
                         dynamic="true"/>
 ```
 
@@ -463,20 +463,20 @@ If there is no existing `<extensionPoints>` block, add one immediately after the
 ```xml
     <extensionPoints>
         <extensionPoint name="fileSourceProvider"
-                        interface="com.conch.core.filepicker.FileSourceProvider"
+                        interface="com.termlab.core.filepicker.FileSourceProvider"
                         dynamic="true"/>
     </extensionPoints>
 ```
 
 - [ ] **Step 3: Build core**
 
-Run: `bash bazel.cmd build //conch/core:core`
+Run: `bash bazel.cmd build //termlab/core:core`
 Expected: `Build completed successfully`.
 
 - [ ] **Step 4: Commit**
 
 ```bash
-git add core/src/com/conch/core/filepicker/FileSourceProvider.java core/resources/META-INF/plugin.xml
+git add core/src/com/termlab/core/filepicker/FileSourceProvider.java core/resources/META-INF/plugin.xml
 git commit -m "feat(core): FileSourceProvider extension point"
 ```
 
@@ -487,18 +487,18 @@ git commit -m "feat(core): FileSourceProvider extension point"
 The built-in local source. Simple `java.nio.file.Files`-backed implementation, fully unit-testable.
 
 **Files:**
-- Create: `core/src/com/conch/core/filepicker/LocalFileEntry.java` — tiny record implementing `FileEntry` for `Path` objects. We can't reuse `com.conch.sftp.model.LocalFileEntry` because core must not depend on sftp.
-- Create: `core/src/com/conch/core/filepicker/LocalFileSource.java`
-- Create: `core/src/com/conch/core/filepicker/LocalFileSourceProvider.java`
-- Create: `core/test/com/conch/core/filepicker/LocalFileSourceTest.java`
+- Create: `core/src/com/termlab/core/filepicker/LocalFileEntry.java` — tiny record implementing `FileEntry` for `Path` objects. We can't reuse `com.termlab.sftp.model.LocalFileEntry` because core must not depend on sftp.
+- Create: `core/src/com/termlab/core/filepicker/LocalFileSource.java`
+- Create: `core/src/com/termlab/core/filepicker/LocalFileSourceProvider.java`
+- Create: `core/test/com/termlab/core/filepicker/LocalFileSourceTest.java`
 - Modify: `core/resources/META-INF/plugin.xml` — register the provider
 
-- [ ] **Step 1: Create `LocalFileEntry.java`** (core's own entry type, separate from the SFTP plugin's `com.conch.sftp.model.LocalFileEntry`)
+- [ ] **Step 1: Create `LocalFileEntry.java`** (core's own entry type, separate from the SFTP plugin's `com.termlab.sftp.model.LocalFileEntry`)
 
-`core/src/com/conch/core/filepicker/LocalFileEntry.java`:
+`core/src/com/termlab/core/filepicker/LocalFileEntry.java`:
 
 ```java
-package com.conch.core.filepicker;
+package com.termlab.core.filepicker;
 
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -550,10 +550,10 @@ Note: package-private (no `public` keyword on class or method) — this is an in
 
 - [ ] **Step 2: Write the failing test for `LocalFileSource`**
 
-`core/test/com/conch/core/filepicker/LocalFileSourceTest.java`:
+`core/test/com/termlab/core/filepicker/LocalFileSourceTest.java`:
 
 ```java
-package com.conch.core.filepicker;
+package com.termlab.core.filepicker;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -689,15 +689,15 @@ class LocalFileSourceTest {
 
 - [ ] **Step 3: Run tests, confirm red**
 
-Run: `bash bazel.cmd run //conch/core:core_test_runner`
+Run: `bash bazel.cmd run //termlab/core:core_test_runner`
 Expected: compile failure ("cannot find symbol: class LocalFileSource").
 
 - [ ] **Step 4: Implement `LocalFileSource.java`**
 
-`core/src/com/conch/core/filepicker/LocalFileSource.java`:
+`core/src/com/termlab/core/filepicker/LocalFileSource.java`:
 
 ```java
-package com.conch.core.filepicker;
+package com.termlab.core.filepicker;
 
 import com.intellij.icons.AllIcons;
 import com.intellij.openapi.project.Project;
@@ -805,15 +805,15 @@ public final class LocalFileSource implements FileSource {
 
 - [ ] **Step 5: Run tests, confirm green**
 
-Run: `bash bazel.cmd run //conch/core:core_test_runner`
+Run: `bash bazel.cmd run //termlab/core:core_test_runner`
 Expected: all 14 tests pass.
 
 - [ ] **Step 6: Create `LocalFileSourceProvider.java`**
 
-`core/src/com/conch/core/filepicker/LocalFileSourceProvider.java`:
+`core/src/com/termlab/core/filepicker/LocalFileSourceProvider.java`:
 
 ```java
-package com.conch.core.filepicker;
+package com.termlab.core.filepicker;
 
 import org.jetbrains.annotations.NotNull;
 
@@ -836,26 +836,26 @@ public final class LocalFileSourceProvider implements FileSourceProvider {
 
 - [ ] **Step 7: Register the provider in `core/resources/META-INF/plugin.xml`**
 
-Inside the `<extensions defaultExtensionNs="com.intellij">` block (or add a new `<extensions defaultExtensionNs="com.conch.core">` block if needed — the extension point we declared uses the `com.conch.core` namespace), register the local provider:
+Inside the `<extensions defaultExtensionNs="com.intellij">` block (or add a new `<extensions defaultExtensionNs="com.termlab.core">` block if needed — the extension point we declared uses the `com.termlab.core` namespace), register the local provider:
 
 ```xml
-    <extensions defaultExtensionNs="com.conch.core">
-        <fileSourceProvider implementation="com.conch.core.filepicker.LocalFileSourceProvider"/>
+    <extensions defaultExtensionNs="com.termlab.core">
+        <fileSourceProvider implementation="com.termlab.core.filepicker.LocalFileSourceProvider"/>
     </extensions>
 ```
 
 - [ ] **Step 8: Build and run tests**
 
-Run: `bash bazel.cmd build //conch/core:core`
+Run: `bash bazel.cmd build //termlab/core:core`
 Expected: `Build completed successfully`.
 
-Run: `bash bazel.cmd run //conch/core:core_test_runner`
+Run: `bash bazel.cmd run //termlab/core:core_test_runner`
 Expected: 14 tests successful.
 
 - [ ] **Step 9: Commit**
 
 ```bash
-git add core/src/com/conch/core/filepicker/LocalFileEntry.java core/src/com/conch/core/filepicker/LocalFileSource.java core/src/com/conch/core/filepicker/LocalFileSourceProvider.java core/test/com/conch/core/filepicker/LocalFileSourceTest.java core/resources/META-INF/plugin.xml
+git add core/src/com/termlab/core/filepicker/LocalFileEntry.java core/src/com/termlab/core/filepicker/LocalFileSource.java core/src/com/termlab/core/filepicker/LocalFileSourceProvider.java core/test/com/termlab/core/filepicker/LocalFileSourceTest.java core/resources/META-INF/plugin.xml
 git commit -m "feat(core): LocalFileSource and LocalFileSourceProvider"
 ```
 
@@ -863,79 +863,79 @@ git commit -m "feat(core): LocalFileSource and LocalFileSourceProvider"
 
 ## Task 6: Move `FileTableModel` and cell renderers to core
 
-Relocate the table model and its three cell renderers (`FileNameCellRenderer`, `SizeCellRenderer`, `ModifiedCellRenderer`) from `plugins/sftp/src/com/conch/sftp/toolwindow/` to `core/src/com/conch/core/filepicker/ui/`. Update imports in the existing panes. No behavior change.
+Relocate the table model and its three cell renderers (`FileNameCellRenderer`, `SizeCellRenderer`, `ModifiedCellRenderer`) from `plugins/sftp/src/com/termlab/sftp/toolwindow/` to `core/src/com/termlab/core/filepicker/ui/`. Update imports in the existing panes. No behavior change.
 
 **Files:**
-- Create: `core/src/com/conch/core/filepicker/ui/FileTableModel.java` (moved from sftp)
-- Create: `core/src/com/conch/core/filepicker/ui/FileNameCellRenderer.java` (moved)
-- Create: `core/src/com/conch/core/filepicker/ui/SizeCellRenderer.java` (moved)
-- Create: `core/src/com/conch/core/filepicker/ui/ModifiedCellRenderer.java` (moved)
-- Delete: `plugins/sftp/src/com/conch/sftp/toolwindow/FileTableModel.java`
-- Delete: `plugins/sftp/src/com/conch/sftp/toolwindow/FileNameCellRenderer.java`
-- Delete: `plugins/sftp/src/com/conch/sftp/toolwindow/SizeCellRenderer.java`
-- Delete: `plugins/sftp/src/com/conch/sftp/toolwindow/ModifiedCellRenderer.java`
-- Modify: `plugins/sftp/src/com/conch/sftp/toolwindow/RemoteFilePane.java` — update imports
-- Modify: `plugins/sftp/src/com/conch/sftp/toolwindow/LocalFilePane.java` — update imports
+- Create: `core/src/com/termlab/core/filepicker/ui/FileTableModel.java` (moved from sftp)
+- Create: `core/src/com/termlab/core/filepicker/ui/FileNameCellRenderer.java` (moved)
+- Create: `core/src/com/termlab/core/filepicker/ui/SizeCellRenderer.java` (moved)
+- Create: `core/src/com/termlab/core/filepicker/ui/ModifiedCellRenderer.java` (moved)
+- Delete: `plugins/sftp/src/com/termlab/sftp/toolwindow/FileTableModel.java`
+- Delete: `plugins/sftp/src/com/termlab/sftp/toolwindow/FileNameCellRenderer.java`
+- Delete: `plugins/sftp/src/com/termlab/sftp/toolwindow/SizeCellRenderer.java`
+- Delete: `plugins/sftp/src/com/termlab/sftp/toolwindow/ModifiedCellRenderer.java`
+- Modify: `plugins/sftp/src/com/termlab/sftp/toolwindow/RemoteFilePane.java` — update imports
+- Modify: `plugins/sftp/src/com/termlab/sftp/toolwindow/LocalFilePane.java` — update imports
 
 - [ ] **Step 1: Read the four files to move**
 
 Read:
-- `plugins/sftp/src/com/conch/sftp/toolwindow/FileTableModel.java`
-- `plugins/sftp/src/com/conch/sftp/toolwindow/FileNameCellRenderer.java`
-- `plugins/sftp/src/com/conch/sftp/toolwindow/SizeCellRenderer.java`
-- `plugins/sftp/src/com/conch/sftp/toolwindow/ModifiedCellRenderer.java`
+- `plugins/sftp/src/com/termlab/sftp/toolwindow/FileTableModel.java`
+- `plugins/sftp/src/com/termlab/sftp/toolwindow/FileNameCellRenderer.java`
+- `plugins/sftp/src/com/termlab/sftp/toolwindow/SizeCellRenderer.java`
+- `plugins/sftp/src/com/termlab/sftp/toolwindow/ModifiedCellRenderer.java`
 
 - [ ] **Step 2: Copy each file to its new location with an updated package declaration**
 
-Create the four new files under `core/src/com/conch/core/filepicker/ui/` with identical content EXCEPT:
-- Change the package declaration from `package com.conch.sftp.toolwindow;` to `package com.conch.core.filepicker.ui;`
-- If `FileTableModel.java` imports `com.conch.core.filepicker.FileEntry`, keep that import (added in Task 2). If it still shows `com.conch.sftp.model.FileEntry`, update it.
+Create the four new files under `core/src/com/termlab/core/filepicker/ui/` with identical content EXCEPT:
+- Change the package declaration from `package com.termlab.sftp.toolwindow;` to `package com.termlab.core.filepicker.ui;`
+- If `FileTableModel.java` imports `com.termlab.core.filepicker.FileEntry`, keep that import (added in Task 2). If it still shows `com.termlab.sftp.model.FileEntry`, update it.
 - The three renderers import `FileEntry` — same update.
 
 - [ ] **Step 3: Delete the old files**
 
 ```bash
-rm plugins/sftp/src/com/conch/sftp/toolwindow/FileTableModel.java
-rm plugins/sftp/src/com/conch/sftp/toolwindow/FileNameCellRenderer.java
-rm plugins/sftp/src/com/conch/sftp/toolwindow/SizeCellRenderer.java
-rm plugins/sftp/src/com/conch/sftp/toolwindow/ModifiedCellRenderer.java
+rm plugins/sftp/src/com/termlab/sftp/toolwindow/FileTableModel.java
+rm plugins/sftp/src/com/termlab/sftp/toolwindow/FileNameCellRenderer.java
+rm plugins/sftp/src/com/termlab/sftp/toolwindow/SizeCellRenderer.java
+rm plugins/sftp/src/com/termlab/sftp/toolwindow/ModifiedCellRenderer.java
 ```
 
 - [ ] **Step 4: Update imports in `RemoteFilePane.java`**
 
-Find the imports in `plugins/sftp/src/com/conch/sftp/toolwindow/RemoteFilePane.java` that reference the moved classes:
-- `import com.conch.sftp.toolwindow.FileTableModel;` — doesn't exist as an import because they're in the same package. After the move, add `import com.conch.core.filepicker.ui.FileTableModel;` to the imports block.
+Find the imports in `plugins/sftp/src/com/termlab/sftp/toolwindow/RemoteFilePane.java` that reference the moved classes:
+- `import com.termlab.sftp.toolwindow.FileTableModel;` — doesn't exist as an import because they're in the same package. After the move, add `import com.termlab.core.filepicker.ui.FileTableModel;` to the imports block.
 - Same for `FileNameCellRenderer`, `SizeCellRenderer`, `ModifiedCellRenderer`.
 
 Also grep for bare references to these class names in the source that don't need an explicit import (same-package references); each becomes an explicit import after the move. Update them all.
 
 - [ ] **Step 5: Update imports in `LocalFilePane.java`**
 
-Same changes to `plugins/sftp/src/com/conch/sftp/toolwindow/LocalFilePane.java`.
+Same changes to `plugins/sftp/src/com/termlab/sftp/toolwindow/LocalFilePane.java`.
 
 - [ ] **Step 6: Grep for any other references**
 
 Run:
 ```
-cd /Users/dustin/projects/conch_workbench && grep -rn "com.conch.sftp.toolwindow.FileTableModel\|com.conch.sftp.toolwindow.FileNameCellRenderer\|com.conch.sftp.toolwindow.SizeCellRenderer\|com.conch.sftp.toolwindow.ModifiedCellRenderer" --include="*.java"
+cd /Users/dustin/projects/termlab_workbench && grep -rn "com.termlab.sftp.toolwindow.FileTableModel\|com.termlab.sftp.toolwindow.FileNameCellRenderer\|com.termlab.sftp.toolwindow.SizeCellRenderer\|com.termlab.sftp.toolwindow.ModifiedCellRenderer" --include="*.java"
 ```
 
 Expected: no matches.
 
 - [ ] **Step 7: Build**
 
-Run: `bash bazel.cmd build //conch/core:core //conch/plugins/sftp:sftp`
+Run: `bash bazel.cmd build //termlab/core:core //termlab/plugins/sftp:sftp`
 Expected: both build successfully.
 
 - [ ] **Step 8: Run tests**
 
-Run: `bash bazel.cmd run //conch/plugins/sftp:sftp_test_runner`
+Run: `bash bazel.cmd run //termlab/plugins/sftp:sftp_test_runner`
 Expected: 20+ tests still pass.
 
 - [ ] **Step 9: Commit**
 
 ```bash
-git add core/src/com/conch/core/filepicker/ui/ plugins/sftp/src/com/conch/sftp/toolwindow/RemoteFilePane.java plugins/sftp/src/com/conch/sftp/toolwindow/LocalFilePane.java
+git add core/src/com/termlab/core/filepicker/ui/ plugins/sftp/src/com/termlab/sftp/toolwindow/RemoteFilePane.java plugins/sftp/src/com/termlab/sftp/toolwindow/LocalFilePane.java
 git commit -m "refactor(core): move FileTableModel and cell renderers to core.filepicker.ui"
 ```
 
@@ -948,16 +948,16 @@ git commit -m "refactor(core): move FileTableModel and cell renderers to core.fi
 Encapsulate the `JBTable` + `FileTableModel` + cell renderers into a single `FileBrowserTable` class that both the dialog and the existing panes can embed. This task creates the widget but does NOT yet refactor the panes to use it — that's Task 8.
 
 **Files:**
-- Create: `core/src/com/conch/core/filepicker/ui/FileBrowserTable.java`
+- Create: `core/src/com/termlab/core/filepicker/ui/FileBrowserTable.java`
 
 - [ ] **Step 1: Create the widget**
 
-`core/src/com/conch/core/filepicker/ui/FileBrowserTable.java`:
+`core/src/com/termlab/core/filepicker/ui/FileBrowserTable.java`:
 
 ```java
-package com.conch.core.filepicker.ui;
+package com.termlab.core.filepicker.ui;
 
-import com.conch.core.filepicker.FileEntry;
+import com.termlab.core.filepicker.FileEntry;
 import com.intellij.ui.table.JBTable;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -1081,13 +1081,13 @@ public final class FileBrowserTable {
 
 - [ ] **Step 2: Build**
 
-Run: `bash bazel.cmd build //conch/core:core`
+Run: `bash bazel.cmd build //termlab/core:core`
 Expected: `Build completed successfully`.
 
 - [ ] **Step 3: Commit**
 
 ```bash
-git add core/src/com/conch/core/filepicker/ui/FileBrowserTable.java
+git add core/src/com/termlab/core/filepicker/ui/FileBrowserTable.java
 git commit -m "feat(core): FileBrowserTable widget wrapping JBTable + FileTableModel"
 ```
 
@@ -1098,8 +1098,8 @@ git commit -m "feat(core): FileBrowserTable widget wrapping JBTable + FileTableM
 This is the highest-risk task — it touches working tool-window code. The rewrite is mechanical: the panes keep their outer chrome (host dropdown, buttons, path field, DnD, context menus) but the internal `JBTable` setup is replaced with a `new FileBrowserTable(...)`. Behavior must be byte-identical to the pre-refactor state.
 
 **Files:**
-- Modify: `plugins/sftp/src/com/conch/sftp/toolwindow/RemoteFilePane.java`
-- Modify: `plugins/sftp/src/com/conch/sftp/toolwindow/LocalFilePane.java`
+- Modify: `plugins/sftp/src/com/termlab/sftp/toolwindow/RemoteFilePane.java`
+- Modify: `plugins/sftp/src/com/termlab/sftp/toolwindow/LocalFilePane.java`
 
 - [ ] **Step 1: Read the full `RemoteFilePane.java`**
 
@@ -1194,7 +1194,7 @@ Grep for `model.` in the file. The `model` reference is gone; usage needs to flo
 Add at the top of `RemoteFilePane.java`:
 
 ```java
-import com.conch.core.filepicker.ui.FileBrowserTable;
+import com.termlab.core.filepicker.ui.FileBrowserTable;
 ```
 
 Remove now-unused imports (`JBTable`, `FileTableModel`, `FileNameCellRenderer`, `SizeCellRenderer`, `ModifiedCellRenderer`, `TableRowSorter`, `JScrollPane` — keep whichever the file still needs).
@@ -1205,27 +1205,27 @@ Same pattern: replace `model` and `table` fields with `browser`, replace the con
 
 - [ ] **Step 8: Build**
 
-Run: `bash bazel.cmd build //conch/plugins/sftp:sftp`
+Run: `bash bazel.cmd build //termlab/plugins/sftp:sftp`
 Expected: `Build completed successfully`. If compile errors appear, they're almost certainly from stale references to `table` or `model` fields — grep the file for them and update.
 
 - [ ] **Step 9: Run the existing sftp test suite**
 
-Run: `bash bazel.cmd run //conch/plugins/sftp:sftp_test_runner`
+Run: `bash bazel.cmd run //termlab/plugins/sftp:sftp_test_runner`
 Expected: 20+ tests still pass.
 
 - [ ] **Step 10: Build the whole product to catch cross-plugin regressions**
 
-Run: `bash bazel.cmd build //conch:conch_run`
+Run: `bash bazel.cmd build //termlab:termlab_run`
 Expected: `Build completed successfully`.
 
 - [ ] **Step 11: Commit**
 
 ```bash
-git add plugins/sftp/src/com/conch/sftp/toolwindow/RemoteFilePane.java plugins/sftp/src/com/conch/sftp/toolwindow/LocalFilePane.java
+git add plugins/sftp/src/com/termlab/sftp/toolwindow/RemoteFilePane.java plugins/sftp/src/com/termlab/sftp/toolwindow/LocalFilePane.java
 git commit -m "refactor(sftp): embed FileBrowserTable widget in SFTP tool window panes"
 ```
 
-**IMPORTANT: manual smoke test required before proceeding.** Before moving on to Task 9, the user (or the executing engineer) should launch Conch, open the SFTP tool window, connect to a host, browse directories, disconnect, and use context menus — the existing behavior must be identical. Flag any visual or interaction regression before landing further tasks.
+**IMPORTANT: manual smoke test required before proceeding.** Before moving on to Task 9, the user (or the executing engineer) should launch TermLab, open the SFTP tool window, connect to a host, browse directories, disconnect, and use context menus — the existing behavior must be identical. Flag any visual or interaction regression before landing further tasks.
 
 ---
 
@@ -1234,9 +1234,9 @@ git commit -m "refactor(sftp): embed FileBrowserTable widget in SFTP tool window
 Move the `.tmp`+rename atomic-write logic out of `SftpVirtualFile.writeAtomically(byte[])` into a standalone helper so `SftpFileSource.writeFile` can call it without duplicating code. Add unit tests.
 
 **Files:**
-- Create: `plugins/sftp/src/com/conch/sftp/vfs/AtomicSftpWrite.java`
-- Create: `plugins/sftp/test/com/conch/sftp/vfs/AtomicSftpWriteTest.java`
-- Modify: `plugins/sftp/src/com/conch/sftp/vfs/SftpVirtualFile.java`
+- Create: `plugins/sftp/src/com/termlab/sftp/vfs/AtomicSftpWrite.java`
+- Create: `plugins/sftp/test/com/termlab/sftp/vfs/AtomicSftpWriteTest.java`
+- Modify: `plugins/sftp/src/com/termlab/sftp/vfs/SftpVirtualFile.java`
 
 - [ ] **Step 1: Read the existing `writeAtomically` method in `SftpVirtualFile.java`**
 
@@ -1244,10 +1244,10 @@ The method body handles three paths: simple rename (POSIX), fallback backup+rena
 
 - [ ] **Step 2: Create `AtomicSftpWrite.java`**
 
-`plugins/sftp/src/com/conch/sftp/vfs/AtomicSftpWrite.java`:
+`plugins/sftp/src/com/termlab/sftp/vfs/AtomicSftpWrite.java`:
 
 ```java
-package com.conch.sftp.vfs;
+package com.termlab.sftp.vfs;
 
 import com.intellij.openapi.diagnostic.Logger;
 import org.apache.sshd.sftp.client.SftpClient;
@@ -1349,7 +1349,7 @@ public final class AtomicSftpWrite {
 
 - [ ] **Step 3: Update `SftpVirtualFile.writeAtomically(byte[])` to delegate**
 
-In `plugins/sftp/src/com/conch/sftp/vfs/SftpVirtualFile.java`, replace the body of `private void writeAtomically(byte[] content)` with a one-liner:
+In `plugins/sftp/src/com/termlab/sftp/vfs/SftpVirtualFile.java`, replace the body of `private void writeAtomically(byte[] content)` with a one-liner:
 
 ```java
     private void writeAtomically(byte @NotNull [] content) throws IOException {
@@ -1361,10 +1361,10 @@ Remove any now-unused imports (e.g., `ThreadLocalRandom`, `OutputStream` imports
 
 - [ ] **Step 4: Write unit tests for `AtomicSftpWrite`**
 
-`plugins/sftp/test/com/conch/sftp/vfs/AtomicSftpWriteTest.java`:
+`plugins/sftp/test/com/termlab/sftp/vfs/AtomicSftpWriteTest.java`:
 
 ```java
-package com.conch.sftp.vfs;
+package com.termlab.sftp.vfs;
 
 import org.apache.sshd.sftp.client.SftpClient;
 import org.junit.jupiter.api.Test;
@@ -1499,13 +1499,13 @@ class AtomicSftpWriteTest {
 
 - [ ] **Step 5: Run the tests**
 
-Run: `bash bazel.cmd run //conch/plugins/sftp:sftp_test_runner`
+Run: `bash bazel.cmd run //termlab/plugins/sftp:sftp_test_runner`
 Expected: all previous tests + 4 new `AtomicSftpWriteTest` tests passing.
 
 - [ ] **Step 6: Commit**
 
 ```bash
-git add plugins/sftp/src/com/conch/sftp/vfs/AtomicSftpWrite.java plugins/sftp/test/com/conch/sftp/vfs/AtomicSftpWriteTest.java plugins/sftp/src/com/conch/sftp/vfs/SftpVirtualFile.java
+git add plugins/sftp/src/com/termlab/sftp/vfs/AtomicSftpWrite.java plugins/sftp/test/com/termlab/sftp/vfs/AtomicSftpWriteTest.java plugins/sftp/src/com/termlab/sftp/vfs/SftpVirtualFile.java
 git commit -m "refactor(sftp): extract AtomicSftpWrite helper and add tests"
 ```
 
@@ -1516,25 +1516,25 @@ git commit -m "refactor(sftp): extract AtomicSftpWrite helper and add tests"
 Implement `FileSource` for SFTP hosts and the provider that registers one source per configured host via `HostStore`.
 
 **Files:**
-- Create: `plugins/sftp/src/com/conch/sftp/filepicker/SftpFileSource.java`
-- Create: `plugins/sftp/src/com/conch/sftp/filepicker/SftpFileSourceProvider.java`
+- Create: `plugins/sftp/src/com/termlab/sftp/filepicker/SftpFileSource.java`
+- Create: `plugins/sftp/src/com/termlab/sftp/filepicker/SftpFileSourceProvider.java`
 - Modify: `plugins/sftp/resources/META-INF/plugin.xml`
 
 - [ ] **Step 1: Create `SftpFileSource.java`**
 
-`plugins/sftp/src/com/conch/sftp/filepicker/SftpFileSource.java`:
+`plugins/sftp/src/com/termlab/sftp/filepicker/SftpFileSource.java`:
 
 ```java
-package com.conch.sftp.filepicker;
+package com.termlab.sftp.filepicker;
 
-import com.conch.core.filepicker.FileEntry;
-import com.conch.core.filepicker.FileSource;
-import com.conch.sftp.client.SshSftpSession;
-import com.conch.sftp.model.RemoteFileEntry;
-import com.conch.sftp.session.SftpSessionManager;
-import com.conch.sftp.vfs.AtomicSftpWrite;
-import com.conch.ssh.client.SshConnectException;
-import com.conch.ssh.model.SshHost;
+import com.termlab.core.filepicker.FileEntry;
+import com.termlab.core.filepicker.FileSource;
+import com.termlab.sftp.client.SshSftpSession;
+import com.termlab.sftp.model.RemoteFileEntry;
+import com.termlab.sftp.session.SftpSessionManager;
+import com.termlab.sftp.vfs.AtomicSftpWrite;
+import com.termlab.ssh.client.SshConnectException;
+import com.termlab.ssh.model.SshHost;
 import com.intellij.icons.AllIcons;
 import com.intellij.openapi.project.Project;
 import org.apache.sshd.sftp.client.SftpClient;
@@ -1686,15 +1686,15 @@ public final class SftpFileSource implements FileSource {
 
 - [ ] **Step 2: Create `SftpFileSourceProvider.java`**
 
-`plugins/sftp/src/com/conch/sftp/filepicker/SftpFileSourceProvider.java`:
+`plugins/sftp/src/com/termlab/sftp/filepicker/SftpFileSourceProvider.java`:
 
 ```java
-package com.conch.sftp.filepicker;
+package com.termlab.sftp.filepicker;
 
-import com.conch.core.filepicker.FileSource;
-import com.conch.core.filepicker.FileSourceProvider;
-import com.conch.ssh.model.HostStore;
-import com.conch.ssh.model.SshHost;
+import com.termlab.core.filepicker.FileSource;
+import com.termlab.core.filepicker.FileSourceProvider;
+import com.termlab.ssh.model.HostStore;
+import com.termlab.ssh.model.SshHost;
 import com.intellij.openapi.application.ApplicationManager;
 import org.jetbrains.annotations.NotNull;
 
@@ -1724,23 +1724,23 @@ public final class SftpFileSourceProvider implements FileSourceProvider {
 
 - [ ] **Step 3: Register the provider in `plugins/sftp/resources/META-INF/plugin.xml`**
 
-Inside the existing `<extensions>` block (or as a new one using the `com.conch.core` namespace), add:
+Inside the existing `<extensions>` block (or as a new one using the `com.termlab.core` namespace), add:
 
 ```xml
-    <extensions defaultExtensionNs="com.conch.core">
-        <fileSourceProvider implementation="com.conch.sftp.filepicker.SftpFileSourceProvider"/>
+    <extensions defaultExtensionNs="com.termlab.core">
+        <fileSourceProvider implementation="com.termlab.sftp.filepicker.SftpFileSourceProvider"/>
     </extensions>
 ```
 
 - [ ] **Step 4: Build**
 
-Run: `bash bazel.cmd build //conch/plugins/sftp:sftp`
+Run: `bash bazel.cmd build //termlab/plugins/sftp:sftp`
 Expected: `Build completed successfully`.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add plugins/sftp/src/com/conch/sftp/filepicker/ plugins/sftp/resources/META-INF/plugin.xml
+git add plugins/sftp/src/com/termlab/sftp/filepicker/ plugins/sftp/resources/META-INF/plugin.xml
 git commit -m "feat(sftp): SftpFileSource and SftpFileSourceProvider"
 ```
 
@@ -1751,15 +1751,15 @@ git commit -m "feat(sftp): SftpFileSource and SftpFileSourceProvider"
 Small utility that translates common IOException messages into friendly sentences for the dialog's error card.
 
 **Files:**
-- Create: `core/src/com/conch/core/filepicker/ui/ErrorMessages.java`
-- Create: `core/test/com/conch/core/filepicker/ui/ErrorMessagesTest.java`
+- Create: `core/src/com/termlab/core/filepicker/ui/ErrorMessages.java`
+- Create: `core/test/com/termlab/core/filepicker/ui/ErrorMessagesTest.java`
 
 - [ ] **Step 1: Write the failing test**
 
-`core/test/com/conch/core/filepicker/ui/ErrorMessagesTest.java`:
+`core/test/com/termlab/core/filepicker/ui/ErrorMessagesTest.java`:
 
 ```java
-package com.conch.core.filepicker.ui;
+package com.termlab.core.filepicker.ui;
 
 import org.junit.jupiter.api.Test;
 
@@ -1823,15 +1823,15 @@ class ErrorMessagesTest {
 
 - [ ] **Step 2: Run, confirm red**
 
-Run: `bash bazel.cmd run //conch/core:core_test_runner`
+Run: `bash bazel.cmd run //termlab/core:core_test_runner`
 Expected: compile failure.
 
 - [ ] **Step 3: Implement `ErrorMessages.java`**
 
-`core/src/com/conch/core/filepicker/ui/ErrorMessages.java`:
+`core/src/com/termlab/core/filepicker/ui/ErrorMessages.java`:
 
 ```java
-package com.conch.core.filepicker.ui;
+package com.termlab.core.filepicker.ui;
 
 import org.jetbrains.annotations.NotNull;
 
@@ -1868,13 +1868,13 @@ public final class ErrorMessages {
 
 - [ ] **Step 4: Run, confirm green**
 
-Run: `bash bazel.cmd run //conch/core:core_test_runner`
+Run: `bash bazel.cmd run //termlab/core:core_test_runner`
 Expected: 22 tests passing (14 LocalFileSource + 8 ErrorMessages).
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add core/src/com/conch/core/filepicker/ui/ErrorMessages.java core/test/com/conch/core/filepicker/ui/ErrorMessagesTest.java
+git add core/src/com/termlab/core/filepicker/ui/ErrorMessages.java core/test/com/termlab/core/filepicker/ui/ErrorMessagesTest.java
 git commit -m "feat(core): ErrorMessages helper for picker error card"
 ```
 
@@ -1885,18 +1885,18 @@ git commit -m "feat(core): ErrorMessages helper for picker error card"
 Build the dialog structure: source dropdown, path bar, file list area with `CardLayout`, (optional) filename input, OK/Cancel buttons. No source-switching or listing logic yet — just the layout and the static entry points.
 
 **Files:**
-- Create: `core/src/com/conch/core/filepicker/ui/UnifiedFilePickerDialog.java`
+- Create: `core/src/com/termlab/core/filepicker/ui/UnifiedFilePickerDialog.java`
 
 - [ ] **Step 1: Create the dialog class**
 
-`core/src/com/conch/core/filepicker/ui/UnifiedFilePickerDialog.java`:
+`core/src/com/termlab/core/filepicker/ui/UnifiedFilePickerDialog.java`:
 
 ```java
-package com.conch.core.filepicker.ui;
+package com.termlab.core.filepicker.ui;
 
-import com.conch.core.filepicker.FilePickerResult;
-import com.conch.core.filepicker.FileSource;
-import com.conch.core.filepicker.FileSourceProvider;
+import com.termlab.core.filepicker.FilePickerResult;
+import com.termlab.core.filepicker.FileSource;
+import com.termlab.core.filepicker.FileSourceProvider;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.ui.DialogWrapper;
 import com.intellij.util.ui.AsyncProcessIcon;
@@ -2161,13 +2161,13 @@ Add this inner class at the bottom of `UnifiedFilePickerDialog.java`:
 
 - [ ] **Step 2: Build**
 
-Run: `bash bazel.cmd build //conch/core:core`
+Run: `bash bazel.cmd build //termlab/core:core`
 Expected: `Build completed successfully`.
 
 - [ ] **Step 3: Commit**
 
 ```bash
-git add core/src/com/conch/core/filepicker/ui/UnifiedFilePickerDialog.java
+git add core/src/com/termlab/core/filepicker/ui/UnifiedFilePickerDialog.java
 git commit -m "feat(core): UnifiedFilePickerDialog skeleton with layout and source dropdown"
 ```
 
@@ -2178,7 +2178,7 @@ git commit -m "feat(core): UnifiedFilePickerDialog skeleton with layout and sour
 Add the dialog's state machine: opening a source, listing directories, handling path-bar input, the Save button flow with overwrite confirmation.
 
 **Files:**
-- Modify: `core/src/com/conch/core/filepicker/ui/UnifiedFilePickerDialog.java`
+- Modify: `core/src/com/termlab/core/filepicker/ui/UnifiedFilePickerDialog.java`
 
 - [ ] **Step 1: Add the `openAndLoadCurrentSource` helper**
 
@@ -2194,7 +2194,7 @@ Add this method to the dialog class. It runs the source-open + initial-list unde
                 project, "Connecting to " + source.label() + "…", true
             ) {
                 private java.io.IOException error;
-                private java.util.List<com.conch.core.filepicker.FileEntry> entries;
+                private java.util.List<com.termlab.core.filepicker.FileEntry> entries;
                 private String loadPath;
 
                 @Override
@@ -2267,7 +2267,7 @@ Add this helper method:
         com.intellij.openapi.progress.ProgressManager.getInstance().run(
             new com.intellij.openapi.progress.Task.Modal(project, "Loading…", false) {
                 private java.io.IOException error;
-                private java.util.List<com.conch.core.filepicker.FileEntry> entries;
+                private java.util.List<com.termlab.core.filepicker.FileEntry> entries;
 
                 @Override
                 public void run(@NotNull com.intellij.openapi.progress.ProgressIndicator indicator) {
@@ -2438,18 +2438,18 @@ Replace the skeleton's `doOKAction` override with:
 Add the needed import:
 
 ```java
-import com.conch.core.filepicker.FileEntry;
+import com.termlab.core.filepicker.FileEntry;
 ```
 
 - [ ] **Step 7: Build**
 
-Run: `bash bazel.cmd build //conch/core:core`
+Run: `bash bazel.cmd build //termlab/core:core`
 Expected: `Build completed successfully`.
 
 - [ ] **Step 8: Commit**
 
 ```bash
-git add core/src/com/conch/core/filepicker/ui/UnifiedFilePickerDialog.java
+git add core/src/com/termlab/core/filepicker/ui/UnifiedFilePickerDialog.java
 git commit -m "feat(core): picker source switching, navigation, and Save flow"
 ```
 
@@ -2460,20 +2460,20 @@ git commit -m "feat(core): picker source switching, navigation, and Save flow"
 Replace the current `proceedWithHost`-based flow in `SaveScratchToRemoteAction` with a single call to `UnifiedFilePickerDialog.showSaveDialog(...)`. Remove the now-unused helpers inside the action.
 
 **Files:**
-- Modify: `plugins/editor/src/com/conch/editor/scratch/SaveScratchToRemoteAction.java`
+- Modify: `plugins/editor/src/com/termlab/editor/scratch/SaveScratchToRemoteAction.java`
 
 - [ ] **Step 1: Verify the editor plugin depends on core**
 
-Read `plugins/editor/BUILD.bazel`. Confirm `//conch/core` is in the `editor` jvm_library's `deps`. It should already be there.
+Read `plugins/editor/BUILD.bazel`. Confirm `//termlab/core` is in the `editor` jvm_library's `deps`. It should already be there.
 
 - [ ] **Step 2: Replace the full contents of `SaveScratchToRemoteAction.java`**
 
 ```java
-package com.conch.editor.scratch;
+package com.termlab.editor.scratch;
 
-import com.conch.core.filepicker.FilePickerResult;
-import com.conch.core.filepicker.ui.UnifiedFilePickerDialog;
-import com.conch.sftp.vfs.SftpUrl;
+import com.termlab.core.filepicker.FilePickerResult;
+import com.termlab.core.filepicker.ui.UnifiedFilePickerDialog;
+import com.termlab.sftp.vfs.SftpUrl;
 import com.intellij.ide.util.PropertiesComponent;
 import com.intellij.notification.Notification;
 import com.intellij.notification.NotificationType;
@@ -2504,8 +2504,8 @@ import java.util.UUID;
  */
 public final class SaveScratchToRemoteAction extends AnAction {
 
-    private static final String NOTIFICATION_GROUP = "Conch SFTP";
-    private static final String LAST_SOURCE_KEY = "conch.editor.lastRemoteSourceId";
+    private static final String NOTIFICATION_GROUP = "TermLab SFTP";
+    private static final String LAST_SOURCE_KEY = "termlab.editor.lastRemoteSourceId";
 
     @Override
     public void update(@NotNull AnActionEvent e) {
@@ -2615,18 +2615,18 @@ public final class SaveScratchToRemoteAction extends AnAction {
 
 - [ ] **Step 3: Build**
 
-Run: `bash bazel.cmd build //conch/plugins/editor:editor`
+Run: `bash bazel.cmd build //termlab/plugins/editor:editor`
 Expected: `Build completed successfully`. If it fails, the editor plugin may be missing the core filepicker dep — check `plugins/editor/BUILD.bazel`.
 
 - [ ] **Step 4: Build the whole product**
 
-Run: `bash bazel.cmd build //conch:conch_run`
+Run: `bash bazel.cmd build //termlab:termlab_run`
 Expected: `Build completed successfully`.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add plugins/editor/src/com/conch/editor/scratch/SaveScratchToRemoteAction.java
+git add plugins/editor/src/com/termlab/editor/scratch/SaveScratchToRemoteAction.java
 git commit -m "refactor(editor): SaveScratchToRemoteAction delegates to UnifiedFilePickerDialog"
 ```
 
@@ -2634,20 +2634,20 @@ git commit -m "refactor(editor): SaveScratchToRemoteAction delegates to UnifiedF
 
 ## Task 15: End-to-end manual verification
 
-Run the full 12-step E2E checklist from the spec against a running Conch.
+Run the full 12-step E2E checklist from the spec against a running TermLab.
 
 **Files:** none (validation only)
 
 - [ ] **Step 1: Build the product**
 
-Run: `bash bazel.cmd build //conch:conch_run`
+Run: `bash bazel.cmd build //termlab:termlab_run`
 Expected: `Build completed successfully`.
 
 - [ ] **Step 2: Run through the spec's manual E2E checklist**
 
 Execute each of the 12 steps in the "Manual E2E checklist" section of `docs/superpowers/specs/2026-04-15-unified-file-picker-design.md`:
 
-1. Build + launch — no startup errors in `~/Library/Logs/Conch2026.2/idea.log`
+1. Build + launch — no startup errors in `~/Library/Logs/TermLab2026.2/idea.log`
 2. Save scratch to local — picker opens with Local pre-selected, navigation works, file lands on disk
 3. Save scratch to SFTP with active session — picker opens with the active host pre-selected, remote tree renders, save works
 4. Save scratch to SFTP with no active session — dropdown shows all hosts, modal connect on pick, save works
@@ -2677,7 +2677,7 @@ git commit --allow-empty -m "chore(core): manual e2e verification passed for uni
 These were flagged in the spec and should NOT be done in this plan:
 
 1. `File → Open Remote File…` action using `UnifiedFilePickerDialog.showOpenDialog(...)`.
-2. Migrating other existing file-picker call sites in Conch to the unified picker.
+2. Migrating other existing file-picker call sites in TermLab to the unified picker.
 3. New Folder button inside the dialog.
 4. Type filter dropdown, hidden-file toggle, multi-select.
 5. UI unit tests via `HeavyPlatformTestCase` or similar IntelliJ test fixture.

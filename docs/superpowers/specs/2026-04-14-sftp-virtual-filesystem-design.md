@@ -45,16 +45,16 @@ Extends **`com.intellij.openapi.vfs.DeprecatedVirtualFileSystem`** (not `NewVirt
 
 | Field | Value |
 |---|---|
-| Class | `com.conch.sftp.vfs.SftpVirtualFileSystem` |
-| Source root | `plugins/sftp/src/com/conch/sftp/vfs/` |
-| Plugin manifest entry | `<virtualFileSystem implementationClass="com.conch.sftp.vfs.SftpVirtualFileSystem" key="sftp" physical="true"/>` in `plugins/sftp/resources/META-INF/plugin.xml` |
+| Class | `com.termlab.sftp.vfs.SftpVirtualFileSystem` |
+| Source root | `plugins/sftp/src/com/termlab/sftp/vfs/` |
+| Plugin manifest entry | `<virtualFileSystem implementationClass="com.termlab.sftp.vfs.SftpVirtualFileSystem" key="sftp" physical="true"/>` in `plugins/sftp/resources/META-INF/plugin.xml` |
 | Lookup | `VirtualFileManager.getInstance().getFileSystem("sftp")` |
 
 ### Protocol & URL format
 
 - `getProtocol()` returns `"sftp"`.
 - URL form: `sftp://<hostId>/<absolute-remote-path>` where `<hostId>` is the **stable UUID** from `SshHost.id().toString()`. Example: `sftp://550e8400-e29b-41d4-a716-446655440000//etc/nginx/nginx.conf`. The double slash separates the host identifier from the absolute path that itself begins with `/`.
-- Internal helper: `com.conch.sftp.vfs.SftpUrl` — a record `(String hostId, String remotePath)` with static `parse(String)` and `compose(UUID, String)` methods. Used everywhere a path needs to be split.
+- Internal helper: `com.termlab.sftp.vfs.SftpUrl` — a record `(String hostId, String remotePath)` with static `parse(String)` and `compose(UUID, String)` methods. Used everywhere a path needs to be split.
 - The hostId is opaque to humans and is never shown in the UI. The chooser title carries the host's display label; the path bar shows just the remote absolute path.
 
 ### Methods we override
@@ -145,10 +145,10 @@ One application-level service that owns SFTP sessions per host UUID. Encapsulate
 
 | Field | Value |
 |---|---|
-| Class | `com.conch.sftp.session.SftpSessionManager` |
-| Source root | `plugins/sftp/src/com/conch/sftp/session/` |
+| Class | `com.termlab.sftp.session.SftpSessionManager` |
+| Source root | `plugins/sftp/src/com/termlab/sftp/session/` |
 | Service level | `Service.Level.APP`, `Disposable` |
-| Plugin manifest entry | `<applicationService serviceImplementation="com.conch.sftp.session.SftpSessionManager"/>` in `plugins/sftp/resources/META-INF/plugin.xml` |
+| Plugin manifest entry | `<applicationService serviceImplementation="com.termlab.sftp.session.SftpSessionManager"/>` in `plugins/sftp/resources/META-INF/plugin.xml` |
 
 ### API
 
@@ -200,7 +200,7 @@ public final class SftpSessionManager implements Disposable {
 
 ### Reference counting
 
-- `acquire` adds the owner to the `owners` set; if the entry doesn't exist, opens a new session via `ConchSftpConnector.open(host, target, bastion)` (releasing the lock for the I/O, then re-acquiring to install the entry).
+- `acquire` adds the owner to the `owners` set; if the entry doesn't exist, opens a new session via `TermLabSftpConnector.open(host, target, bastion)` (releasing the lock for the I/O, then re-acquiring to install the entry).
 - `release` removes the owner; if the set becomes empty, closes the session and removes the entry.
 - `forceDisconnect` closes the session immediately and clears the owners set; future `acquire` calls reconnect.
 - Owner identity matters: each consumer passes a stable `Object` reference so release matches acquire. Owner conventions:
@@ -210,7 +210,7 @@ public final class SftpSessionManager implements Disposable {
 
 ### Migration of the existing connect logic
 
-`RemoteFilePane.connect(...)` (today, in `plugins/sftp/src/com/conch/sftp/toolwindow/RemoteFilePane.java`) becomes a thin wrapper: `manager.acquire(host, this)`, store result in the pane's `activeSession` field, register `RemoteFilePane.this` as an owner. `disconnect()` becomes `manager.release(hostId, this)`. The credential resolution, modal progress, and error-balloon handling moves into the manager so both the tool window and the new save action share one path.
+`RemoteFilePane.connect(...)` (today, in `plugins/sftp/src/com/termlab/sftp/toolwindow/RemoteFilePane.java`) becomes a thin wrapper: `manager.acquire(host, this)`, store result in the pane's `activeSession` field, register `RemoteFilePane.this` as an owner. `disconnect()` becomes `manager.release(hostId, this)`. The credential resolution, modal progress, and error-balloon handling moves into the manager so both the tool window and the new save action share one path.
 
 ### Active-host accessor
 
@@ -225,18 +225,18 @@ public final class SftpSessionManager implements Disposable {
 ### Registration
 
 ```xml
-<action id="Conch.Editor.SaveScratchToRemote"
-        class="com.conch.editor.scratch.SaveScratchToRemoteAction"
+<action id="TermLab.Editor.SaveScratchToRemote"
+        class="com.termlab.editor.scratch.SaveScratchToRemoteAction"
         text="Save Scratch to Remote…"
         description="Save the current scratch file to a connected SFTP host">
-    <add-to-group group-id="FileMenu" anchor="after" relative-to-action="Conch.Editor.NewScratch"/>
+    <add-to-group group-id="FileMenu" anchor="after" relative-to-action="TermLab.Editor.NewScratch"/>
     <keyboard-shortcut keymap="$default" first-keystroke="control shift S"/>
     <keyboard-shortcut keymap="Mac OS X 10.5+" first-keystroke="meta shift S" replace-all="true"/>
     <keyboard-shortcut keymap="Mac OS X" first-keystroke="meta shift S" replace-all="true"/>
 </action>
 ```
 
-`Cmd+Shift+S` / `Ctrl+Shift+S` is the stock IntelliJ "Save All" shortcut, which `ConchToolbarStripper` already removes from the Conch keymap. The slot is free. To verify during implementation, grep `core/src/com/conch/core/ConchToolbarStripper.java` for the `SaveAll` action ID; if it's not stripped, fall back to `Cmd+Alt+S`.
+`Cmd+Shift+S` / `Ctrl+Shift+S` is the stock IntelliJ "Save All" shortcut, which `TermLabToolbarStripper` already removes from the TermLab keymap. The slot is free. To verify during implementation, grep `core/src/com/termlab/core/TermLabToolbarStripper.java` for the `SaveAll` action ID; if it's not stripped, fall back to `Cmd+Alt+S`.
 
 ### `update()`
 
@@ -307,7 +307,7 @@ A small `JBPopupFactory.createPopupChooserBuilder(List<SshHost>)`-based popup, m
 
 ### Files deleted (post-migration)
 
-In `plugins/editor/src/com/conch/editor/remote/`:
+In `plugins/editor/src/com/termlab/editor/remote/`:
 - `RemoteFileBinding.java`
 - `RemoteFileBindingRegistry.java`
 - `RemoteEditService.java`
@@ -320,7 +320,7 @@ In `plugins/editor/src/com/conch/editor/remote/`:
 
 The `remote/` package shrinks to one or two files (or is removed entirely if nothing remains).
 
-In `plugins/sftp/src/com/conch/sftp/transfer/`:
+In `plugins/sftp/src/com/termlab/sftp/transfer/`:
 - `SftpSingleFileTransfer.java` — its job is now `SftpClient.read()` and `SftpClient.write()` called directly inside `SftpVirtualFile`.
 
 In `plugins/editor/resources/META-INF/plugin.xml`:
@@ -334,11 +334,11 @@ The new `<applicationListeners>` and `<projectListeners>` blocks may end up empt
 
 ### One-time temp directory cleanup
 
-The `conch-sftp-edits/` directory under `PathManager.getSystemPath()` becomes orphaned. The new editor plugin startup adds a one-shot cleanup: if the directory exists, recursively delete it. After a few launches we can remove that cleanup too, but for now it ensures users don't end up with stale junk after upgrading. The cleanup itself reuses the same logic as the deleted `RemoteEditorCleanup.purgeRoot` — copy the relevant 10 lines into a small helper before deleting the original class.
+The `termlab-sftp-edits/` directory under `PathManager.getSystemPath()` becomes orphaned. The new editor plugin startup adds a one-shot cleanup: if the directory exists, recursively delete it. After a few launches we can remove that cleanup too, but for now it ensures users don't end up with stale junk after upgrading. The cleanup itself reuses the same logic as the deleted `RemoteEditorCleanup.purgeRoot` — copy the relevant 10 lines into a small helper before deleting the original class.
 
 ### Files rewritten
 
-`plugins/editor/src/com/conch/editor/sftp/EditorRemoteFileOpener.java` and `EditorLocalFileOpener.java` keep their interfaces but their implementations change:
+`plugins/editor/src/com/termlab/editor/sftp/EditorRemoteFileOpener.java` and `EditorLocalFileOpener.java` keep their interfaces but their implementations change:
 
 ```java
 // EditorRemoteFileOpener
@@ -384,7 +384,7 @@ The local opener no longer needs anything special — the file is just a `Virtua
 
 ### Shared `OpenGuards` utility
 
-The size-cap (5 MB) and extension-blocklist guards consolidate into `com.conch.editor.guard.OpenGuards`:
+The size-cap (5 MB) and extension-blocklist guards consolidate into `com.termlab.editor.guard.OpenGuards`:
 
 ```java
 public final class OpenGuards {
@@ -415,7 +415,7 @@ public final class OpenGuards {
 A new project-scoped `FileEditorManagerListener` in the **SFTP plugin** (not the editor plugin — keeps session lifecycle ownership in one place):
 
 ```java
-// plugins/sftp/src/com/conch/sftp/session/SftpEditorTabListener.java
+// plugins/sftp/src/com/termlab/sftp/session/SftpEditorTabListener.java
 public final class SftpEditorTabListener implements FileEditorManagerListener {
     @Override
     public void fileClosed(@NotNull FileEditorManager source, @NotNull VirtualFile file) {
@@ -480,7 +480,7 @@ Registered in `plugins/sftp/resources/META-INF/plugin.xml` under `<projectListen
 
 **No silent failures.** Every error path either propagates an `IOException` that the platform recognizes OR shows a notification with a descriptive message. Errors are logged at `WARN` level via `Logger.getInstance(SftpVirtualFileSystem.class).warn(...)` for diagnostics, including the host label and remote path.
 
-**Notification group.** Reuse the existing `"Conch SFTP"` notification group registered in `plugins/sftp/resources/META-INF/plugin.xml`. Keeps SFTP operations under one notification banner.
+**Notification group.** Reuse the existing `"TermLab SFTP"` notification group registered in `plugins/sftp/resources/META-INF/plugin.xml`. Keeps SFTP operations under one notification banner.
 
 ## Testing
 
@@ -517,7 +517,7 @@ Removed: `TempPathResolverTest` along with `TempPathResolver`.
 7. **Refused file size.** Try opening a >5MB file from the remote pane. Refused.
 8. **Connection drop.** Connect, open a remote file, kill the remote connection (e.g., `iptables` or `kill sshd` on the host). `Cmd+S` should fail with a clear notification, scratch content remains in the buffer.
 9. **Disconnect from tool window with editor tab open.** Open a remote file via SFTP double-click, then click Disconnect in the SFTP tool window. The editor tab should remain visible. Next `Cmd+S` triggers a reconnect (via `acquire`) — verify it works or surfaces a clear error.
-10. **Force quit.** Open a remote file, edit, force-quit Conch (`kill -9`). Restart. There should be no orphaned files anywhere — no `conch-sftp-edits` directory (it was deleted by the migration cleanup).
+10. **Force quit.** Open a remote file, edit, force-quit TermLab (`kill -9`). Restart. There should be no orphaned files anywhere — no `termlab-sftp-edits` directory (it was deleted by the migration cleanup).
 11. **`Cmd+Shift+S` disabled when not on a scratch.** Click into the terminal tab; `Cmd+Shift+S` should be a no-op. Click into a remote file tab opened from SFTP; `Cmd+Shift+S` should also be disabled.
 
 ## Known Limitations
@@ -543,4 +543,4 @@ Removed: `TempPathResolverTest` along with `TempPathResolver`.
 2. **Multi-pane SFTP tool window** — multiple simultaneous host connections in one window.
 3. **External change detection / file-watching** — SFTP polling or inotify-style notifications.
 4. **Implementing the unsupported VFS operations** (delete/move/rename/createChild) for a richer remote file management experience.
-5. **Migrating other file-picker call sites** in Conch to use `SftpVirtualFileSystem` as a root option, so any save-as in the editor can choose local or remote.
+5. **Migrating other file-picker call sites** in TermLab to use `SftpVirtualFileSystem` as a root option, so any save-as in the editor can choose local or remote.

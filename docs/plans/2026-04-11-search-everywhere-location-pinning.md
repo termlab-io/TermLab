@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Make Search Everywhere (Conch's command palette) open horizontally centered on the Conch window with its vertical center at 25% of window height, every time, ignoring any previously-saved popup location.
+**Goal:** Make Search Everywhere (TermLab's command palette) open horizontally centered on the TermLab window with its vertical center at 25% of window height, every time, ignoring any previously-saved popup location.
 
-**Architecture:** Register an application-level `AnActionListener` that clears the platform's persisted `WindowStateService` location for `SearchEverywhereManagerImpl.LOCATION_SETTINGS_KEY` before each `SearchEverywhereAction` invocation. With no saved location, IntelliJ's existing `calcPositionAndShow` fresh-install branch runs and computes the exact upper-half-center position we want — no platform subclassing, no custom position math in Conch.
+**Architecture:** Register an application-level `AnActionListener` that clears the platform's persisted `WindowStateService` location for `SearchEverywhereManagerImpl.LOCATION_SETTINGS_KEY` before each `SearchEverywhereAction` invocation. With no saved location, IntelliJ's existing `calcPositionAndShow` fresh-install branch runs and computes the exact upper-half-center position we want — no platform subclassing, no custom position math in TermLab.
 
 **Tech Stack:** IntelliJ Platform API (`AnActionListener`, `WindowStateService`, `SearchEverywhereManagerImpl`), Java 21.
 
@@ -15,14 +15,14 @@
 ## File Structure
 
 **New files:**
-- `core/src/com/conch/core/palette/ConchSearchEverywhereLocationPinner.java` — single-method `AnActionListener` that clears the SE popup location before every `SearchEverywhereAction` invocation.
+- `core/src/com/termlab/core/palette/TermLabSearchEverywhereLocationPinner.java` — single-method `AnActionListener` that clears the SE popup location before every `SearchEverywhereAction` invocation.
 
 **Modified files:**
 - `core/resources/META-INF/plugin.xml` — add one `<listener>` entry inside the existing `<applicationListeners>` block.
 
 **Unchanged (confirmed by reading the spec scope section):**
-- `ConchSearchEverywhereCustomizer` — the existing appFrameCreated listener that strips unwanted built-in SE contributors. Separate concern.
-- `ConchTabsCustomizationStrategy` — tab allowlist. Separate concern.
+- `TermLabSearchEverywhereCustomizer` — the existing appFrameCreated listener that strips unwanted built-in SE contributors. Separate concern.
+- `TermLabTabsCustomizationStrategy` — tab allowlist. Separate concern.
 - `TerminalPaletteContributor`, `HostsSearchEverywhereContributor`, `VaultSearchEverywhereContributor` — contributor implementations. Unrelated to positioning.
 - Any file under `plugins/ssh/` or `plugins/vault/` — positioning is a core concern.
 - `sdk/` — no SDK changes.
@@ -31,34 +31,34 @@
 
 ## Build & test commands
 
-From `/Users/dustin/projects/conch_workbench`:
+From `/Users/dustin/projects/termlab_workbench`:
 
 ```bash
-# Compile the whole conch product:
-make conch-build
+# Compile the whole termlab product:
+make termlab-build
 
-# Launch Conch for the manual smoke test:
-make conch
+# Launch TermLab for the manual smoke test:
+make termlab
 ```
 
-No automated tests for this feature — the `AnActionListener` is pure platform glue with two null guards, and the positioning behavior itself lives in platform code that Conch doesn't own. Coverage is manual smoke testing.
+No automated tests for this feature — the `AnActionListener` is pure platform glue with two null guards, and the positioning behavior itself lives in platform code that TermLab doesn't own. Coverage is manual smoke testing.
 
 ---
 
-## Task 1: `ConchSearchEverywhereLocationPinner` + registration
+## Task 1: `TermLabSearchEverywhereLocationPinner` + registration
 
 Single-commit task. New Java file + one `plugin.xml` line.
 
 **Files:**
-- Create: `core/src/com/conch/core/palette/ConchSearchEverywhereLocationPinner.java`
+- Create: `core/src/com/termlab/core/palette/TermLabSearchEverywhereLocationPinner.java`
 - Modify: `core/resources/META-INF/plugin.xml`
 
-- [ ] **Step 1: Create `ConchSearchEverywhereLocationPinner.java`**
+- [ ] **Step 1: Create `TermLabSearchEverywhereLocationPinner.java`**
 
-Create `core/src/com/conch/core/palette/ConchSearchEverywhereLocationPinner.java` with exactly this content:
+Create `core/src/com/termlab/core/palette/TermLabSearchEverywhereLocationPinner.java` with exactly this content:
 
 ```java
-package com.conch.core.palette;
+package com.termlab.core.palette;
 
 import com.intellij.ide.actions.SearchEverywhereAction;
 import com.intellij.ide.actions.searcheverywhere.SearchEverywhereManagerImpl;
@@ -79,7 +79,7 @@ import org.jetbrains.annotations.NotNull;
  * position with the popup's vertical center at {@code windowHeight / 4}
  * — the "center of the upper half" look users expect from a command
  * palette. No subclassing, no reflection, no duplicated position math
- * in Conch.
+ * in TermLab.
  *
  * <p>There is explicit precedent for this {@code putLocation(key, null)}
  * pattern in the platform itself: see
@@ -88,7 +88,7 @@ import org.jetbrains.annotations.NotNull;
  * <p>Registered via {@code <applicationListener>} in the core plugin
  * XML, subscribing to {@link AnActionListener#TOPIC}.
  */
-public final class ConchSearchEverywhereLocationPinner implements AnActionListener {
+public final class TermLabSearchEverywhereLocationPinner implements AnActionListener {
 
     @Override
     public void beforeActionPerformed(@NotNull AnAction action, @NotNull AnActionEvent event) {
@@ -105,7 +105,7 @@ public final class ConchSearchEverywhereLocationPinner implements AnActionListen
 
 Read `core/resources/META-INF/plugin.xml` first to see the current state.
 
-Find the existing `<applicationListeners>` block (it already contains `ConchProjectCloseListener`, `ConchSearchEverywhereCustomizer`, and `ConchToolWindowCustomizer`). At the end of that block, before the closing `</applicationListeners>` tag, add:
+Find the existing `<applicationListeners>` block (it already contains `TermLabProjectCloseListener`, `TermLabSearchEverywhereCustomizer`, and `TermLabToolWindowCustomizer`). At the end of that block, before the closing `</applicationListeners>` tag, add:
 
 ```xml
         <!--
@@ -113,9 +113,9 @@ Find the existing `<applicationListeners>` block (it already contains `ConchProj
           SearchEverywhereAction invocation, so the platform's fresh-install
           "upper-half center" positioning runs on every open. Without this,
           a user who drags the popup once would have the dragged position
-          persisted forever. See ConchSearchEverywhereLocationPinner.
+          persisted forever. See TermLabSearchEverywhereLocationPinner.
         -->
-        <listener class="com.conch.core.palette.ConchSearchEverywhereLocationPinner"
+        <listener class="com.termlab.core.palette.TermLabSearchEverywhereLocationPinner"
                   topic="com.intellij.openapi.actionSystem.ex.AnActionListener"/>
 ```
 
@@ -124,7 +124,7 @@ No other edits to `plugin.xml`.
 - [ ] **Step 3: Build**
 
 ```bash
-cd /Users/dustin/projects/conch_workbench && make conch-build 2>&1 | tail -15
+cd /Users/dustin/projects/termlab_workbench && make termlab-build 2>&1 | tail -15
 ```
 
 Expected: `Build completed successfully`.
@@ -134,11 +134,11 @@ If the build fails with `cannot find symbol: class SearchEverywhereAction` or `S
 - [ ] **Step 4: Commit**
 
 ```bash
-cd /Users/dustin/projects/conch_workbench
-git add core/src/com/conch/core/palette/ConchSearchEverywhereLocationPinner.java \
+cd /Users/dustin/projects/termlab_workbench
+git add core/src/com/termlab/core/palette/TermLabSearchEverywhereLocationPinner.java \
         core/resources/META-INF/plugin.xml
 git commit -m "$(cat <<'EOF'
-feat(core): pin Search Everywhere to upper-half center of Conch window
+feat(core): pin Search Everywhere to upper-half center of TermLab window
 
 Register an app-level AnActionListener that wipes the persisted popup
 location before each SearchEverywhereAction invocation. The platform's
@@ -163,15 +163,15 @@ Manual checklist. Block merging until every item passes.
 - [ ] **Step 1: Full product build (regression check)**
 
 ```bash
-cd /Users/dustin/projects/conch_workbench && make conch-build 2>&1 | tail -10
+cd /Users/dustin/projects/termlab_workbench && make termlab-build 2>&1 | tail -10
 ```
 
 Expected: `Build completed successfully`.
 
-- [ ] **Step 2: Launch Conch**
+- [ ] **Step 2: Launch TermLab**
 
 ```bash
-cd /Users/dustin/projects/conch_workbench && make conch
+cd /Users/dustin/projects/termlab_workbench && make termlab
 ```
 
 - [ ] **Step 3: Initial positioning check**
@@ -179,7 +179,7 @@ cd /Users/dustin/projects/conch_workbench && make conch
 Hit `Cmd+Shift+P` to open the command palette.
 
 Expected:
-- The popup is horizontally centered on the Conch window.
+- The popup is horizontally centered on the TermLab window.
 - Its vertical center is at about 25% of the window height from the top (so the top edge of the popup is at ~15-20% from the top of the window, depending on popup height).
 
 - [ ] **Step 4: Drag-and-reopen check**
@@ -188,7 +188,7 @@ With the popup open, drag it to a random screen position (e.g., bottom-right cor
 
 Hit `Cmd+Shift+P` again.
 
-Expected: ignores the dragged position, reopens in the upper-half-center of the Conch window. Prior IntelliJ default behavior would have reopened it wherever it was dragged.
+Expected: ignores the dragged position, reopens in the upper-half-center of the TermLab window. Prior IntelliJ default behavior would have reopened it wherever it was dragged.
 
 - [ ] **Step 5: Multiple-reopen check**
 
@@ -198,17 +198,17 @@ Expected: every reopen snaps back to upper-half center. No drift, no staleness.
 
 - [ ] **Step 6: Window-move check**
 
-Move the Conch window to a different position on screen (or a different monitor if you have one). Open the palette.
+Move the TermLab window to a different position on screen (or a different monitor if you have one). Open the palette.
 
-Expected: the popup tracks the Conch window — it's positioned relative to the Conch window's new coordinates, not frozen on the old ones.
+Expected: the popup tracks the TermLab window — it's positioned relative to the TermLab window's new coordinates, not frozen on the old ones.
 
 - [ ] **Step 7: Known caveat — view type persistence**
 
 Open the palette. Drag the popup's bottom edge down to make it taller (this switches the internal view type from SHORT to FULL). Close it. Reopen.
 
-Expected: the popup is still horizontally centered on the Conch window, but the vertical offset may no longer be exactly `windowHeight/4`. This is the platform's fallback behavior when view type is FULL and is acknowledged in the spec as a deferred follow-up. Not a blocker.
+Expected: the popup is still horizontally centered on the TermLab window, but the vertical offset may no longer be exactly `windowHeight/4`. This is the platform's fallback behavior when view type is FULL and is acknowledged in the spec as a deferred follow-up. Not a blocker.
 
-- [ ] **Step 8: Non-Conch entry points check (no regression)**
+- [ ] **Step 8: Non-TermLab entry points check (no regression)**
 
 If you have the Rider-style toolbar Search Everywhere button configured in the main toolbar, click it. Same upper-half-center positioning should apply — our listener matches `SearchEverywhereAction` by `instanceof`, so any subclass is covered.
 
@@ -219,12 +219,12 @@ If any step 1-6 fails, stop and fix before merging. Step 7 failing in a way that
 ## Self-review checklist (plan author ran this)
 
 **1. Spec coverage:**
-- `ConchSearchEverywhereLocationPinner` class → Task 1 Step 1 ✓
+- `TermLabSearchEverywhereLocationPinner` class → Task 1 Step 1 ✓
 - `putLocation(key, null)` on `beforeActionPerformed` → Task 1 Step 1 ✓
 - `instanceof SearchEverywhereAction` guard → Task 1 Step 1 ✓
 - Null project guard → Task 1 Step 1 ✓
 - Registration via `<applicationListener>` in core plugin.xml → Task 1 Step 2 ✓
-- Manual smoke test covering fresh open, drag-reopen, multi-reopen, window-move, view type caveat, non-Conch entry point → Task 2 Steps 3-8 ✓
+- Manual smoke test covering fresh open, drag-reopen, multi-reopen, window-move, view type caveat, non-TermLab entry point → Task 2 Steps 3-8 ✓
 
 No gaps.
 

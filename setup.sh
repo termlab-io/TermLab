@@ -1,16 +1,16 @@
 #!/usr/bin/env bash
 #
-# setup.sh — bootstrap a Conch dev environment
+# setup.sh — bootstrap a TermLab dev environment
 #
-# Conch builds inside an intellij-community checkout. This script:
+# TermLab builds inside an intellij-community checkout. This script:
 #   1. Shallow-clones intellij-community at the SHA pinned in INTELLIJ_REF
 #      (~1-2 GB instead of the full ~30 GB history).
-#   2. Symlinks this conch_workbench checkout into intellij-community/conch
-#      so Bazel can find the conch source where it expects it.
+#   2. Symlinks this termlab_workbench checkout into intellij-community/termlab
+#      so Bazel can find the termlab source where it expects it.
 #
 # Usage:
 #   ./setup.sh                  # default: ../intellij-community
-#   ./setup.sh ~/projects/conch # custom location for the intellij checkout
+#   ./setup.sh ~/projects/termlab # custom location for the intellij checkout
 #
 # Re-running is safe — existing intellij checkouts and symlinks are left alone.
 
@@ -26,7 +26,7 @@ if [ ! -f "$WORKBENCH_DIR/INTELLIJ_REF" ]; then
 fi
 INTELLIJ_REF="$(tr -d '[:space:]' < "$WORKBENCH_DIR/INTELLIJ_REF")"
 
-echo "==> Conch workbench: $WORKBENCH_DIR"
+echo "==> TermLab workbench: $WORKBENCH_DIR"
 echo "==> intellij-community target: $INTELLIJ_DIR"
 echo "==> Pinned upstream ref: $INTELLIJ_REF"
 echo
@@ -47,24 +47,24 @@ fi
 
 echo
 
-CONCH_LINK="$INTELLIJ_DIR/conch"
-if [ -L "$CONCH_LINK" ]; then
-  CURRENT_TARGET="$(readlink "$CONCH_LINK")"
+TERMLAB_LINK="$INTELLIJ_DIR/termlab"
+if [ -L "$TERMLAB_LINK" ]; then
+  CURRENT_TARGET="$(readlink "$TERMLAB_LINK")"
   if [ "$CURRENT_TARGET" = "$WORKBENCH_DIR" ]; then
-    echo "==> Symlink $CONCH_LINK → $WORKBENCH_DIR already in place"
+    echo "==> Symlink $TERMLAB_LINK → $WORKBENCH_DIR already in place"
   else
-    echo "==> Symlink $CONCH_LINK exists but points elsewhere ($CURRENT_TARGET)"
+    echo "==> Symlink $TERMLAB_LINK exists but points elsewhere ($CURRENT_TARGET)"
     echo "    Replacing it with → $WORKBENCH_DIR"
-    rm "$CONCH_LINK"
-    ln -s "$WORKBENCH_DIR" "$CONCH_LINK"
+    rm "$TERMLAB_LINK"
+    ln -s "$WORKBENCH_DIR" "$TERMLAB_LINK"
   fi
-elif [ -e "$CONCH_LINK" ]; then
-  echo "ERROR: $CONCH_LINK exists and is not a symlink." >&2
+elif [ -e "$TERMLAB_LINK" ]; then
+  echo "ERROR: $TERMLAB_LINK exists and is not a symlink." >&2
   echo "       Move it aside and re-run setup." >&2
   exit 1
 else
-  echo "==> Symlinking conch_workbench into intellij-community"
-  ln -s "$WORKBENCH_DIR" "$CONCH_LINK"
+  echo "==> Symlinking termlab_workbench into intellij-community"
+  ln -s "$WORKBENCH_DIR" "$TERMLAB_LINK"
 fi
 
 echo
@@ -75,15 +75,15 @@ echo "==> Wrote $WORKBENCH_DIR/.intellij-root"
 
 echo
 # Wire up the IntelliJ run configuration and module registrations so the user
-# can run/debug Conch from inside IntelliJ. Idempotent.
+# can run/debug TermLab from inside IntelliJ. Idempotent.
 "$WORKBENCH_DIR/scripts/install-idea-config.sh" "$INTELLIJ_DIR"
 
 echo
 echo "✓ Setup complete."
 echo
 echo "  intellij-community: $INTELLIJ_DIR"
-echo "  conch_workbench:    $WORKBENCH_DIR"
-echo "  symlink:            $CONCH_LINK → $WORKBENCH_DIR"
+echo "  termlab_workbench:    $WORKBENCH_DIR"
+echo "  symlink:            $TERMLAB_LINK → $WORKBENCH_DIR"
 echo
-echo "Build and run Conch:"
-echo "  cd $WORKBENCH_DIR && make conch"
+echo "Build and run TermLab:"
+echo "  cd $WORKBENCH_DIR && make termlab"

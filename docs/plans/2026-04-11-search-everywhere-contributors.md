@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Make Conch's SSH hosts and vault entries reachable from the command palette (Cmd+Shift+P) by converting both plugins to real `SearchEverywhereContributor`s, and retire the dead `CommandPaletteContributor` SDK interface.
+**Goal:** Make TermLab's SSH hosts and vault entries reachable from the command palette (Cmd+Shift+P) by converting both plugins to real `SearchEverywhereContributor`s, and retire the dead `CommandPaletteContributor` SDK interface.
 
-**Architecture:** Each plugin implements IntelliJ's `SearchEverywhereContributor` directly (same pattern as the existing `TerminalPaletteContributor`). Core's `ConchTabsCustomizationStrategy` allowlists the new tab IDs. Core's `commandPaletteContributor` extension point and the SDK's `CommandPaletteContributor` + `PaletteItem` files get deleted.
+**Architecture:** Each plugin implements IntelliJ's `SearchEverywhereContributor` directly (same pattern as the existing `TerminalPaletteContributor`). Core's `TermLabTabsCustomizationStrategy` allowlists the new tab IDs. Core's `commandPaletteContributor` extension point and the SDK's `CommandPaletteContributor` + `PaletteItem` files get deleted.
 
 **Tech Stack:** IntelliJ Platform API (`SearchEverywhereContributor`, `SearchEverywhereContributorFactory`, `AnAction`), Java 21.
 
@@ -15,26 +15,26 @@
 ## File Structure
 
 **New files:**
-- `plugins/ssh/src/com/conch/ssh/palette/HostsSearchEverywhereContributor.java` — `SearchEverywhereContributor<SshHost>` + nested `Factory`
-- `plugins/vault/src/com/conch/vault/palette/VaultSearchEverywhereContributor.java` — `SearchEverywhereContributor<Object>` (tab holds both `VaultAccount` and `VaultKey`) + nested `Factory`
-- `plugins/vault/src/com/conch/vault/actions/LockVaultAction.java` — `AnAction` that locks the vault
-- `plugins/vault/src/com/conch/vault/actions/GenerateSshKeyAction.java` — `AnAction` that opens `KeyGenDialog`
+- `plugins/ssh/src/com/termlab/ssh/palette/HostsSearchEverywhereContributor.java` — `SearchEverywhereContributor<SshHost>` + nested `Factory`
+- `plugins/vault/src/com/termlab/vault/palette/VaultSearchEverywhereContributor.java` — `SearchEverywhereContributor<Object>` (tab holds both `VaultAccount` and `VaultKey`) + nested `Factory`
+- `plugins/vault/src/com/termlab/vault/actions/LockVaultAction.java` — `AnAction` that locks the vault
+- `plugins/vault/src/com/termlab/vault/actions/GenerateSshKeyAction.java` — `AnAction` that opens `KeyGenDialog`
 
 **Modified files:**
 - `plugins/ssh/resources/META-INF/plugin.xml` — add `<searchEverywhereContributor>`, remove `<commandPaletteContributor>`
 - `plugins/vault/resources/META-INF/plugin.xml` — add `<searchEverywhereContributor>` + two `<action>` entries, remove `<commandPaletteContributor>`
-- `core/src/com/conch/core/palette/ConchTabsCustomizationStrategy.java` — add `"ConchHosts"` and `"ConchVault"` to `ALLOWED_TAB_IDS`
+- `core/src/com/termlab/core/palette/TermLabTabsCustomizationStrategy.java` — add `"TermLabHosts"` and `"TermLabVault"` to `ALLOWED_TAB_IDS`
 - `core/resources/META-INF/plugin.xml` — remove the `<extensionPoint name="commandPaletteContributor">` declaration
 
 **Deleted files:**
-- `plugins/ssh/src/com/conch/ssh/palette/HostsPaletteContributor.java`
-- `plugins/vault/src/com/conch/vault/palette/VaultPaletteContributor.java`
-- `sdk/src/com/conch/sdk/CommandPaletteContributor.java`
-- `sdk/src/com/conch/sdk/PaletteItem.java`
+- `plugins/ssh/src/com/termlab/ssh/palette/HostsPaletteContributor.java`
+- `plugins/vault/src/com/termlab/vault/palette/VaultPaletteContributor.java`
+- `sdk/src/com/termlab/sdk/CommandPaletteContributor.java`
+- `sdk/src/com/termlab/sdk/PaletteItem.java`
 
 **Unchanged (confirmed):**
 - `TerminalPaletteContributor` — the reference pattern, no edits
-- `ConchSearchEverywhereCustomizer` — blocklist of unwanted built-in contributors, separate concern
+- `TermLabSearchEverywhereCustomizer` — blocklist of unwanted built-in contributors, separate concern
 - `HostStore`, `LockManager`, `Vault`, `VaultAccount`, `VaultKey` — model layer untouched
 - `HostCellRenderer` — reused by the new SSH contributor via a wrapping renderer
 - `ConnectToHostAction` — the connect path, called from the new contributor
@@ -43,17 +43,17 @@
 
 ## Build & test commands
 
-From `/Users/dustin/projects/conch_workbench`:
+From `/Users/dustin/projects/termlab_workbench`:
 
 ```bash
 # Full product build (catches cross-module breakage):
-make conch-build
+make termlab-build
 
 # SSH plugin test suite:
-cd /Users/dustin/projects/intellij-community && bash bazel.cmd run //conch/plugins/ssh:ssh_test_runner
+cd /Users/dustin/projects/intellij-community && bash bazel.cmd run //termlab/plugins/ssh:ssh_test_runner
 
 # Vault plugin test suite:
-cd /Users/dustin/projects/intellij-community && bash bazel.cmd run //conch/plugins/vault:vault_test_runner
+cd /Users/dustin/projects/intellij-community && bash bazel.cmd run //termlab/plugins/vault:vault_test_runner
 ```
 
 Baseline: 87 SSH tests passing + whatever the vault baseline is (unchanged by this plan). All existing tests must still pass after each task.
@@ -65,21 +65,21 @@ Baseline: 87 SSH tests passing + whatever the vault baseline is (unchanged by th
 The SSH plugin gets a real contributor. The old dead `HostsPaletteContributor` and its `<commandPaletteContributor>` registration are removed in the same commit. After this commit the SDK's dead `CommandPaletteContributor` interface is still present but nothing in the SSH plugin touches it; vault's still-broken `VaultPaletteContributor` continues to reference it — that cleanup is Task 2.
 
 **Files:**
-- Create: `plugins/ssh/src/com/conch/ssh/palette/HostsSearchEverywhereContributor.java`
+- Create: `plugins/ssh/src/com/termlab/ssh/palette/HostsSearchEverywhereContributor.java`
 - Modify: `plugins/ssh/resources/META-INF/plugin.xml`
-- Delete: `plugins/ssh/src/com/conch/ssh/palette/HostsPaletteContributor.java`
+- Delete: `plugins/ssh/src/com/termlab/ssh/palette/HostsPaletteContributor.java`
 
 - [ ] **Step 1: Create `HostsSearchEverywhereContributor.java`**
 
-Create `plugins/ssh/src/com/conch/ssh/palette/HostsSearchEverywhereContributor.java` with this content:
+Create `plugins/ssh/src/com/termlab/ssh/palette/HostsSearchEverywhereContributor.java` with this content:
 
 ```java
-package com.conch.ssh.palette;
+package com.termlab.ssh.palette;
 
-import com.conch.ssh.actions.ConnectToHostAction;
-import com.conch.ssh.model.HostStore;
-import com.conch.ssh.model.SshHost;
-import com.conch.ssh.toolwindow.HostCellRenderer;
+import com.termlab.ssh.actions.ConnectToHostAction;
+import com.termlab.ssh.model.HostStore;
+import com.termlab.ssh.model.SshHost;
+import com.termlab.ssh.toolwindow.HostCellRenderer;
 import com.intellij.ide.actions.searcheverywhere.SearchEverywhereContributor;
 import com.intellij.ide.actions.searcheverywhere.SearchEverywhereContributorFactory;
 import com.intellij.openapi.actionSystem.AnActionEvent;
@@ -97,7 +97,7 @@ import java.util.List;
 import java.util.Objects;
 
 /**
- * Exposes saved {@link SshHost} entries in the Conch command palette
+ * Exposes saved {@link SshHost} entries in the TermLab command palette
  * (Cmd+Shift+P → Hosts tab). Selecting a host dispatches
  * {@link ConnectToHostAction#run(Project, SshHost)}, which opens a new
  * editor tab connected to the host — the same path the tool window's
@@ -116,7 +116,7 @@ public final class HostsSearchEverywhereContributor implements SearchEverywhereC
         this.project = project;
     }
 
-    @Override public @NotNull String getSearchProviderId() { return "ConchHosts"; }
+    @Override public @NotNull String getSearchProviderId() { return "TermLabHosts"; }
     @Override public @NotNull String getGroupName() { return "Hosts"; }
     @Override public int getSortWeight() { return 50; }
     @Override public boolean showInFindResults() { return false; }
@@ -170,7 +170,7 @@ public final class HostsSearchEverywhereContributor implements SearchEverywhereC
 
     @Override
     public @Nullable Object getDataForItem(@NotNull SshHost element, @NotNull String dataId) {
-        return Objects.equals(dataId, "com.conch.ssh.host") ? element : null;
+        return Objects.equals(dataId, "com.termlab.ssh.host") ? element : null;
     }
 
     /**
@@ -194,8 +194,8 @@ public final class HostsSearchEverywhereContributor implements SearchEverywhereC
 - [ ] **Step 2: Delete `HostsPaletteContributor.java`**
 
 ```bash
-cd /Users/dustin/projects/conch_workbench
-rm plugins/ssh/src/com/conch/ssh/palette/HostsPaletteContributor.java
+cd /Users/dustin/projects/termlab_workbench
+rm plugins/ssh/src/com/termlab/ssh/palette/HostsPaletteContributor.java
 ```
 
 - [ ] **Step 3: Update SSH plugin.xml**
@@ -204,21 +204,21 @@ Open `plugins/ssh/resources/META-INF/plugin.xml`. Inside the `<extensions defaul
 
 ```xml
         <searchEverywhereContributor
-            implementation="com.conch.ssh.palette.HostsSearchEverywhereContributor$Factory"/>
+            implementation="com.termlab.ssh.palette.HostsSearchEverywhereContributor$Factory"/>
 ```
 
-Then, inside the `<extensions defaultExtensionNs="com.conch.core">` block, **remove** the line:
+Then, inside the `<extensions defaultExtensionNs="com.termlab.core">` block, **remove** the line:
 
 ```xml
-        <commandPaletteContributor implementation="com.conch.ssh.palette.HostsPaletteContributor"/>
+        <commandPaletteContributor implementation="com.termlab.ssh.palette.HostsPaletteContributor"/>
 ```
 
-Leave the `<terminalSessionProvider>` line in that block untouched. If removing the palette contributor leaves the `com.conch.core` block empty, delete the empty block entirely.
+Leave the `<terminalSessionProvider>` line in that block untouched. If removing the palette contributor leaves the `com.termlab.core` block empty, delete the empty block entirely.
 
 - [ ] **Step 4: Build and verify**
 
 ```bash
-cd /Users/dustin/projects/conch_workbench && make conch-build 2>&1 | tail -15
+cd /Users/dustin/projects/termlab_workbench && make termlab-build 2>&1 | tail -15
 ```
 
 Expected: `Build completed successfully`.
@@ -226,7 +226,7 @@ Expected: `Build completed successfully`.
 - [ ] **Step 5: Run the SSH test suite**
 
 ```bash
-cd /Users/dustin/projects/intellij-community && bash bazel.cmd run //conch/plugins/ssh:ssh_test_runner 2>&1 | tail -15
+cd /Users/dustin/projects/intellij-community && bash bazel.cmd run //termlab/plugins/ssh:ssh_test_runner 2>&1 | tail -15
 ```
 
 Expected: 87/87 passing (unchanged — no tests modified).
@@ -234,10 +234,10 @@ Expected: 87/87 passing (unchanged — no tests modified).
 - [ ] **Step 6: Commit**
 
 ```bash
-cd /Users/dustin/projects/conch_workbench
-git add plugins/ssh/src/com/conch/ssh/palette/HostsSearchEverywhereContributor.java \
+cd /Users/dustin/projects/termlab_workbench
+git add plugins/ssh/src/com/termlab/ssh/palette/HostsSearchEverywhereContributor.java \
         plugins/ssh/resources/META-INF/plugin.xml
-git add -u plugins/ssh/src/com/conch/ssh/palette/HostsPaletteContributor.java
+git add -u plugins/ssh/src/com/termlab/ssh/palette/HostsPaletteContributor.java
 git commit -m "$(cat <<'EOF'
 feat(ssh): expose saved hosts in Search Everywhere (Hosts tab)
 
@@ -261,25 +261,25 @@ EOF
 Replace the dead `VaultPaletteContributor` with a real Search Everywhere contributor showing accounts and keys. Promote the two menu-style actions it carried ("Lock Vault", "Generate SSH Key…") into real `AnAction`s so they surface in the Actions tab.
 
 **Files:**
-- Create: `plugins/vault/src/com/conch/vault/palette/VaultSearchEverywhereContributor.java`
-- Create: `plugins/vault/src/com/conch/vault/actions/LockVaultAction.java`
-- Create: `plugins/vault/src/com/conch/vault/actions/GenerateSshKeyAction.java`
+- Create: `plugins/vault/src/com/termlab/vault/palette/VaultSearchEverywhereContributor.java`
+- Create: `plugins/vault/src/com/termlab/vault/actions/LockVaultAction.java`
+- Create: `plugins/vault/src/com/termlab/vault/actions/GenerateSshKeyAction.java`
 - Modify: `plugins/vault/resources/META-INF/plugin.xml`
-- Delete: `plugins/vault/src/com/conch/vault/palette/VaultPaletteContributor.java`
+- Delete: `plugins/vault/src/com/termlab/vault/palette/VaultPaletteContributor.java`
 
 - [ ] **Step 1: Create `VaultSearchEverywhereContributor.java`**
 
-Create `plugins/vault/src/com/conch/vault/palette/VaultSearchEverywhereContributor.java`:
+Create `plugins/vault/src/com/termlab/vault/palette/VaultSearchEverywhereContributor.java`:
 
 ```java
-package com.conch.vault.palette;
+package com.termlab.vault.palette;
 
-import com.conch.vault.lock.LockManager;
-import com.conch.vault.model.Vault;
-import com.conch.vault.model.VaultAccount;
-import com.conch.vault.model.VaultKey;
-import com.conch.vault.ui.AccountEditDialog;
-import com.conch.vault.ui.KeyEditDialog;
+import com.termlab.vault.lock.LockManager;
+import com.termlab.vault.model.Vault;
+import com.termlab.vault.model.VaultAccount;
+import com.termlab.vault.model.VaultKey;
+import com.termlab.vault.ui.AccountEditDialog;
+import com.termlab.vault.ui.KeyEditDialog;
 import com.intellij.ide.actions.searcheverywhere.SearchEverywhereContributor;
 import com.intellij.ide.actions.searcheverywhere.SearchEverywhereContributorFactory;
 import com.intellij.openapi.actionSystem.AnActionEvent;
@@ -298,7 +298,7 @@ import java.util.Objects;
 
 /**
  * Exposes vault {@link VaultAccount}s and {@link VaultKey}s in the
- * Conch command palette (Cmd+Shift+P → Vault tab). Selecting an
+ * TermLab command palette (Cmd+Shift+P → Vault tab). Selecting an
  * account opens {@link AccountEditDialog}; selecting a key opens
  * {@link KeyEditDialog}. The menu-style actions the dead
  * {@code VaultPaletteContributor} carried ("Lock Vault",
@@ -324,7 +324,7 @@ public final class VaultSearchEverywhereContributor implements SearchEverywhereC
         this.project = project;
     }
 
-    @Override public @NotNull String getSearchProviderId() { return "ConchVault"; }
+    @Override public @NotNull String getSearchProviderId() { return "TermLabVault"; }
     @Override public @NotNull String getGroupName() { return "Vault"; }
     @Override public int getSortWeight() { return 60; }
     @Override public boolean showInFindResults() { return false; }
@@ -400,7 +400,7 @@ public final class VaultSearchEverywhereContributor implements SearchEverywhereC
             // Palette callbacks can't reliably surface modal errors; log
             // and move on. Same rationale the dead VaultPaletteContributor
             // used, now called out explicitly.
-            LOG.warn("Conch vault: failed to save after palette edit", e);
+            LOG.warn("TermLab vault: failed to save after palette edit", e);
         }
     }
 
@@ -424,7 +424,7 @@ public final class VaultSearchEverywhereContributor implements SearchEverywhereC
 
     @Override
     public @Nullable Object getDataForItem(@NotNull Object element, @NotNull String dataId) {
-        return Objects.equals(dataId, "com.conch.vault.entry") ? element : null;
+        return Objects.equals(dataId, "com.termlab.vault.entry") ? element : null;
     }
 
     public static final class Factory implements SearchEverywhereContributorFactory<Object> {
@@ -441,12 +441,12 @@ public final class VaultSearchEverywhereContributor implements SearchEverywhereC
 
 - [ ] **Step 2: Create `LockVaultAction.java`**
 
-Create `plugins/vault/src/com/conch/vault/actions/LockVaultAction.java`:
+Create `plugins/vault/src/com/termlab/vault/actions/LockVaultAction.java`:
 
 ```java
-package com.conch.vault.actions;
+package com.termlab.vault.actions;
 
-import com.conch.vault.lock.LockManager;
+import com.termlab.vault.lock.LockManager;
 import com.intellij.openapi.actionSystem.ActionUpdateThread;
 import com.intellij.openapi.actionSystem.AnAction;
 import com.intellij.openapi.actionSystem.AnActionEvent;
@@ -454,7 +454,7 @@ import com.intellij.openapi.application.ApplicationManager;
 import org.jetbrains.annotations.NotNull;
 
 /**
- * Locks the Conch credential vault — seals the in-memory decrypted
+ * Locks the TermLab credential vault — seals the in-memory decrypted
  * state and drops cached credentials. Discoverable through the
  * command palette's Actions tab ("Lock Vault"). No keyboard shortcut
  * by default; users who want one can bind it via IntelliJ's keymap
@@ -486,13 +486,13 @@ public final class LockVaultAction extends AnAction {
 
 - [ ] **Step 3: Create `GenerateSshKeyAction.java`**
 
-Create `plugins/vault/src/com/conch/vault/actions/GenerateSshKeyAction.java`:
+Create `plugins/vault/src/com/termlab/vault/actions/GenerateSshKeyAction.java`:
 
 ```java
-package com.conch.vault.actions;
+package com.termlab.vault.actions;
 
-import com.conch.vault.lock.LockManager;
-import com.conch.vault.ui.KeyGenDialog;
+import com.termlab.vault.lock.LockManager;
+import com.termlab.vault.ui.KeyGenDialog;
 import com.intellij.openapi.actionSystem.ActionUpdateThread;
 import com.intellij.openapi.actionSystem.AnAction;
 import com.intellij.openapi.actionSystem.AnActionEvent;
@@ -534,8 +534,8 @@ public final class GenerateSshKeyAction extends AnAction {
 - [ ] **Step 4: Delete `VaultPaletteContributor.java`**
 
 ```bash
-cd /Users/dustin/projects/conch_workbench
-rm plugins/vault/src/com/conch/vault/palette/VaultPaletteContributor.java
+cd /Users/dustin/projects/termlab_workbench
+rm plugins/vault/src/com/termlab/vault/palette/VaultPaletteContributor.java
 ```
 
 - [ ] **Step 5: Update vault plugin.xml**
@@ -546,13 +546,13 @@ Inside the `<extensions defaultExtensionNs="com.intellij">` block (alongside `ap
 
 ```xml
         <searchEverywhereContributor
-            implementation="com.conch.vault.palette.VaultSearchEverywhereContributor$Factory"/>
+            implementation="com.termlab.vault.palette.VaultSearchEverywhereContributor$Factory"/>
 ```
 
-Inside the `<extensions defaultExtensionNs="com.conch.core">` block, **remove** the line:
+Inside the `<extensions defaultExtensionNs="com.termlab.core">` block, **remove** the line:
 
 ```xml
-        <commandPaletteContributor implementation="com.conch.vault.palette.VaultPaletteContributor"/>
+        <commandPaletteContributor implementation="com.termlab.vault.palette.VaultPaletteContributor"/>
 ```
 
 Leave the `<credentialProvider>` line in that block untouched.
@@ -560,13 +560,13 @@ Leave the `<credentialProvider>` line in that block untouched.
 Inside the existing `<actions>` block (which already contains `OpenVaultAction`), **add** the two new actions after `OpenVaultAction`:
 
 ```xml
-        <action id="com.conch.vault.LockVault"
-                class="com.conch.vault.actions.LockVaultAction"
+        <action id="com.termlab.vault.LockVault"
+                class="com.termlab.vault.actions.LockVaultAction"
                 text="Lock Vault"
-                description="Seal the Conch credential vault and drop cached credentials"/>
+                description="Seal the TermLab credential vault and drop cached credentials"/>
 
-        <action id="com.conch.vault.GenerateSshKey"
-                class="com.conch.vault.actions.GenerateSshKeyAction"
+        <action id="com.termlab.vault.GenerateSshKey"
+                class="com.termlab.vault.actions.GenerateSshKeyAction"
                 text="Generate SSH Key…"
                 description="Create a new Ed25519, ECDSA, or RSA key pair in the vault"/>
 ```
@@ -576,7 +576,7 @@ No keyboard shortcuts.
 - [ ] **Step 6: Build**
 
 ```bash
-cd /Users/dustin/projects/conch_workbench && make conch-build 2>&1 | tail -15
+cd /Users/dustin/projects/termlab_workbench && make termlab-build 2>&1 | tail -15
 ```
 
 Expected: `Build completed successfully`.
@@ -584,7 +584,7 @@ Expected: `Build completed successfully`.
 - [ ] **Step 7: Run the vault test suite**
 
 ```bash
-cd /Users/dustin/projects/intellij-community && bash bazel.cmd run //conch/plugins/vault:vault_test_runner 2>&1 | tail -15
+cd /Users/dustin/projects/intellij-community && bash bazel.cmd run //termlab/plugins/vault:vault_test_runner 2>&1 | tail -15
 ```
 
 Expected: same pass count as before — no test changes.
@@ -592,12 +592,12 @@ Expected: same pass count as before — no test changes.
 - [ ] **Step 8: Commit**
 
 ```bash
-cd /Users/dustin/projects/conch_workbench
-git add plugins/vault/src/com/conch/vault/palette/VaultSearchEverywhereContributor.java \
-        plugins/vault/src/com/conch/vault/actions/LockVaultAction.java \
-        plugins/vault/src/com/conch/vault/actions/GenerateSshKeyAction.java \
+cd /Users/dustin/projects/termlab_workbench
+git add plugins/vault/src/com/termlab/vault/palette/VaultSearchEverywhereContributor.java \
+        plugins/vault/src/com/termlab/vault/actions/LockVaultAction.java \
+        plugins/vault/src/com/termlab/vault/actions/GenerateSshKeyAction.java \
         plugins/vault/resources/META-INF/plugin.xml
-git add -u plugins/vault/src/com/conch/vault/palette/VaultPaletteContributor.java
+git add -u plugins/vault/src/com/termlab/vault/palette/VaultPaletteContributor.java
 git commit -m "$(cat <<'EOF'
 feat(vault): expose vault contents in Search Everywhere (Vault tab)
 
@@ -625,28 +625,28 @@ EOF
 Update the tab allowlist, remove the dead extension point declaration, delete the SDK interface and its carrier type. Safe to do only after Tasks 1 and 2 have landed and no plugin references `CommandPaletteContributor` or the `<commandPaletteContributor>` extension point.
 
 **Files:**
-- Modify: `core/src/com/conch/core/palette/ConchTabsCustomizationStrategy.java`
+- Modify: `core/src/com/termlab/core/palette/TermLabTabsCustomizationStrategy.java`
 - Modify: `core/resources/META-INF/plugin.xml`
-- Delete: `sdk/src/com/conch/sdk/CommandPaletteContributor.java`
-- Delete: `sdk/src/com/conch/sdk/PaletteItem.java`
+- Delete: `sdk/src/com/termlab/sdk/CommandPaletteContributor.java`
+- Delete: `sdk/src/com/termlab/sdk/PaletteItem.java`
 
-- [ ] **Step 1: Update `ConchTabsCustomizationStrategy.java`**
+- [ ] **Step 1: Update `TermLabTabsCustomizationStrategy.java`**
 
-Open `core/src/com/conch/core/palette/ConchTabsCustomizationStrategy.java`. Replace the `ALLOWED_TAB_IDS` declaration with:
+Open `core/src/com/termlab/core/palette/TermLabTabsCustomizationStrategy.java`. Replace the `ALLOWED_TAB_IDS` declaration with:
 
 ```java
     /**
      * Provider IDs for tabs that should remain visible.
      * "ActionSearchEverywhereContributor" is the Actions tab from the
-     * platform. "ConchTerminals" / "ConchHosts" / "ConchVault" are our
+     * platform. "TermLabTerminals" / "TermLabHosts" / "TermLabVault" are our
      * custom tabs contributed by the core, SSH, and vault plugins
      * respectively.
      */
     private static final Set<String> ALLOWED_TAB_IDS = Set.of(
         "ActionSearchEverywhereContributor",
-        "ConchTerminals",
-        "ConchHosts",
-        "ConchVault"
+        "TermLabTerminals",
+        "TermLabHosts",
+        "TermLabVault"
     );
 ```
 
@@ -658,7 +658,7 @@ Open `core/resources/META-INF/plugin.xml`. Find the `<extensionPoints>` block. *
 
 ```xml
         <extensionPoint name="commandPaletteContributor"
-                        interface="com.conch.sdk.CommandPaletteContributor"
+                        interface="com.termlab.sdk.CommandPaletteContributor"
                         dynamic="true"/>
 ```
 
@@ -667,15 +667,15 @@ Leave the other two extension points (`terminalSessionProvider`, `credentialProv
 - [ ] **Step 3: Delete the SDK files**
 
 ```bash
-cd /Users/dustin/projects/conch_workbench
-rm sdk/src/com/conch/sdk/CommandPaletteContributor.java
-rm sdk/src/com/conch/sdk/PaletteItem.java
+cd /Users/dustin/projects/termlab_workbench
+rm sdk/src/com/termlab/sdk/CommandPaletteContributor.java
+rm sdk/src/com/termlab/sdk/PaletteItem.java
 ```
 
 - [ ] **Step 4: Build**
 
 ```bash
-cd /Users/dustin/projects/conch_workbench && make conch-build 2>&1 | tail -15
+cd /Users/dustin/projects/termlab_workbench && make termlab-build 2>&1 | tail -15
 ```
 
 Expected: `Build completed successfully`. If the build complains about a dangling reference to `CommandPaletteContributor` or `PaletteItem`, something was missed in Task 1 or 2 — grep for `CommandPaletteContributor\|PaletteItem` across the whole repo and fix before continuing.
@@ -683,8 +683,8 @@ Expected: `Build completed successfully`. If the build complains about a danglin
 - [ ] **Step 5: Run both plugin test suites**
 
 ```bash
-cd /Users/dustin/projects/intellij-community && bash bazel.cmd run //conch/plugins/ssh:ssh_test_runner 2>&1 | tail -10
-cd /Users/dustin/projects/intellij-community && bash bazel.cmd run //conch/plugins/vault:vault_test_runner 2>&1 | tail -10
+cd /Users/dustin/projects/intellij-community && bash bazel.cmd run //termlab/plugins/ssh:ssh_test_runner 2>&1 | tail -10
+cd /Users/dustin/projects/intellij-community && bash bazel.cmd run //termlab/plugins/vault:vault_test_runner 2>&1 | tail -10
 ```
 
 Expected: both suites green with the same pass counts as before.
@@ -692,11 +692,11 @@ Expected: both suites green with the same pass counts as before.
 - [ ] **Step 6: Commit**
 
 ```bash
-cd /Users/dustin/projects/conch_workbench
-git add core/src/com/conch/core/palette/ConchTabsCustomizationStrategy.java \
+cd /Users/dustin/projects/termlab_workbench
+git add core/src/com/termlab/core/palette/TermLabTabsCustomizationStrategy.java \
         core/resources/META-INF/plugin.xml
-git add -u sdk/src/com/conch/sdk/CommandPaletteContributor.java \
-           sdk/src/com/conch/sdk/PaletteItem.java
+git add -u sdk/src/com/termlab/sdk/CommandPaletteContributor.java \
+           sdk/src/com/termlab/sdk/PaletteItem.java
 git commit -m "$(cat <<'EOF'
 refactor: retire CommandPaletteContributor SDK interface
 
@@ -706,7 +706,7 @@ extension point. Both plugins have now migrated to implementing
 IntelliJ's SearchEverywhereContributor directly (same pattern as the
 existing TerminalPaletteContributor).
 
-This commit finishes the cleanup: adds ConchHosts and ConchVault to
+This commit finishes the cleanup: adds TermLabHosts and TermLabVault to
 the tab allowlist, removes the dead extension point declaration from
 core plugin.xml, and deletes the SDK interface and its carrier record.
 
@@ -724,7 +724,7 @@ Checklist. Block merging until every item passes.
 - [ ] **Step 1: Full product build**
 
 ```bash
-cd /Users/dustin/projects/conch_workbench && make conch-build 2>&1 | tail -15
+cd /Users/dustin/projects/termlab_workbench && make termlab-build 2>&1 | tail -15
 ```
 
 Expected: `Build completed successfully`.
@@ -732,7 +732,7 @@ Expected: `Build completed successfully`.
 - [ ] **Step 2: SSH test suite**
 
 ```bash
-cd /Users/dustin/projects/intellij-community && bash bazel.cmd run //conch/plugins/ssh:ssh_test_runner 2>&1 | tail -15
+cd /Users/dustin/projects/intellij-community && bash bazel.cmd run //termlab/plugins/ssh:ssh_test_runner 2>&1 | tail -15
 ```
 
 Expected: 87/87 passing.
@@ -740,7 +740,7 @@ Expected: 87/87 passing.
 - [ ] **Step 3: Vault test suite**
 
 ```bash
-cd /Users/dustin/projects/intellij-community && bash bazel.cmd run //conch/plugins/vault:vault_test_runner 2>&1 | tail -15
+cd /Users/dustin/projects/intellij-community && bash bazel.cmd run //termlab/plugins/vault:vault_test_runner 2>&1 | tail -15
 ```
 
 Expected: baseline pass count, no regressions.
@@ -748,16 +748,16 @@ Expected: baseline pass count, no regressions.
 - [ ] **Step 4: Verify no dead references remain**
 
 ```bash
-cd /Users/dustin/projects/conch_workbench
+cd /Users/dustin/projects/termlab_workbench
 grep -r "CommandPaletteContributor\|PaletteItem" --include='*.java' --include='*.xml' || echo "no matches"
 ```
 
 Expected: `no matches` (or matches only inside `docs/` — markdown history is fine).
 
-- [ ] **Step 5: Manual smoke test — launch Conch**
+- [ ] **Step 5: Manual smoke test — launch TermLab**
 
 ```bash
-cd /Users/dustin/projects/conch_workbench && make conch
+cd /Users/dustin/projects/termlab_workbench && make termlab
 ```
 
 1. Hit `Cmd+Shift+P`. The tab strip along the top should show: **Actions / Terminals / Hosts / Vault** (order may vary; all four must be present).

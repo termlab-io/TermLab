@@ -4,7 +4,7 @@
 
 **Goal:** Add an opt-in `plugins/editor` bundle that provides scratch file creation and SFTP-triggered local/remote file editing. The feature is disabled by default, enabled via a first-launch notification or a Settings checkbox, and toggling requires a restart.
 
-**Architecture:** A new bundled `com.conch.editor` plugin (parallel to `sftp`/`ssh`/etc.) is built into the product distribution but disabled by default via a seeded `disabled_plugins.txt`. SFTP grows two new extension points (`LocalFileOpener`, `RemoteFileOpener`) that the editor plugin implements; SFTP's double-click handlers delegate through the EP, so they remain a no-op when the editor is disabled. The `core` plugin — always loaded — owns the first-launch notification and the Workbench settings page that flip `PluginManagerCore.enablePlugins` for the editor + TextMate pair.
+**Architecture:** A new bundled `com.termlab.editor` plugin (parallel to `sftp`/`ssh`/etc.) is built into the product distribution but disabled by default via a seeded `disabled_plugins.txt`. SFTP grows two new extension points (`LocalFileOpener`, `RemoteFileOpener`) that the editor plugin implements; SFTP's double-click handlers delegate through the EP, so they remain a no-op when the editor is disabled. The `core` plugin — always loaded — owns the first-launch notification and the Workbench settings page that flip `PluginManagerCore.enablePlugins` for the editor + TextMate pair.
 
 **Tech Stack:** Java 21, Bazel, IntelliJ Platform (monolith layout pinned via `/Users/dustin/projects/intellij-community`), Apache SSHD SFTP, JUnit 5.
 
@@ -19,29 +19,29 @@ Before touching any code, read these files to understand the conventions you'll 
 - `plugins/sftp/BUILD.bazel` — template for a new plugin's Bazel layout.
 - `plugins/sftp/resources/META-INF/plugin.xml` — template for a new plugin manifest.
 - `plugins/vault/BUILD.bazel` — template for adding JUnit 5 unit tests (`<plugin>_test_lib` + `<plugin>_test_runner` with the standalone `TestRunner` pattern).
-- `plugins/vault/test/com/conch/vault/TestRunner.java` — copy-pasteable JUnit 5 launcher.
-- `plugins/vault/test/com/conch/vault/crypto/SecureBytesTest.java` — example of a plain JUnit 5 test with no platform dependencies.
-- `BUILD.bazel` (repo root) — the `conch_run` target, where new plugins and TextMate must be added as `runtime_deps`.
+- `plugins/vault/test/com/termlab/vault/TestRunner.java` — copy-pasteable JUnit 5 launcher.
+- `plugins/vault/test/com/termlab/vault/crypto/SecureBytesTest.java` — example of a plain JUnit 5 test with no platform dependencies.
+- `BUILD.bazel` (repo root) — the `termlab_run` target, where new plugins and TextMate must be added as `runtime_deps`.
 - `core/resources/META-INF/plugin.xml` — pattern for `<applicationConfigurable>`, `<applicationListeners>`, `<postStartupActivity>`, `<notificationGroup>`.
-- `plugins/sftp/src/com/conch/sftp/toolwindow/RemoteFilePane.java:215` — the file-not-directory branch currently falls through.
-- `plugins/sftp/src/com/conch/sftp/toolwindow/LocalFilePane.java:354` — same pattern on the local side.
-- `plugins/sftp/src/com/conch/sftp/model/RemoteFileEntry.java` — record fields used in signatures: `name`, `size`, `isDirectory`.
-- `plugins/sftp/src/com/conch/sftp/model/LocalFileEntry.java` — fields: `path`, `name`, `size`, `isDirectory`.
+- `plugins/sftp/src/com/termlab/sftp/toolwindow/RemoteFilePane.java:215` — the file-not-directory branch currently falls through.
+- `plugins/sftp/src/com/termlab/sftp/toolwindow/LocalFilePane.java:354` — same pattern on the local side.
+- `plugins/sftp/src/com/termlab/sftp/model/RemoteFileEntry.java` — record fields used in signatures: `name`, `size`, `isDirectory`.
+- `plugins/sftp/src/com/termlab/sftp/model/LocalFileEntry.java` — fields: `path`, `name`, `size`, `isDirectory`.
 
 **Build commands** (from repo root):
 
-- Build everything Conch: `bash bazel.cmd build //conch/...`
-- Build just a plugin: `bash bazel.cmd build //conch/plugins/editor:editor`
-- Run Conch from source: `bash bazel.cmd run //conch:conch_run`
-- Run a plugin's unit tests: `bash bazel.cmd run //conch/plugins/editor:editor_test_runner`
+- Build everything TermLab: `bash bazel.cmd build //termlab/...`
+- Build just a plugin: `bash bazel.cmd build //termlab/plugins/editor:editor`
+- Run TermLab from source: `bash bazel.cmd run //termlab:termlab_run`
+- Run a plugin's unit tests: `bash bazel.cmd run //termlab/plugins/editor:editor_test_runner`
 
 **Commit convention:** short prose summaries per completed task, lowercase conventional-commit prefix (`feat(editor):`, `fix(sftp):`, `docs:`). Each task in this plan ends with a commit step.
 
 **Two pragmatic deviations from the spec:**
 
-1. **`SftpSingleFileTransfer` instead of `TransferCoordinator.downloadToLocal` / `uploadFromLocal`.** `TransferCoordinator` is a stateful per-pane coordinator not designed to be called from outside the SFTP tool window. We add a stateless `SftpSingleFileTransfer` utility in `plugins/sftp/src/com/conch/sftp/transfer/` that takes a `SftpClient` directly. The editor plugin gets the `SftpClient` via the `SshSftpSession` passed through the `RemoteFileOpener` extension point. Intent (reuse sftp's SFTP IO, don't open new sessions) is preserved.
+1. **`SftpSingleFileTransfer` instead of `TransferCoordinator.downloadToLocal` / `uploadFromLocal`.** `TransferCoordinator` is a stateful per-pane coordinator not designed to be called from outside the SFTP tool window. We add a stateless `SftpSingleFileTransfer` utility in `plugins/sftp/src/com/termlab/sftp/transfer/` that takes a `SftpClient` directly. The editor plugin gets the `SftpClient` via the `SshSftpSession` passed through the `RemoteFileOpener` extension point. Intent (reuse sftp's SFTP IO, don't open new sessions) is preserved.
 
-2. **Unit tests only for pure utilities; platform-dependent code is manual-verified.** The spec promises tests for `NewScratchActionTest`, `RemoteFileOpenerExtensionPointTest`, `FirstLaunchNotificationTest`, `EditorSettingsConfigurableTest`, etc. Those require a full IntelliJ test fixture (`LightPlatformTestCase`, `HeavyPlatformTestCase`, or similar), and the existing Conch test infrastructure (see `plugins/vault/BUILD.bazel`) only runs plain JUnit 5 through a standalone `TestRunner` — its comment explicitly notes "Executable test target can be added later once the Conch tree has a pattern for running pure-JUnit5 tests via Bazel." Rather than adding a new test-fixture infrastructure as part of this plan, we restrict unit tests to the pure utilities (`ExtensionBlocklist`, `BinarySniffer`, `TempPathResolver`) and validate everything else via the end-to-end manual checklist in Task 20. If platform fixtures become available later, add the missing test classes as a follow-up.
+2. **Unit tests only for pure utilities; platform-dependent code is manual-verified.** The spec promises tests for `NewScratchActionTest`, `RemoteFileOpenerExtensionPointTest`, `FirstLaunchNotificationTest`, `EditorSettingsConfigurableTest`, etc. Those require a full IntelliJ test fixture (`LightPlatformTestCase`, `HeavyPlatformTestCase`, or similar), and the existing TermLab test infrastructure (see `plugins/vault/BUILD.bazel`) only runs plain JUnit 5 through a standalone `TestRunner` — its comment explicitly notes "Executable test target can be added later once the TermLab tree has a pattern for running pure-JUnit5 tests via Bazel." Rather than adding a new test-fixture infrastructure as part of this plan, we restrict unit tests to the pure utilities (`ExtensionBlocklist`, `BinarySniffer`, `TempPathResolver`) and validate everything else via the end-to-end manual checklist in Task 20. If platform fixtures become available later, add the missing test classes as a follow-up.
 
 ---
 
@@ -50,8 +50,8 @@ Before touching any code, read these files to understand the conventions you'll 
 **Files:**
 - Create: `plugins/editor/BUILD.bazel`
 - Create: `plugins/editor/resources/META-INF/plugin.xml`
-- Create: `plugins/editor/src/com/conch/editor/package-info.java`
-- Create: `plugins/editor/intellij.conch.editor.iml` (empty IML to satisfy `exports_files`)
+- Create: `plugins/editor/src/com/termlab/editor/package-info.java`
+- Create: `plugins/editor/intellij.termlab.editor.iml` (empty IML to satisfy `exports_files`)
 
 - [ ] **Step 1: Create `plugins/editor/BUILD.bazel`**
 
@@ -67,14 +67,14 @@ resourcegroup(
 
 jvm_library(
     name = "editor",
-    module_name = "intellij.conch.editor",
+    module_name = "intellij.termlab.editor",
     visibility = ["//visibility:public"],
     srcs = glob(["src/**/*.java"], allow_empty = True),
     resources = [":editor_resources"],
     deps = [
-        "//conch/sdk",
-        "//conch/core",
-        "//conch/plugins/sftp",
+        "//termlab/sdk",
+        "//termlab/core",
+        "//termlab/plugins/sftp",
         "//platform/analysis-api:analysis",
         "//platform/core-api:core",
         "//platform/core-ui",
@@ -92,12 +92,12 @@ jvm_library(
 
 jvm_library(
     name = "editor_test_lib",
-    module_name = "intellij.conch.editor.tests",
+    module_name = "intellij.termlab.editor.tests",
     visibility = ["//visibility:public"],
     srcs = glob(["test/**/*.java"], allow_empty = True),
     deps = [
         ":editor",
-        "//conch/sdk",
+        "//termlab/sdk",
         "//libraries/junit5",
         "//libraries/junit5-jupiter",
         "//libraries/junit5-launcher",
@@ -108,7 +108,7 @@ jvm_library(
 
 java_binary(
     name = "editor_test_runner",
-    main_class = "com.conch.editor.TestRunner",
+    main_class = "com.termlab.editor.TestRunner",
     runtime_deps = [
         ":editor_test_lib",
         "//libraries/junit5-jupiter",
@@ -116,43 +116,43 @@ java_binary(
     ],
 )
 
-exports_files(["intellij.conch.editor.iml"], visibility = ["//visibility:public"])
+exports_files(["intellij.termlab.editor.iml"], visibility = ["//visibility:public"])
 ```
 
 - [ ] **Step 2: Create `plugins/editor/resources/META-INF/plugin.xml`** (minimal placeholder — real registrations added in later tasks)
 
 ```xml
 <idea-plugin>
-    <id>com.conch.editor</id>
-    <name>Conch Light Editor</name>
+    <id>com.termlab.editor</id>
+    <name>TermLab Light Editor</name>
     <version>0.1.0</version>
-    <vendor>Conch</vendor>
+    <vendor>TermLab</vendor>
     <description>
         Opt-in light editor for scratches and SFTP-triggered file editing.
         Disabled by default; enabled via the first-launch notification or
-        Settings → Conch Workbench → Light Editor. Requires a restart to
+        Settings → TermLab → Light Editor. Requires a restart to
         toggle.
     </description>
 
     <depends>com.intellij.modules.platform</depends>
-    <depends>com.conch.core</depends>
-    <depends>com.conch.sftp</depends>
+    <depends>com.termlab.core</depends>
+    <depends>com.termlab.sftp</depends>
     <depends>org.jetbrains.plugins.textmate</depends>
 </idea-plugin>
 ```
 
-- [ ] **Step 3: Create `plugins/editor/src/com/conch/editor/package-info.java`** (keeps the `glob(["src/**/*.java"])` non-empty so Bazel doesn't bail)
+- [ ] **Step 3: Create `plugins/editor/src/com/termlab/editor/package-info.java`** (keeps the `glob(["src/**/*.java"])` non-empty so Bazel doesn't bail)
 
 ```java
 /**
- * Opt-in light editor plugin for Conch Workbench. Provides scratch
+ * Opt-in light editor plugin for TermLab. Provides scratch
  * file creation and SFTP-triggered local/remote file editing. See
  * docs/superpowers/specs/2026-04-14-light-scratch-editor-design.md.
  */
-package com.conch.editor;
+package com.termlab.editor;
 ```
 
-- [ ] **Step 4: Create an empty `plugins/editor/intellij.conch.editor.iml`**
+- [ ] **Step 4: Create an empty `plugins/editor/intellij.termlab.editor.iml`**
 
 ```
 ```
@@ -161,26 +161,26 @@ package com.conch.editor;
 
 - [ ] **Step 5: Build the new target to verify it resolves**
 
-Run: `bash bazel.cmd build //conch/plugins/editor:editor`
+Run: `bash bazel.cmd build //termlab/plugins/editor:editor`
 Expected: `Build completed successfully`. If it fails with "target not found", check that no typos were introduced in `BUILD.bazel` and that `plugins/editor/` is a sibling of `plugins/sftp/`.
 
 - [ ] **Step 6: Commit**
 
 ```bash
 git add plugins/editor/
-git commit -m "feat(editor): scaffold empty com.conch.editor plugin module"
+git commit -m "feat(editor): scaffold empty com.termlab.editor plugin module"
 ```
 
 ---
 
-## Task 2: Wire `editor` plugin and TextMate into the `conch_run` product target
+## Task 2: Wire `editor` plugin and TextMate into the `termlab_run` product target
 
 **Files:**
-- Modify: `BUILD.bazel:38-66` (the `conch_run` `runtime_deps` list)
+- Modify: `BUILD.bazel:38-66` (the `termlab_run` `runtime_deps` list)
 
 - [ ] **Step 1: Add the two new runtime deps**
 
-Edit `BUILD.bazel`. In the `conch_run` target's `runtime_deps` list, after the line `"//conch/plugins/sftp",`, add the editor plugin. Also add TextMate to the "IntelliJ-platform bundled plugins" block after `"//json",`. The resulting `runtime_deps` list should read:
+Edit `BUILD.bazel`. In the `termlab_run` target's `runtime_deps` list, after the line `"//termlab/plugins/sftp",`, add the editor plugin. Also add TextMate to the "IntelliJ-platform bundled plugins" block after `"//json",`. The resulting `runtime_deps` list should read:
 
 ```bazel
     runtime_deps = [
@@ -190,87 +190,87 @@ Edit `BUILD.bazel`. In the `conch_run` target's `runtime_deps` list, after the l
         "//platform/bootstrap",
         "//platform/starter",
 
-        # Conch modules
-        "//conch/customization",
-        "//conch/core",
-        "//conch/sdk",
+        # TermLab modules
+        "//termlab/customization",
+        "//termlab/core",
+        "//termlab/sdk",
 
-        # Conch bundled plugins (first-party, always enabled)
-        "//conch/plugins/vault",
-        "//conch/plugins/ssh",
-        "//conch/plugins/tunnels",
-        "//conch/plugins/sftp",
+        # TermLab bundled plugins (first-party, always enabled)
+        "//termlab/plugins/vault",
+        "//termlab/plugins/ssh",
+        "//termlab/plugins/tunnels",
+        "//termlab/plugins/sftp",
         # Opt-in light editor. Bundled in the distribution but disabled
         # by default via config/disabled_plugins.txt seeding below; users
         # enable it via the first-launch notification or Settings.
-        "//conch/plugins/editor",
+        "//termlab/plugins/editor",
         # Runtime implementation of PasswordSafe — required by the vault
         # plugin so it can store the device secret in the cross-platform
         # credential store (Keychain / Credential Manager / KWallet /
         # libsecret / encrypted file fallback).
         "//platform/credential-store-impl:credentialStore-impl",
 
-        # IntelliJ-platform bundled plugins — ONLY these exist in Conch
+        # IntelliJ-platform bundled plugins — ONLY these exist in TermLab
         "//plugins/classic-ui",
         "//json",
         # Required by the opt-in editor plugin for grammar-based
         # syntax highlighting. Also disabled by default alongside
-        # com.conch.editor.
+        # com.termlab.editor.
         "//plugins/textmate/plugin",
     ],
 ```
 
 - [ ] **Step 2: Build the product target to verify the deps resolve**
 
-Run: `bash bazel.cmd build //conch:conch_run`
+Run: `bash bazel.cmd build //termlab:termlab_run`
 Expected: `Build completed successfully`. If `//plugins/textmate/plugin` does not resolve, check `/Users/dustin/projects/intellij-community/plugins/textmate/plugin/BUILD.bazel` — the target name should be `plugin`. If the intellij-community symlink changed, adjust the label accordingly.
 
 - [ ] **Step 3: Commit**
 
 ```bash
 git add BUILD.bazel
-git commit -m "feat(editor): wire editor plugin and textmate into conch_run"
+git commit -m "feat(editor): wire editor plugin and textmate into termlab_run"
 ```
 
 ---
 
 ## Task 3: Seed `disabled_plugins.txt` at packaging time
 
-**Context:** The feature's opt-in promise hinges on this step. On a fresh install, `com.conch.editor` and `org.jetbrains.plugins.textmate` must be listed in the bundled config's `disabled_plugins.txt`, so IntelliJ's platform skips loading them at startup.
+**Context:** The feature's opt-in promise hinges on this step. On a fresh install, `com.termlab.editor` and `org.jetbrains.plugins.textmate` must be listed in the bundled config's `disabled_plugins.txt`, so IntelliJ's platform skips loading them at startup.
 
-**Investigation first:** The `conch_run` target in `BUILD.bazel:121-159` uses `-Didea.config.path=$${BUILD_WORKSPACE_DIRECTORY}/config/conch`. This points dev runs at a workspace-relative config dir. For packaged artifacts, config lives inside the installed app bundle and is copied on first launch.
+**Investigation first:** The `termlab_run` target in `BUILD.bazel:121-159` uses `-Didea.config.path=$${BUILD_WORKSPACE_DIRECTORY}/config/termlab`. This points dev runs at a workspace-relative config dir. For packaged artifacts, config lives inside the installed app bundle and is copied on first launch.
 
 This task creates the dev-mode seed file. The packaged-artifact pipeline (installer) is a separate concern that the roadmap Track C will address; adding a check to that pipeline is out of scope for this plan.
 
 **Files:**
-- Create: `config/conch/disabled_plugins.txt`
+- Create: `config/termlab/disabled_plugins.txt`
 
 - [ ] **Step 1: Check whether the file already exists**
 
-Run: `ls config/conch/disabled_plugins.txt 2>/dev/null || echo "not present"`
-If it prints "not present", proceed. If it already has contents (e.g., from prior experiments), back up first: `cp config/conch/disabled_plugins.txt config/conch/disabled_plugins.txt.bak`.
+Run: `ls config/termlab/disabled_plugins.txt 2>/dev/null || echo "not present"`
+If it prints "not present", proceed. If it already has contents (e.g., from prior experiments), back up first: `cp config/termlab/disabled_plugins.txt config/termlab/disabled_plugins.txt.bak`.
 
 - [ ] **Step 2: Create the file**
 
-Write `config/conch/disabled_plugins.txt`:
+Write `config/termlab/disabled_plugins.txt`:
 
 ```
-com.conch.editor
+com.termlab.editor
 org.jetbrains.plugins.textmate
 ```
 
 (Two lines, no blank line at the end.)
 
-- [ ] **Step 3: Run Conch and verify neither plugin loads**
+- [ ] **Step 3: Run TermLab and verify neither plugin loads**
 
-Run: `bash bazel.cmd run //conch:conch_run` in one terminal. In the running IDE, open `Help → Find Action → Plugin Manager` (or just watch the IDE logs). Check that `com.conch.editor` and `TextMate` appear *disabled* in the plugin list. Close the IDE.
+Run: `bash bazel.cmd run //termlab:termlab_run` in one terminal. In the running IDE, open `Help → Find Action → Plugin Manager` (or just watch the IDE logs). Check that `com.termlab.editor` and `TextMate` appear *disabled* in the plugin list. Close the IDE.
 
-Expected: both plugins listed as disabled. If they're enabled, `disabled_plugins.txt` isn't being read — verify the file is in `config/conch/` relative to the workspace root and that `idea.config.path` resolves to that directory at runtime (check IDE logs for "Config path: …").
+Expected: both plugins listed as disabled. If they're enabled, `disabled_plugins.txt` isn't being read — verify the file is in `config/termlab/` relative to the workspace root and that `idea.config.path` resolves to that directory at runtime (check IDE logs for "Config path: …").
 
 - [ ] **Step 4: Commit**
 
 ```bash
-git add config/conch/disabled_plugins.txt
+git add config/termlab/disabled_plugins.txt
 git commit -m "feat(editor): disable editor + textmate by default in dev config"
 ```
 
@@ -279,16 +279,16 @@ git commit -m "feat(editor): disable editor + textmate by default in dev config"
 ## Task 4: Add `LocalFileOpener` and `RemoteFileOpener` extension points to SFTP
 
 **Files:**
-- Create: `plugins/sftp/src/com/conch/sftp/spi/LocalFileOpener.java`
-- Create: `plugins/sftp/src/com/conch/sftp/spi/RemoteFileOpener.java`
+- Create: `plugins/sftp/src/com/termlab/sftp/spi/LocalFileOpener.java`
+- Create: `plugins/sftp/src/com/termlab/sftp/spi/RemoteFileOpener.java`
 - Modify: `plugins/sftp/resources/META-INF/plugin.xml`
 
 - [ ] **Step 1: Create `LocalFileOpener.java`**
 
 ```java
-package com.conch.sftp.spi;
+package com.termlab.sftp.spi;
 
-import com.conch.sftp.model.LocalFileEntry;
+import com.termlab.sftp.model.LocalFileEntry;
 import com.intellij.openapi.extensions.ExtensionPointName;
 import com.intellij.openapi.project.Project;
 import org.jetbrains.annotations.NotNull;
@@ -302,7 +302,7 @@ import org.jetbrains.annotations.NotNull;
 public interface LocalFileOpener {
 
     ExtensionPointName<LocalFileOpener> EP_NAME =
-        ExtensionPointName.create("com.conch.sftp.localFileOpener");
+        ExtensionPointName.create("com.termlab.sftp.localFileOpener");
 
     /**
      * Open the given local file in whatever editor the caller
@@ -316,11 +316,11 @@ public interface LocalFileOpener {
 - [ ] **Step 2: Create `RemoteFileOpener.java`**
 
 ```java
-package com.conch.sftp.spi;
+package com.termlab.sftp.spi;
 
-import com.conch.sftp.client.SshSftpSession;
-import com.conch.sftp.model.RemoteFileEntry;
-import com.conch.ssh.model.SshHost;
+import com.termlab.sftp.client.SshSftpSession;
+import com.termlab.sftp.model.RemoteFileEntry;
+import com.termlab.ssh.model.SshHost;
 import com.intellij.openapi.extensions.ExtensionPointName;
 import com.intellij.openapi.project.Project;
 import org.jetbrains.annotations.NotNull;
@@ -340,7 +340,7 @@ import org.jetbrains.annotations.NotNull;
 public interface RemoteFileOpener {
 
     ExtensionPointName<RemoteFileOpener> EP_NAME =
-        ExtensionPointName.create("com.conch.sftp.remoteFileOpener");
+        ExtensionPointName.create("com.termlab.sftp.remoteFileOpener");
 
     /**
      * Open the given remote file for editing.
@@ -363,28 +363,28 @@ public interface RemoteFileOpener {
 
 - [ ] **Step 3: Register the extension points in `plugins/sftp/resources/META-INF/plugin.xml`**
 
-Edit the file. Immediately after the `<depends>com.conch.ssh</depends>` line and before the first `<extensions>` block, add:
+Edit the file. Immediately after the `<depends>com.termlab.ssh</depends>` line and before the first `<extensions>` block, add:
 
 ```xml
     <extensionPoints>
         <extensionPoint name="localFileOpener"
-                        interface="com.conch.sftp.spi.LocalFileOpener"
+                        interface="com.termlab.sftp.spi.LocalFileOpener"
                         dynamic="true"/>
         <extensionPoint name="remoteFileOpener"
-                        interface="com.conch.sftp.spi.RemoteFileOpener"
+                        interface="com.termlab.sftp.spi.RemoteFileOpener"
                         dynamic="true"/>
     </extensionPoints>
 ```
 
 - [ ] **Step 4: Build the SFTP plugin**
 
-Run: `bash bazel.cmd build //conch/plugins/sftp:sftp`
-Expected: `Build completed successfully`. If the build fails with "package com.conch.sftp.spi does not exist", confirm the two files are under `plugins/sftp/src/com/conch/sftp/spi/`.
+Run: `bash bazel.cmd build //termlab/plugins/sftp:sftp`
+Expected: `Build completed successfully`. If the build fails with "package com.termlab.sftp.spi does not exist", confirm the two files are under `plugins/sftp/src/com/termlab/sftp/spi/`.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add plugins/sftp/src/com/conch/sftp/spi/ plugins/sftp/resources/META-INF/plugin.xml
+git add plugins/sftp/src/com/termlab/sftp/spi/ plugins/sftp/resources/META-INF/plugin.xml
 git commit -m "feat(sftp): add LocalFileOpener and RemoteFileOpener extension points"
 ```
 
@@ -393,7 +393,7 @@ git commit -m "feat(sftp): add LocalFileOpener and RemoteFileOpener extension po
 ## Task 5: Wire `RemoteFilePane.onRowActivated` to call `RemoteFileOpener`
 
 **Files:**
-- Modify: `plugins/sftp/src/com/conch/sftp/toolwindow/RemoteFilePane.java:215-222`
+- Modify: `plugins/sftp/src/com/termlab/sftp/toolwindow/RemoteFilePane.java:215-222`
 
 - [ ] **Step 1: Replace the `onRowActivated` method**
 
@@ -434,29 +434,29 @@ Replace it with:
 
 - [ ] **Step 2: Add the new import**
 
-Add this import alongside the existing imports (alphabetically after `com.conch.sftp.persistence.ConchSftpConfig;`):
+Add this import alongside the existing imports (alphabetically after `com.termlab.sftp.persistence.TermLabSftpConfig;`):
 
 ```java
-import com.conch.sftp.spi.RemoteFileOpener;
+import com.termlab.sftp.spi.RemoteFileOpener;
 ```
 
 - [ ] **Step 3: Build**
 
-Run: `bash bazel.cmd build //conch/plugins/sftp:sftp`
+Run: `bash bazel.cmd build //termlab/plugins/sftp:sftp`
 Expected: `Build completed successfully`.
 
-- [ ] **Step 4: Launch Conch and manually verify current (no-op) behavior is preserved**
+- [ ] **Step 4: Launch TermLab and manually verify current (no-op) behavior is preserved**
 
-Run: `bash bazel.cmd run //conch:conch_run`
+Run: `bash bazel.cmd run //termlab:termlab_run`
 
-Connect to any remote host, navigate to any directory, double-click a file. Expected: nothing happens (same as before). Double-click a directory: still navigates into it. Close Conch.
+Connect to any remote host, navigate to any directory, double-click a file. Expected: nothing happens (same as before). Double-click a directory: still navigates into it. Close TermLab.
 
 If double-clicking a file throws an exception in the IDE log, undo step 1/2 and re-check that `openers.isEmpty()` is the branch being taken (editor plugin should be disabled by default at this point).
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add plugins/sftp/src/com/conch/sftp/toolwindow/RemoteFilePane.java
+git add plugins/sftp/src/com/termlab/sftp/toolwindow/RemoteFilePane.java
 git commit -m "feat(sftp): route remote file double-click through RemoteFileOpener EP"
 ```
 
@@ -465,7 +465,7 @@ git commit -m "feat(sftp): route remote file double-click through RemoteFileOpen
 ## Task 6: Wire `LocalFilePane.onRowActivated` to call `LocalFileOpener`
 
 **Files:**
-- Modify: `plugins/sftp/src/com/conch/sftp/toolwindow/LocalFilePane.java:354-361`
+- Modify: `plugins/sftp/src/com/termlab/sftp/toolwindow/LocalFilePane.java:354-361`
 
 - [ ] **Step 1: Replace the `onRowActivated` method**
 
@@ -502,23 +502,23 @@ Replace it with:
 
 - [ ] **Step 2: Add the new import**
 
-Add alongside existing imports (alphabetically after `com.conch.sftp.ops.LocalFileOps;`):
+Add alongside existing imports (alphabetically after `com.termlab.sftp.ops.LocalFileOps;`):
 
 ```java
-import com.conch.sftp.spi.LocalFileOpener;
+import com.termlab.sftp.spi.LocalFileOpener;
 ```
 
 - [ ] **Step 3: Build and verify**
 
-Run: `bash bazel.cmd build //conch/plugins/sftp:sftp`
+Run: `bash bazel.cmd build //termlab/plugins/sftp:sftp`
 Expected: `Build completed successfully`.
 
-Run: `bash bazel.cmd run //conch:conch_run`. In the SFTP local pane, double-click any file — nothing should happen. Double-click a directory — should still navigate. Close Conch.
+Run: `bash bazel.cmd run //termlab:termlab_run`. In the SFTP local pane, double-click any file — nothing should happen. Double-click a directory — should still navigate. Close TermLab.
 
 - [ ] **Step 4: Commit**
 
 ```bash
-git add plugins/sftp/src/com/conch/sftp/toolwindow/LocalFilePane.java
+git add plugins/sftp/src/com/termlab/sftp/toolwindow/LocalFilePane.java
 git commit -m "feat(sftp): route local file double-click through LocalFileOpener EP"
 ```
 
@@ -529,12 +529,12 @@ git commit -m "feat(sftp): route local file double-click through LocalFileOpener
 **Context:** The editor plugin needs to read a single remote file to a local temp path and write it back on save. `TransferCoordinator` is pane-bound; adding another entry point on it would expose an awkward surface. Instead we add a stateless utility next to it.
 
 **Files:**
-- Create: `plugins/sftp/src/com/conch/sftp/transfer/SftpSingleFileTransfer.java`
+- Create: `plugins/sftp/src/com/termlab/sftp/transfer/SftpSingleFileTransfer.java`
 
 - [ ] **Step 1: Create the utility**
 
 ```java
-package com.conch.sftp.transfer;
+package com.termlab.sftp.transfer;
 
 import org.apache.sshd.sftp.client.SftpClient;
 import org.jetbrains.annotations.NotNull;
@@ -598,13 +598,13 @@ public final class SftpSingleFileTransfer {
 
 - [ ] **Step 2: Build**
 
-Run: `bash bazel.cmd build //conch/plugins/sftp:sftp`
+Run: `bash bazel.cmd build //termlab/plugins/sftp:sftp`
 Expected: `Build completed successfully`.
 
 - [ ] **Step 3: Commit**
 
 ```bash
-git add plugins/sftp/src/com/conch/sftp/transfer/SftpSingleFileTransfer.java
+git add plugins/sftp/src/com/termlab/sftp/transfer/SftpSingleFileTransfer.java
 git commit -m "feat(sftp): add SftpSingleFileTransfer utility for editor plugin use"
 ```
 
@@ -613,14 +613,14 @@ git commit -m "feat(sftp): add SftpSingleFileTransfer utility for editor plugin 
 ## Task 8: Implement `ExtensionBlocklist` utility (TDD)
 
 **Files:**
-- Create: `plugins/editor/src/com/conch/editor/guard/ExtensionBlocklist.java`
-- Create: `plugins/editor/test/com/conch/editor/guard/ExtensionBlocklistTest.java`
-- Create: `plugins/editor/test/com/conch/editor/TestRunner.java` (first test file — shared launcher)
+- Create: `plugins/editor/src/com/termlab/editor/guard/ExtensionBlocklist.java`
+- Create: `plugins/editor/test/com/termlab/editor/guard/ExtensionBlocklistTest.java`
+- Create: `plugins/editor/test/com/termlab/editor/TestRunner.java` (first test file — shared launcher)
 
-- [ ] **Step 1: Create the test runner** (shared across all editor plugin unit tests; model on `plugins/vault/test/com/conch/vault/TestRunner.java`)
+- [ ] **Step 1: Create the test runner** (shared across all editor plugin unit tests; model on `plugins/vault/test/com/termlab/vault/TestRunner.java`)
 
 ```java
-package com.conch.editor;
+package com.termlab.editor;
 
 import org.junit.platform.engine.discovery.DiscoverySelectors;
 import org.junit.platform.launcher.Launcher;
@@ -634,19 +634,19 @@ import java.io.PrintWriter;
 
 /**
  * Standalone test runner for the editor plugin's unit tests. Runs
- * the full {@code com.conch.editor} test tree via the JUnit 5
+ * the full {@code com.termlab.editor} test tree via the JUnit 5
  * platform launcher.
  *
  * <p>Usage:
  * <pre>
- *   bash bazel.cmd run //conch/plugins/editor:editor_test_runner
+ *   bash bazel.cmd run //termlab/plugins/editor:editor_test_runner
  * </pre>
  */
 public final class TestRunner {
 
     public static void main(String[] args) {
         LauncherDiscoveryRequest request = LauncherDiscoveryRequestBuilder.request()
-            .selectors(DiscoverySelectors.selectPackage("com.conch.editor"))
+            .selectors(DiscoverySelectors.selectPackage("com.termlab.editor"))
             .build();
 
         SummaryGeneratingListener listener = new SummaryGeneratingListener();
@@ -669,10 +669,10 @@ public final class TestRunner {
 
 - [ ] **Step 2: Write the failing test**
 
-`plugins/editor/test/com/conch/editor/guard/ExtensionBlocklistTest.java`:
+`plugins/editor/test/com/termlab/editor/guard/ExtensionBlocklistTest.java`:
 
 ```java
-package com.conch.editor.guard;
+package com.termlab.editor.guard;
 
 import org.junit.jupiter.api.Test;
 
@@ -731,13 +731,13 @@ class ExtensionBlocklistTest {
 
 - [ ] **Step 3: Run test, confirm it fails**
 
-Run: `bash bazel.cmd run //conch/plugins/editor:editor_test_runner`
+Run: `bash bazel.cmd run //termlab/plugins/editor:editor_test_runner`
 Expected: compile failure ("cannot find symbol: class ExtensionBlocklist"). That is a "failing" red state for TDD purposes — proceed.
 
 - [ ] **Step 4: Implement `ExtensionBlocklist.java`**
 
 ```java
-package com.conch.editor.guard;
+package com.termlab.editor.guard;
 
 import org.jetbrains.annotations.NotNull;
 
@@ -790,13 +790,13 @@ public final class ExtensionBlocklist {
 
 - [ ] **Step 5: Run tests, confirm green**
 
-Run: `bash bazel.cmd run //conch/plugins/editor:editor_test_runner`
+Run: `bash bazel.cmd run //termlab/plugins/editor:editor_test_runner`
 Expected: `6 tests successful, 0 failed`.
 
 - [ ] **Step 6: Commit**
 
 ```bash
-git add plugins/editor/src/com/conch/editor/guard/ExtensionBlocklist.java plugins/editor/test/
+git add plugins/editor/src/com/termlab/editor/guard/ExtensionBlocklist.java plugins/editor/test/
 git commit -m "feat(editor): extension blocklist for non-editable file types"
 ```
 
@@ -805,13 +805,13 @@ git commit -m "feat(editor): extension blocklist for non-editable file types"
 ## Task 9: Implement `BinarySniffer` utility (TDD)
 
 **Files:**
-- Create: `plugins/editor/src/com/conch/editor/guard/BinarySniffer.java`
-- Create: `plugins/editor/test/com/conch/editor/guard/BinarySnifferTest.java`
+- Create: `plugins/editor/src/com/termlab/editor/guard/BinarySniffer.java`
+- Create: `plugins/editor/test/com/termlab/editor/guard/BinarySnifferTest.java`
 
 - [ ] **Step 1: Write the failing test**
 
 ```java
-package com.conch.editor.guard;
+package com.termlab.editor.guard;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -890,13 +890,13 @@ class BinarySnifferTest {
 
 - [ ] **Step 2: Run test, confirm it fails**
 
-Run: `bash bazel.cmd run //conch/plugins/editor:editor_test_runner`
+Run: `bash bazel.cmd run //termlab/plugins/editor:editor_test_runner`
 Expected: compile failure for `BinarySniffer`.
 
 - [ ] **Step 3: Implement `BinarySniffer.java`**
 
 ```java
-package com.conch.editor.guard;
+package com.termlab.editor.guard;
 
 import org.jetbrains.annotations.NotNull;
 
@@ -930,13 +930,13 @@ public final class BinarySniffer {
 
 - [ ] **Step 4: Run tests, confirm green**
 
-Run: `bash bazel.cmd run //conch/plugins/editor:editor_test_runner`
+Run: `bash bazel.cmd run //termlab/plugins/editor:editor_test_runner`
 Expected: all tests pass (now 13 total across both files).
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add plugins/editor/src/com/conch/editor/guard/BinarySniffer.java plugins/editor/test/com/conch/editor/guard/BinarySnifferTest.java
+git add plugins/editor/src/com/termlab/editor/guard/BinarySniffer.java plugins/editor/test/com/termlab/editor/guard/BinarySnifferTest.java
 git commit -m "feat(editor): 8KB null-byte binary sniffer"
 ```
 
@@ -945,13 +945,13 @@ git commit -m "feat(editor): 8KB null-byte binary sniffer"
 ## Task 10: Implement `TempPathResolver` (TDD)
 
 **Files:**
-- Create: `plugins/editor/src/com/conch/editor/remote/TempPathResolver.java`
-- Create: `plugins/editor/test/com/conch/editor/remote/TempPathResolverTest.java`
+- Create: `plugins/editor/src/com/termlab/editor/remote/TempPathResolver.java`
+- Create: `plugins/editor/test/com/termlab/editor/remote/TempPathResolverTest.java`
 
 - [ ] **Step 1: Write the failing test**
 
 ```java
-package com.conch.editor.remote;
+package com.termlab.editor.remote;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -1020,13 +1020,13 @@ class TempPathResolverTest {
 
 - [ ] **Step 2: Run, confirm fail**
 
-Run: `bash bazel.cmd run //conch/plugins/editor:editor_test_runner`
+Run: `bash bazel.cmd run //termlab/plugins/editor:editor_test_runner`
 Expected: compile failure.
 
 - [ ] **Step 3: Implement `TempPathResolver.java`**
 
 ```java
-package com.conch.editor.remote;
+package com.termlab.editor.remote;
 
 import org.jetbrains.annotations.NotNull;
 
@@ -1089,13 +1089,13 @@ public final class TempPathResolver {
 
 - [ ] **Step 4: Run, confirm green**
 
-Run: `bash bazel.cmd run //conch/plugins/editor:editor_test_runner`
+Run: `bash bazel.cmd run //termlab/plugins/editor:editor_test_runner`
 Expected: all tests pass.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add plugins/editor/src/com/conch/editor/remote/TempPathResolver.java plugins/editor/test/com/conch/editor/remote/TempPathResolverTest.java
+git add plugins/editor/src/com/termlab/editor/remote/TempPathResolver.java plugins/editor/test/com/termlab/editor/remote/TempPathResolverTest.java
 git commit -m "feat(editor): deterministic temp path resolver for SFTP edits"
 ```
 
@@ -1104,16 +1104,16 @@ git commit -m "feat(editor): deterministic temp path resolver for SFTP edits"
 ## Task 11: Implement `RemoteFileBinding` and in-memory registry
 
 **Files:**
-- Create: `plugins/editor/src/com/conch/editor/remote/RemoteFileBinding.java`
-- Create: `plugins/editor/src/com/conch/editor/remote/RemoteFileBindingRegistry.java`
+- Create: `plugins/editor/src/com/termlab/editor/remote/RemoteFileBinding.java`
+- Create: `plugins/editor/src/com/termlab/editor/remote/RemoteFileBindingRegistry.java`
 
 - [ ] **Step 1: Create `RemoteFileBinding.java`**
 
 ```java
-package com.conch.editor.remote;
+package com.termlab.editor.remote;
 
-import com.conch.sftp.client.SshSftpSession;
-import com.conch.ssh.model.SshHost;
+import com.termlab.sftp.client.SshSftpSession;
+import com.termlab.ssh.model.SshHost;
 import org.jetbrains.annotations.NotNull;
 
 import java.nio.file.Path;
@@ -1139,7 +1139,7 @@ public record RemoteFileBinding(
 - [ ] **Step 2: Create `RemoteFileBindingRegistry.java`**
 
 ```java
-package com.conch.editor.remote;
+package com.termlab.editor.remote;
 
 import com.intellij.openapi.components.Service;
 import org.jetbrains.annotations.NotNull;
@@ -1188,13 +1188,13 @@ public final class RemoteFileBindingRegistry {
 
 - [ ] **Step 3: Build**
 
-Run: `bash bazel.cmd build //conch/plugins/editor:editor`
+Run: `bash bazel.cmd build //termlab/plugins/editor:editor`
 Expected: `Build completed successfully`.
 
 - [ ] **Step 4: Commit**
 
 ```bash
-git add plugins/editor/src/com/conch/editor/remote/RemoteFileBinding.java plugins/editor/src/com/conch/editor/remote/RemoteFileBindingRegistry.java
+git add plugins/editor/src/com/termlab/editor/remote/RemoteFileBinding.java plugins/editor/src/com/termlab/editor/remote/RemoteFileBindingRegistry.java
 git commit -m "feat(editor): remote file binding model and registry service"
 ```
 
@@ -1203,20 +1203,20 @@ git commit -m "feat(editor): remote file binding model and registry service"
 ## Task 12: Implement `RemoteEditService` (local open + remote open)
 
 **Files:**
-- Create: `plugins/editor/src/com/conch/editor/remote/RemoteEditService.java`
+- Create: `plugins/editor/src/com/termlab/editor/remote/RemoteEditService.java`
 
 - [ ] **Step 1: Create the service class**
 
 ```java
-package com.conch.editor.remote;
+package com.termlab.editor.remote;
 
-import com.conch.editor.guard.BinarySniffer;
-import com.conch.editor.guard.ExtensionBlocklist;
-import com.conch.sftp.client.SshSftpSession;
-import com.conch.sftp.model.LocalFileEntry;
-import com.conch.sftp.model.RemoteFileEntry;
-import com.conch.sftp.transfer.SftpSingleFileTransfer;
-import com.conch.ssh.model.SshHost;
+import com.termlab.editor.guard.BinarySniffer;
+import com.termlab.editor.guard.ExtensionBlocklist;
+import com.termlab.sftp.client.SshSftpSession;
+import com.termlab.sftp.model.LocalFileEntry;
+import com.termlab.sftp.model.RemoteFileEntry;
+import com.termlab.sftp.transfer.SftpSingleFileTransfer;
+import com.termlab.ssh.model.SshHost;
 import com.intellij.notification.Notification;
 import com.intellij.notification.NotificationType;
 import com.intellij.notification.Notifications;
@@ -1237,7 +1237,7 @@ import java.nio.file.Paths;
 
 /**
  * Application service that opens local and remote files for
- * editing in Conch's main editor area. Guards with the size cap
+ * editing in TermLab's main editor area. Guards with the size cap
  * (5 MB), extension blocklist, and (for remote only) a null-byte
  * binary sniff.
  */
@@ -1245,8 +1245,8 @@ import java.nio.file.Paths;
 public final class RemoteEditService {
 
     private static final long SIZE_CAP_BYTES = 5L * 1024 * 1024;
-    private static final String TEMP_ROOT_NAME = "conch-sftp-edits";
-    private static final String NOTIFICATION_GROUP = "Conch Light Editor";
+    private static final String TEMP_ROOT_NAME = "termlab-sftp-edits";
+    private static final String NOTIFICATION_GROUP = "TermLab Light Editor";
 
     public @NotNull Path tempRoot() {
         return Paths.get(PathManager.getSystemPath(), TEMP_ROOT_NAME);
@@ -1353,13 +1353,13 @@ public final class RemoteEditService {
 
 - [ ] **Step 2: Build**
 
-Run: `bash bazel.cmd build //conch/plugins/editor:editor`
-Expected: `Build completed successfully`. If a symbol is missing (e.g., `SshSftpSession.client()`), re-check `plugins/sftp/src/com/conch/sftp/client/SshSftpSession.java` for the actual accessor name.
+Run: `bash bazel.cmd build //termlab/plugins/editor:editor`
+Expected: `Build completed successfully`. If a symbol is missing (e.g., `SshSftpSession.client()`), re-check `plugins/sftp/src/com/termlab/sftp/client/SshSftpSession.java` for the actual accessor name.
 
 - [ ] **Step 3: Commit**
 
 ```bash
-git add plugins/editor/src/com/conch/editor/remote/RemoteEditService.java
+git add plugins/editor/src/com/termlab/editor/remote/RemoteEditService.java
 git commit -m "feat(editor): RemoteEditService with local + remote file open"
 ```
 
@@ -1368,15 +1368,15 @@ git commit -m "feat(editor): RemoteEditService with local + remote file open"
 ## Task 13: Add save-and-upload listener for remote-bound files
 
 **Files:**
-- Create: `plugins/editor/src/com/conch/editor/remote/RemoteSaveListener.java`
+- Create: `plugins/editor/src/com/termlab/editor/remote/RemoteSaveListener.java`
 - Modify: `plugins/editor/resources/META-INF/plugin.xml`
 
 - [ ] **Step 1: Create `RemoteSaveListener.java`**
 
 ```java
-package com.conch.editor.remote;
+package com.termlab.editor.remote;
 
-import com.conch.sftp.transfer.SftpSingleFileTransfer;
+import com.termlab.sftp.transfer.SftpSingleFileTransfer;
 import com.intellij.notification.Notification;
 import com.intellij.notification.NotificationAction;
 import com.intellij.notification.NotificationType;
@@ -1411,7 +1411,7 @@ import java.nio.file.Paths;
  */
 public final class RemoteSaveListener implements FileDocumentManagerListener {
 
-    private static final String NOTIFICATION_GROUP = "Conch Light Editor";
+    private static final String NOTIFICATION_GROUP = "TermLab Light Editor";
 
     @Override
     public void beforeDocumentSaving(@NotNull Document document) {
@@ -1489,36 +1489,36 @@ Replace the current contents of `plugin.xml` with:
 
 ```xml
 <idea-plugin>
-    <id>com.conch.editor</id>
-    <name>Conch Light Editor</name>
+    <id>com.termlab.editor</id>
+    <name>TermLab Light Editor</name>
     <version>0.1.0</version>
-    <vendor>Conch</vendor>
+    <vendor>TermLab</vendor>
     <description>
         Opt-in light editor for scratches and SFTP-triggered file editing.
         Disabled by default; enabled via the first-launch notification or
-        Settings → Conch Workbench → Light Editor. Requires a restart to
+        Settings → TermLab → Light Editor. Requires a restart to
         toggle.
     </description>
 
     <depends>com.intellij.modules.platform</depends>
-    <depends>com.conch.core</depends>
-    <depends>com.conch.sftp</depends>
+    <depends>com.termlab.core</depends>
+    <depends>com.termlab.sftp</depends>
     <depends>org.jetbrains.plugins.textmate</depends>
 
     <extensions defaultExtensionNs="com.intellij">
         <notificationGroup
-            id="Conch Light Editor"
+            id="TermLab Light Editor"
             displayType="BALLOON"/>
 
         <applicationService
-            serviceImplementation="com.conch.editor.remote.RemoteFileBindingRegistry"/>
+            serviceImplementation="com.termlab.editor.remote.RemoteFileBindingRegistry"/>
 
         <applicationService
-            serviceImplementation="com.conch.editor.remote.RemoteEditService"/>
+            serviceImplementation="com.termlab.editor.remote.RemoteEditService"/>
     </extensions>
 
     <applicationListeners>
-        <listener class="com.conch.editor.remote.RemoteSaveListener"
+        <listener class="com.termlab.editor.remote.RemoteSaveListener"
                   topic="com.intellij.openapi.fileEditor.FileDocumentManagerListener"/>
     </applicationListeners>
 </idea-plugin>
@@ -1526,13 +1526,13 @@ Replace the current contents of `plugin.xml` with:
 
 - [ ] **Step 3: Build**
 
-Run: `bash bazel.cmd build //conch/plugins/editor:editor`
+Run: `bash bazel.cmd build //termlab/plugins/editor:editor`
 Expected: `Build completed successfully`.
 
 - [ ] **Step 4: Commit**
 
 ```bash
-git add plugins/editor/src/com/conch/editor/remote/RemoteSaveListener.java plugins/editor/resources/META-INF/plugin.xml
+git add plugins/editor/src/com/termlab/editor/remote/RemoteSaveListener.java plugins/editor/resources/META-INF/plugin.xml
 git commit -m "feat(editor): upload remote-bound files on document save"
 ```
 
@@ -1541,16 +1541,16 @@ git commit -m "feat(editor): upload remote-bound files on document save"
 ## Task 14: Cleanup on tab close, app shutdown, and startup orphan sweep
 
 **Files:**
-- Create: `plugins/editor/src/com/conch/editor/remote/RemoteEditorCleanup.java`
-- Create: `plugins/editor/src/com/conch/editor/remote/RemoteEditorShutdownListener.java`
-- Create: `plugins/editor/src/com/conch/editor/remote/RemoteEditorStartupSweep.java`
-- Create: `plugins/editor/src/com/conch/editor/remote/RemoteEditorProjectListener.java`
+- Create: `plugins/editor/src/com/termlab/editor/remote/RemoteEditorCleanup.java`
+- Create: `plugins/editor/src/com/termlab/editor/remote/RemoteEditorShutdownListener.java`
+- Create: `plugins/editor/src/com/termlab/editor/remote/RemoteEditorStartupSweep.java`
+- Create: `plugins/editor/src/com/termlab/editor/remote/RemoteEditorProjectListener.java`
 - Modify: `plugins/editor/resources/META-INF/plugin.xml`
 
 - [ ] **Step 1: Create `RemoteEditorCleanup.java`** — shared helper used by all three triggers
 
 ```java
-package com.conch.editor.remote;
+package com.termlab.editor.remote;
 
 import com.intellij.openapi.diagnostic.Logger;
 import org.jetbrains.annotations.NotNull;
@@ -1617,7 +1617,7 @@ public final class RemoteEditorCleanup {
 - [ ] **Step 2: Create `RemoteEditorShutdownListener.java`**
 
 ```java
-package com.conch.editor.remote;
+package com.termlab.editor.remote;
 
 import com.intellij.ide.AppLifecycleListener;
 import com.intellij.openapi.application.ApplicationManager;
@@ -1653,7 +1653,7 @@ public final class RemoteEditorShutdownListener implements AppLifecycleListener 
 - [ ] **Step 3: Create `RemoteEditorStartupSweep.java`** — runs on plugin load to clean up any files left behind after a crash
 
 ```java
-package com.conch.editor.remote;
+package com.termlab.editor.remote;
 
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.project.Project;
@@ -1695,7 +1695,7 @@ public final class RemoteEditorStartupSweep implements ProjectActivity {
 - [ ] **Step 4: Create `RemoteEditorProjectListener.java`** — per-project listener for tab-close cleanup
 
 ```java
-package com.conch.editor.remote;
+package com.termlab.editor.remote;
 
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.fileEditor.FileEditorManager;
@@ -1737,17 +1737,17 @@ In `plugins/editor/resources/META-INF/plugin.xml`, extend the `<extensions>` blo
 ```xml
     <extensions defaultExtensionNs="com.intellij">
         <notificationGroup
-            id="Conch Light Editor"
+            id="TermLab Light Editor"
             displayType="BALLOON"/>
 
         <applicationService
-            serviceImplementation="com.conch.editor.remote.RemoteFileBindingRegistry"/>
+            serviceImplementation="com.termlab.editor.remote.RemoteFileBindingRegistry"/>
 
         <applicationService
-            serviceImplementation="com.conch.editor.remote.RemoteEditService"/>
+            serviceImplementation="com.termlab.editor.remote.RemoteEditService"/>
 
         <postStartupActivity
-            implementation="com.conch.editor.remote.RemoteEditorStartupSweep"/>
+            implementation="com.termlab.editor.remote.RemoteEditorStartupSweep"/>
     </extensions>
 ```
 
@@ -1755,9 +1755,9 @@ Extend `<applicationListeners>`:
 
 ```xml
     <applicationListeners>
-        <listener class="com.conch.editor.remote.RemoteSaveListener"
+        <listener class="com.termlab.editor.remote.RemoteSaveListener"
                   topic="com.intellij.openapi.fileEditor.FileDocumentManagerListener"/>
-        <listener class="com.conch.editor.remote.RemoteEditorShutdownListener"
+        <listener class="com.termlab.editor.remote.RemoteEditorShutdownListener"
                   topic="com.intellij.ide.AppLifecycleListener"/>
     </applicationListeners>
 ```
@@ -1766,20 +1766,20 @@ Add a `<projectListeners>` block directly after `</applicationListeners>`:
 
 ```xml
     <projectListeners>
-        <listener class="com.conch.editor.remote.RemoteEditorProjectListener"
+        <listener class="com.termlab.editor.remote.RemoteEditorProjectListener"
                   topic="com.intellij.openapi.fileEditor.FileEditorManagerListener"/>
     </projectListeners>
 ```
 
 - [ ] **Step 6: Build**
 
-Run: `bash bazel.cmd build //conch/plugins/editor:editor`
+Run: `bash bazel.cmd build //termlab/plugins/editor:editor`
 Expected: `Build completed successfully`. If you see unresolved Kotlin `Continuation` / `Unit`, verify `@lib//:kotlin-stdlib` is still in `deps`.
 
 - [ ] **Step 7: Commit**
 
 ```bash
-git add plugins/editor/src/com/conch/editor/remote/RemoteEditorCleanup.java plugins/editor/src/com/conch/editor/remote/RemoteEditorShutdownListener.java plugins/editor/src/com/conch/editor/remote/RemoteEditorStartupSweep.java plugins/editor/src/com/conch/editor/remote/RemoteEditorProjectListener.java plugins/editor/resources/META-INF/plugin.xml
+git add plugins/editor/src/com/termlab/editor/remote/RemoteEditorCleanup.java plugins/editor/src/com/termlab/editor/remote/RemoteEditorShutdownListener.java plugins/editor/src/com/termlab/editor/remote/RemoteEditorStartupSweep.java plugins/editor/src/com/termlab/editor/remote/RemoteEditorProjectListener.java plugins/editor/resources/META-INF/plugin.xml
 git commit -m "feat(editor): temp file cleanup on tab close, shutdown, startup sweep"
 ```
 
@@ -1788,20 +1788,20 @@ git commit -m "feat(editor): temp file cleanup on tab close, shutdown, startup s
 ## Task 15: Register the SFTP opener bridge implementations in the editor plugin
 
 **Files:**
-- Create: `plugins/editor/src/com/conch/editor/sftp/EditorRemoteFileOpener.java`
-- Create: `plugins/editor/src/com/conch/editor/sftp/EditorLocalFileOpener.java`
+- Create: `plugins/editor/src/com/termlab/editor/sftp/EditorRemoteFileOpener.java`
+- Create: `plugins/editor/src/com/termlab/editor/sftp/EditorLocalFileOpener.java`
 - Modify: `plugins/editor/resources/META-INF/plugin.xml`
 
 - [ ] **Step 1: Create `EditorRemoteFileOpener.java`**
 
 ```java
-package com.conch.editor.sftp;
+package com.termlab.editor.sftp;
 
-import com.conch.editor.remote.RemoteEditService;
-import com.conch.sftp.client.SshSftpSession;
-import com.conch.sftp.model.RemoteFileEntry;
-import com.conch.sftp.spi.RemoteFileOpener;
-import com.conch.ssh.model.SshHost;
+import com.termlab.editor.remote.RemoteEditService;
+import com.termlab.sftp.client.SshSftpSession;
+import com.termlab.sftp.model.RemoteFileEntry;
+import com.termlab.sftp.spi.RemoteFileOpener;
+import com.termlab.ssh.model.SshHost;
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.project.Project;
 import org.jetbrains.annotations.NotNull;
@@ -1827,11 +1827,11 @@ public final class EditorRemoteFileOpener implements RemoteFileOpener {
 - [ ] **Step 2: Create `EditorLocalFileOpener.java`**
 
 ```java
-package com.conch.editor.sftp;
+package com.termlab.editor.sftp;
 
-import com.conch.editor.remote.RemoteEditService;
-import com.conch.sftp.model.LocalFileEntry;
-import com.conch.sftp.spi.LocalFileOpener;
+import com.termlab.editor.remote.RemoteEditService;
+import com.termlab.sftp.model.LocalFileEntry;
+import com.termlab.sftp.spi.LocalFileOpener;
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.project.Project;
 import org.jetbrains.annotations.NotNull;
@@ -1850,24 +1850,24 @@ public final class EditorLocalFileOpener implements LocalFileOpener {
 
 - [ ] **Step 3: Register the extension implementations in `plugins/editor/resources/META-INF/plugin.xml`**
 
-Add a new `<extensions defaultExtensionNs="com.conch.sftp">` block directly after the existing `<extensions defaultExtensionNs="com.intellij">` block:
+Add a new `<extensions defaultExtensionNs="com.termlab.sftp">` block directly after the existing `<extensions defaultExtensionNs="com.intellij">` block:
 
 ```xml
-    <extensions defaultExtensionNs="com.conch.sftp">
-        <localFileOpener implementation="com.conch.editor.sftp.EditorLocalFileOpener"/>
-        <remoteFileOpener implementation="com.conch.editor.sftp.EditorRemoteFileOpener"/>
+    <extensions defaultExtensionNs="com.termlab.sftp">
+        <localFileOpener implementation="com.termlab.editor.sftp.EditorLocalFileOpener"/>
+        <remoteFileOpener implementation="com.termlab.editor.sftp.EditorRemoteFileOpener"/>
     </extensions>
 ```
 
 - [ ] **Step 4: Build**
 
-Run: `bash bazel.cmd build //conch/plugins/editor:editor`
+Run: `bash bazel.cmd build //termlab/plugins/editor:editor`
 Expected: `Build completed successfully`.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add plugins/editor/src/com/conch/editor/sftp/ plugins/editor/resources/META-INF/plugin.xml
+git add plugins/editor/src/com/termlab/editor/sftp/ plugins/editor/resources/META-INF/plugin.xml
 git commit -m "feat(editor): register SFTP file opener bridge implementations"
 ```
 
@@ -1876,14 +1876,14 @@ git commit -m "feat(editor): register SFTP file opener bridge implementations"
 ## Task 16: Implement `NewScratchAction`
 
 **Files:**
-- Create: `plugins/editor/src/com/conch/editor/scratch/ScratchCounter.java`
-- Create: `plugins/editor/src/com/conch/editor/scratch/NewScratchAction.java`
+- Create: `plugins/editor/src/com/termlab/editor/scratch/ScratchCounter.java`
+- Create: `plugins/editor/src/com/termlab/editor/scratch/NewScratchAction.java`
 - Modify: `plugins/editor/resources/META-INF/plugin.xml`
 
 - [ ] **Step 1: Create `ScratchCounter.java`**
 
 ```java
-package com.conch.editor.scratch;
+package com.termlab.editor.scratch;
 
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -1903,7 +1903,7 @@ public final class ScratchCounter {
 - [ ] **Step 2: Create `NewScratchAction.java`**
 
 ```java
-package com.conch.editor.scratch;
+package com.termlab.editor.scratch;
 
 import com.intellij.openapi.actionSystem.ActionUpdateThread;
 import com.intellij.openapi.actionSystem.AnAction;
@@ -1949,17 +1949,17 @@ public final class NewScratchAction extends AnAction {
 
 - [ ] **Step 3: Create `ScratchMarker.java`** — a tiny marker class so we can identify scratch `LightVirtualFile`s later
 
-`plugins/editor/src/com/conch/editor/scratch/ScratchMarker.java`:
+`plugins/editor/src/com/termlab/editor/scratch/ScratchMarker.java`:
 
 ```java
-package com.conch.editor.scratch;
+package com.termlab.editor.scratch;
 
 import com.intellij.openapi.util.Key;
 
 /** Marker key used to distinguish scratch LightVirtualFiles from other LightVirtualFiles. */
 public final class ScratchMarker {
 
-    public static final Key<Boolean> KEY = Key.create("conch.editor.scratchMarker");
+    public static final Key<Boolean> KEY = Key.create("termlab.editor.scratchMarker");
 
     private ScratchMarker() {}
 }
@@ -1971,8 +1971,8 @@ Add an `<actions>` block to `plugins/editor/resources/META-INF/plugin.xml`, afte
 
 ```xml
     <actions>
-        <action id="Conch.Editor.NewScratch"
-                class="com.conch.editor.scratch.NewScratchAction"
+        <action id="TermLab.Editor.NewScratch"
+                class="com.termlab.editor.scratch.NewScratchAction"
                 text="New Scratch File"
                 description="Create a new empty scratch text file">
             <add-to-group group-id="FileMenu" anchor="first"/>
@@ -1985,13 +1985,13 @@ Add an `<actions>` block to `plugins/editor/resources/META-INF/plugin.xml`, afte
 
 - [ ] **Step 5: Build**
 
-Run: `bash bazel.cmd build //conch/plugins/editor:editor`
+Run: `bash bazel.cmd build //termlab/plugins/editor:editor`
 Expected: `Build completed successfully`.
 
 - [ ] **Step 6: Commit**
 
 ```bash
-git add plugins/editor/src/com/conch/editor/scratch/ plugins/editor/resources/META-INF/plugin.xml
+git add plugins/editor/src/com/termlab/editor/scratch/ plugins/editor/resources/META-INF/plugin.xml
 git commit -m "feat(editor): New Scratch File action bound to Cmd/Ctrl+N"
 ```
 
@@ -2004,13 +2004,13 @@ git commit -m "feat(editor): New Scratch File action bound to Cmd/Ctrl+N"
 Since `LightVirtualFile` has no persistent backing, intercepting the save *without* writing elsewhere is the correct platform behavior. We perform the Save-As side effect here and let the platform's no-op save continue.
 
 **Files:**
-- Create: `plugins/editor/src/com/conch/editor/scratch/ScratchSaveListener.java`
+- Create: `plugins/editor/src/com/termlab/editor/scratch/ScratchSaveListener.java`
 - Modify: `plugins/editor/resources/META-INF/plugin.xml`
 
 - [ ] **Step 1: Create `ScratchSaveListener.java`**
 
 ```java
-package com.conch.editor.scratch;
+package com.termlab.editor.scratch;
 
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.editor.Document;
@@ -2091,24 +2091,24 @@ In `plugins/editor/resources/META-INF/plugin.xml`, extend `<applicationListeners
 
 ```xml
     <applicationListeners>
-        <listener class="com.conch.editor.remote.RemoteSaveListener"
+        <listener class="com.termlab.editor.remote.RemoteSaveListener"
                   topic="com.intellij.openapi.fileEditor.FileDocumentManagerListener"/>
-        <listener class="com.conch.editor.scratch.ScratchSaveListener"
+        <listener class="com.termlab.editor.scratch.ScratchSaveListener"
                   topic="com.intellij.openapi.fileEditor.FileDocumentManagerListener"/>
-        <listener class="com.conch.editor.remote.RemoteEditorShutdownListener"
+        <listener class="com.termlab.editor.remote.RemoteEditorShutdownListener"
                   topic="com.intellij.ide.AppLifecycleListener"/>
     </applicationListeners>
 ```
 
 - [ ] **Step 3: Build**
 
-Run: `bash bazel.cmd build //conch/plugins/editor:editor`
+Run: `bash bazel.cmd build //termlab/plugins/editor:editor`
 Expected: `Build completed successfully`.
 
 - [ ] **Step 4: Commit**
 
 ```bash
-git add plugins/editor/src/com/conch/editor/scratch/ScratchSaveListener.java plugins/editor/resources/META-INF/plugin.xml
+git add plugins/editor/src/com/termlab/editor/scratch/ScratchSaveListener.java plugins/editor/resources/META-INF/plugin.xml
 git commit -m "feat(editor): scratch save-as flow on first save"
 ```
 
@@ -2118,7 +2118,7 @@ git commit -m "feat(editor): scratch save-as flow on first save"
 
 **Files:**
 - Modify: `core/resources/META-INF/plugin.xml`
-- Create: `core/src/com/conch/core/editor/FirstLaunchEditorNotifier.java`
+- Create: `core/src/com/termlab/core/editor/FirstLaunchEditorNotifier.java`
 
 - [ ] **Step 1: Add the notification group to `core/resources/META-INF/plugin.xml`**
 
@@ -2126,7 +2126,7 @@ In the `<extensions defaultExtensionNs="com.intellij">` block, add (next to exis
 
 ```xml
         <notificationGroup
-            id="com.conch.editor.firstLaunch"
+            id="com.termlab.editor.firstLaunch"
             displayType="STICKY_BALLOON"/>
 ```
 
@@ -2134,13 +2134,13 @@ In the `<extensions defaultExtensionNs="com.intellij">` block, add (next to exis
 
 ```xml
         <postStartupActivity
-            implementation="com.conch.core.editor.FirstLaunchEditorNotifier"/>
+            implementation="com.termlab.core.editor.FirstLaunchEditorNotifier"/>
 ```
 
 - [ ] **Step 3: Create `FirstLaunchEditorNotifier.java`**
 
 ```java
-package com.conch.core.editor;
+package com.termlab.core.editor;
 
 import com.intellij.ide.plugins.PluginManagerCore;
 import com.intellij.ide.util.PropertiesComponent;
@@ -2164,15 +2164,15 @@ import java.util.List;
 /**
  * One-time first-launch notification for the opt-in light editor.
  * Runs on the first project-open that sees no prior
- * {@code conch.editor.firstLaunchHandled} flag and presents the
+ * {@code termlab.editor.firstLaunchHandled} flag and presents the
  * user with an Enable / Not now / Don't ask again choice.
  */
 public final class FirstLaunchEditorNotifier implements ProjectActivity {
 
-    public static final String FIRST_LAUNCH_KEY = "conch.editor.firstLaunchHandled";
-    private static final String NOTIFICATION_GROUP_ID = "com.conch.editor.firstLaunch";
+    public static final String FIRST_LAUNCH_KEY = "termlab.editor.firstLaunchHandled";
+    private static final String NOTIFICATION_GROUP_ID = "com.termlab.editor.firstLaunch";
 
-    public static final PluginId EDITOR_PLUGIN_ID = PluginId.getId("com.conch.editor");
+    public static final PluginId EDITOR_PLUGIN_ID = PluginId.getId("com.termlab.editor");
     public static final PluginId TEXTMATE_PLUGIN_ID = PluginId.getId("org.jetbrains.plugins.textmate");
 
     @Override
@@ -2183,7 +2183,7 @@ public final class FirstLaunchEditorNotifier implements ProjectActivity {
         Notification n = new Notification(
             NOTIFICATION_GROUP_ID,
             "Light scripting & file editing",
-            "Conch Workbench can provide an editor-like environment for light"
+            "TermLab can provide an editor-like environment for light"
                 + " scripting and remote file editing. Enable it?",
             NotificationType.INFORMATION);
 
@@ -2233,13 +2233,13 @@ public final class FirstLaunchEditorNotifier implements ProjectActivity {
 
 - [ ] **Step 4: Build core**
 
-Run: `bash bazel.cmd build //conch/core:core`
+Run: `bash bazel.cmd build //termlab/core:core`
 Expected: `Build completed successfully`. If `PluginManagerCore.enablePlugins`/`disablePlugins` signatures don't match (they have shifted across platform versions), try the single-argument variants `enablePlugin(PluginId)` / `disablePlugin(PluginId)` in a loop.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add core/resources/META-INF/plugin.xml core/src/com/conch/core/editor/FirstLaunchEditorNotifier.java
+git add core/resources/META-INF/plugin.xml core/src/com/termlab/core/editor/FirstLaunchEditorNotifier.java
 git commit -m "feat(core): first-launch notification for opt-in light editor"
 ```
 
@@ -2248,14 +2248,14 @@ git commit -m "feat(core): first-launch notification for opt-in light editor"
 ## Task 19: Core — Workbench settings page and Light Editor subpage
 
 **Files:**
-- Create: `core/src/com/conch/core/settings/ConchWorkbenchConfigurable.java`
-- Create: `core/src/com/conch/core/settings/LightEditorConfigurable.java`
+- Create: `core/src/com/termlab/core/settings/TermLabWorkbenchConfigurable.java`
+- Create: `core/src/com/termlab/core/settings/LightEditorConfigurable.java`
 - Modify: `core/resources/META-INF/plugin.xml`
 
-- [ ] **Step 1: Create `ConchWorkbenchConfigurable.java`** (parent node, mirror of `ConchTerminalConfigurable`)
+- [ ] **Step 1: Create `TermLabWorkbenchConfigurable.java`** (parent node, mirror of `TermLabTerminalConfigurable`)
 
 ```java
-package com.conch.core.settings;
+package com.termlab.core.settings;
 
 import com.intellij.openapi.options.ConfigurationException;
 import com.intellij.openapi.options.SearchableConfigurable;
@@ -2270,13 +2270,13 @@ import java.awt.*;
  * Parent node for workbench-level (non-terminal) settings. Child
  * configurables provide the actual editable categories.
  */
-public final class ConchWorkbenchConfigurable implements SearchableConfigurable {
+public final class TermLabWorkbenchConfigurable implements SearchableConfigurable {
 
-    public static final String ID = "conch.workbench.settings";
+    public static final String ID = "termlab.workbench.settings";
 
     @Override
     public @Nls(capitalization = Nls.Capitalization.Title) String getDisplayName() {
-        return "Conch Workbench";
+        return "TermLab";
     }
 
     @Override
@@ -2307,9 +2307,9 @@ public final class ConchWorkbenchConfigurable implements SearchableConfigurable 
 - [ ] **Step 2: Create `LightEditorConfigurable.java`**
 
 ```java
-package com.conch.core.settings;
+package com.termlab.core.settings;
 
-import com.conch.core.editor.FirstLaunchEditorNotifier;
+import com.termlab.core.editor.FirstLaunchEditorNotifier;
 import com.intellij.openapi.options.ConfigurationException;
 import com.intellij.openapi.options.SearchableConfigurable;
 import com.intellij.openapi.ui.Messages;
@@ -2327,7 +2327,7 @@ import java.awt.*;
  */
 public final class LightEditorConfigurable implements SearchableConfigurable {
 
-    public static final String ID = "conch.workbench.settings.editor";
+    public static final String ID = "termlab.workbench.settings.editor";
 
     private JCheckBox checkbox;
     private JLabel statusLabel;
@@ -2383,7 +2383,7 @@ public final class LightEditorConfigurable implements SearchableConfigurable {
         if (want == initialEnabled) return;
 
         int confirm = Messages.showYesNoDialog(
-            (want ? "Enable" : "Disable") + " the light editor? Conch will restart.",
+            (want ? "Enable" : "Disable") + " the light editor? TermLab will restart.",
             "Restart Required",
             Messages.getQuestionIcon());
         if (confirm != Messages.YES) {
@@ -2423,26 +2423,26 @@ In the `<extensions defaultExtensionNs="com.intellij">` block, add (after the ex
 ```xml
         <applicationConfigurable
             parentId="root"
-            instance="com.conch.core.settings.ConchWorkbenchConfigurable"
-            id="conch.workbench.settings"
-            displayName="Conch Workbench"/>
+            instance="com.termlab.core.settings.TermLabWorkbenchConfigurable"
+            id="termlab.workbench.settings"
+            displayName="TermLab"/>
 
         <applicationConfigurable
-            parentId="conch.workbench.settings"
-            instance="com.conch.core.settings.LightEditorConfigurable"
-            id="conch.workbench.settings.editor"
+            parentId="termlab.workbench.settings"
+            instance="com.termlab.core.settings.LightEditorConfigurable"
+            id="termlab.workbench.settings.editor"
             displayName="Light Editor"/>
 ```
 
 - [ ] **Step 4: Build core**
 
-Run: `bash bazel.cmd build //conch/core:core`
+Run: `bash bazel.cmd build //termlab/core:core`
 Expected: `Build completed successfully`.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add core/src/com/conch/core/settings/ConchWorkbenchConfigurable.java core/src/com/conch/core/settings/LightEditorConfigurable.java core/resources/META-INF/plugin.xml
+git add core/src/com/termlab/core/settings/TermLabWorkbenchConfigurable.java core/src/com/termlab/core/settings/LightEditorConfigurable.java core/resources/META-INF/plugin.xml
 git commit -m "feat(core): Workbench settings page with Light Editor toggle"
 ```
 
@@ -2450,27 +2450,27 @@ git commit -m "feat(core): Workbench settings page with Light Editor toggle"
 
 ## Task 20: End-to-end manual verification
 
-**Context:** Most of the wired-together behavior can't be unit-tested without a full IntelliJ test fixture. Run through the checklist below against a running Conch; record any deviations as follow-up tasks.
+**Context:** Most of the wired-together behavior can't be unit-tested without a full IntelliJ test fixture. Run through the checklist below against a running TermLab; record any deviations as follow-up tasks.
 
 **Files:** none (validation only)
 
 - [ ] **Step 1: Build the whole product**
 
-Run: `bash bazel.cmd build //conch:conch_run`
+Run: `bash bazel.cmd build //termlab:termlab_run`
 Expected: `Build completed successfully`.
 
 - [ ] **Step 2: Reset the first-launch flag so the prompt re-appears**
 
-From the Conch dev config, delete the persisted flag. If `config/conch/options/other.xml` exists, edit it and remove any line containing `conch.editor.firstLaunchHandled`. If the file doesn't exist, nothing to do — the flag defaults to false.
+From the TermLab dev config, delete the persisted flag. If `config/termlab/options/other.xml` exists, edit it and remove any line containing `termlab.editor.firstLaunchHandled`. If the file doesn't exist, nothing to do — the flag defaults to false.
 
 - [ ] **Step 3: Launch and verify the first-launch notification appears**
 
-Run: `bash bazel.cmd run //conch:conch_run`
+Run: `bash bazel.cmd run //termlab:termlab_run`
 Expected: within a few seconds of the terminal appearing, a sticky balloon appears titled "Light scripting & file editing" with three actions.
 
 - [ ] **Step 4: Click Enable; verify restart and plugin state**
 
-Click Enable. Conch should close and restart. After restart, open `Conch → Preferences → Conch Workbench → Light Editor`. The checkbox should be checked.
+Click Enable. TermLab should close and restart. After restart, open `TermLab → Preferences → TermLab → Light Editor`. The checkbox should be checked.
 
 Also: `File → New Scratch File` should now exist in the menu (and `Cmd+N` / `Ctrl+N` should work).
 
@@ -2508,13 +2508,13 @@ Also: `File → New Scratch File` should now exist in the menu (and `Cmd+N` / `C
 
 - [ ] **Step 10: Verify temp-file cleanup on tab close**
 
-- After step 9, note the path in `PathManager.getSystemPath()/conch-sftp-edits/` — find it via `ls $(bash bazel.cmd run //conch:conch_run -- --print-system-path 2>/dev/null || echo "$HOME/Library/Caches/conch/conch-sftp-edits")`. (In practice, `~/Library/Caches/JetBrains/Conch/conch-sftp-edits/` or similar.)
+- After step 9, note the path in `PathManager.getSystemPath()/termlab-sftp-edits/` — find it via `ls $(bash bazel.cmd run //termlab:termlab_run -- --print-system-path 2>/dev/null || echo "$HOME/Library/Caches/termlab/termlab-sftp-edits")`. (In practice, `~/Library/Caches/JetBrains/TermLab/termlab-sftp-edits/` or similar.)
 - Close the editor tab for the remote file.
 - The corresponding temp file should be gone.
 
 - [ ] **Step 11: Disable via Settings and verify restart**
 
-- Preferences → Conch Workbench → Light Editor → uncheck, Apply.
+- Preferences → TermLab → Light Editor → uncheck, Apply.
 - Confirm the restart prompt, accept.
 - After restart: `New Scratch File` should be gone from the File menu; SFTP double-click on a file should be a no-op again.
 

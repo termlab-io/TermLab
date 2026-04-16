@@ -2,7 +2,7 @@
 
 **Goal:** Detect at connect time whether an `SshHost` configured with `KeyFileAuth` points at an encrypted or an unencrypted private key. Skip the passphrase prompt entirely when the key is unencrypted; show it only when a passphrase is actually needed.
 
-**Driving constraint:** no format-specific parser code in Conch — reuse MINA SSHD's real parser for the detection so there's no class of "detection disagreed with the real loader" bugs.
+**Driving constraint:** no format-specific parser code in TermLab — reuse MINA SSHD's real parser for the detection so there's no class of "detection disagreed with the real loader" bugs.
 
 ## Architecture
 
@@ -12,7 +12,7 @@ Introduce a `KeyFileInspector` utility that probes a key file by invoking MINA's
 
 ## `KeyFileInspector`
 
-New class at `plugins/ssh/src/com/conch/ssh/client/KeyFileInspector.java`:
+New class at `plugins/ssh/src/com/termlab/ssh/client/KeyFileInspector.java`:
 
 ```java
 public final class KeyFileInspector {
@@ -94,7 +94,7 @@ Drop the "Leave blank if the key is unencrypted" hint. The factory now only gets
 
 ## Testing
 
-New test class `plugins/ssh/test/com/conch/ssh/client/KeyFileInspectorTest.java` with four cases:
+New test class `plugins/ssh/test/com/termlab/ssh/client/KeyFileInspectorTest.java` with four cases:
 
 - **`inspect_unencryptedOpenSshKey_returnsNone`** — writes a known-unencrypted Ed25519 key to `@TempDir`, asserts `NONE`.
 - **`inspect_encryptedOpenSshKey_returnsEncrypted`** — writes a known-encrypted Ed25519 key (passphrase `test-passphrase`) to `@TempDir`, asserts `ENCRYPTED`.

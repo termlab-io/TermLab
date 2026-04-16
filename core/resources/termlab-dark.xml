@@ -5,15 +5,15 @@
   colors around the corrected TermLab Dark hierarchy: darker shell, deep
   editor, and deepest terminal well.
 
-  The 16 ANSI keys (CONSOLE_*_OUTPUT) drive terminal color in Conch via
-  ConchTerminalSettings.java, which reads the active global editor
+  The 16 ANSI keys (CONSOLE_*_OUTPUT) drive terminal color in TermLab via
+  TermLabTerminalSettings.java, which reads the active global editor
   scheme. This file keeps ANSI output cohesive with the TermLab Dark theme
   instead of falling back to Darcula defaults.
 -->
 <scheme name="TermLab Dark" parent_scheme="Darcula" version="1">
   <metaInfo>
     <property name="created">2026-04-15T12:00:00</property>
-    <property name="ide">Conch Workbench</property>
+    <property name="ide">TermLab</property>
     <property name="ideVersion">262.SNAPSHOT</property>
     <property name="originalScheme">TermLab Dark</property>
   </metaInfo>

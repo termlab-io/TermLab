@@ -1,8 +1,8 @@
 <idea-plugin>
-    <id>com.conch.editor</id>
-    <name>Conch Light Editor</name>
+    <id>com.termlab.editor</id>
+    <name>TermLab Light Editor</name>
     <version>0.1.0</version>
-    <vendor>Conch</vendor>
+    <vendor>TermLab</vendor>
     <description>
         Light editor for scratches and SFTP-triggered file editing.
         Bundled and enabled by default. Disable via Settings → Plugins
@@ -10,30 +10,30 @@
     </description>
 
     <depends>com.intellij.modules.platform</depends>
-    <depends>com.conch.core</depends>
-    <depends>com.conch.sftp</depends>
+    <depends>com.termlab.core</depends>
+    <depends>com.termlab.sftp</depends>
     <depends>org.jetbrains.plugins.textmate</depends>
 
     <extensions defaultExtensionNs="com.intellij">
         <notificationGroup
-            id="Conch Light Editor"
+            id="TermLab Light Editor"
             displayType="BALLOON"/>
 
         <postStartupActivity
-            implementation="com.conch.editor.debug.TextMateBuiltinBundleEnabler"/>
+            implementation="com.termlab.editor.debug.TextMateBuiltinBundleEnabler"/>
 
         <postStartupActivity
-            implementation="com.conch.editor.sftp.LegacyTempDirCleanup"/>
+            implementation="com.termlab.editor.sftp.LegacyTempDirCleanup"/>
     </extensions>
 
-    <extensions defaultExtensionNs="com.conch.sftp">
-        <localFileOpener implementation="com.conch.editor.sftp.EditorLocalFileOpener"/>
-        <remoteFileOpener implementation="com.conch.editor.sftp.EditorRemoteFileOpener"/>
+    <extensions defaultExtensionNs="com.termlab.sftp">
+        <localFileOpener implementation="com.termlab.editor.sftp.EditorLocalFileOpener"/>
+        <remoteFileOpener implementation="com.termlab.editor.sftp.EditorRemoteFileOpener"/>
     </extensions>
 
     <actions>
-        <action id="Conch.Editor.SaveCurrentFile"
-                class="com.conch.editor.scratch.SaveCurrentFileAction"
+        <action id="TermLab.Editor.SaveCurrentFile"
+                class="com.termlab.editor.scratch.SaveCurrentFileAction"
                 text="Save"
                 description="Save the current file (or show Save As… for an unnamed scratch)">
             <add-to-group group-id="FileMenu" anchor="first"/>
@@ -41,20 +41,20 @@
             <keyboard-shortcut keymap="Mac OS X 10.5+" first-keystroke="meta S" replace-all="true"/>
             <keyboard-shortcut keymap="Mac OS X" first-keystroke="meta S" replace-all="true"/>
         </action>
-        <action id="Conch.Editor.NewScratch"
-                class="com.conch.editor.scratch.NewScratchAction"
+        <action id="TermLab.Editor.NewScratch"
+                class="com.termlab.editor.scratch.NewScratchAction"
                 text="New Scratch File"
                 description="Create a new empty scratch text file">
-            <add-to-group group-id="FileMenu" anchor="after" relative-to-action="Conch.Editor.SaveCurrentFile"/>
+            <add-to-group group-id="FileMenu" anchor="after" relative-to-action="TermLab.Editor.SaveCurrentFile"/>
             <keyboard-shortcut keymap="$default" first-keystroke="control N"/>
             <keyboard-shortcut keymap="Mac OS X 10.5+" first-keystroke="meta N" replace-all="true"/>
             <keyboard-shortcut keymap="Mac OS X" first-keystroke="meta N" replace-all="true"/>
         </action>
-        <action id="Conch.Editor.SaveAs"
-                class="com.conch.editor.scratch.SaveAsAction"
+        <action id="TermLab.Editor.SaveAs"
+                class="com.termlab.editor.scratch.SaveAsAction"
                 text="Save As…"
                 description="Save the current file to a local or remote location">
-            <add-to-group group-id="FileMenu" anchor="after" relative-to-action="Conch.Editor.NewScratch"/>
+            <add-to-group group-id="FileMenu" anchor="after" relative-to-action="TermLab.Editor.NewScratch"/>
             <keyboard-shortcut keymap="$default" first-keystroke="control alt S"/>
             <keyboard-shortcut keymap="Mac OS X 10.5+" first-keystroke="meta alt S" replace-all="true"/>
             <keyboard-shortcut keymap="Mac OS X" first-keystroke="meta alt S" replace-all="true"/>

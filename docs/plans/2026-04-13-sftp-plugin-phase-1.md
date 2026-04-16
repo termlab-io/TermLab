@@ -1,14 +1,14 @@
-# Conch SFTP Plugin — Phase 1 Implementation Plan
+# TermLab SFTP Plugin — Phase 1 Implementation Plan
 
 > **For agentic workers:** Use `superpowers:subagent-driven-development` or
 > `superpowers:executing-plans` to execute this plan task-by-task. Steps use
 > checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Ship a read-only dual-pane SFTP browser as a new `com.conch.sftp`
+**Goal:** Ship a read-only dual-pane SFTP browser as a new `com.termlab.sftp`
 plugin with a bottom-anchored tool window. Local pane browses the user's
 last-visited directory (fallback `$HOME`). Remote pane has a host picker
 sourced from `HostStore`; picking a host opens an SFTP session via MINA's
-`SftpClientFactory` layered on an existing `ConchSshClient` session, and the
+`SftpClientFactory` layered on an existing `TermLabSshClient` session, and the
 remote pane lists that host's working directory. **No transfers yet** — just
 browse both sides so the architecture is pinned down before transfer /
 collision / queue work starts in Phase 2.
@@ -16,12 +16,12 @@ collision / queue work starts in Phase 2.
 **Architecture:** Custom tool window (not Project View), bottom anchor.
 Dual-pane `JBSplitter` with a pair of `JBTable`s. Both tables share a
 `FileEntry` interface so rendering code is unified. The local table reads
-via `java.nio.file` directly; the remote table reads via a new `ConchSftpClient`
+via `java.nio.file` directly; the remote table reads via a new `TermLabSftpClient`
 that wraps MINA's `SftpClient`. Both reads happen on the application executor,
 never on EDT, with a `CompletableFuture`-driven model-reload API.
 
 **Tech stack:** Java 21 / Swing / JBTable / JBSplitter / MINA SSHD 2.15.0
-(`sshd-sftp` module, new) / existing `ConchSshClient` + `SshCredentialResolver`
+(`sshd-sftp` module, new) / existing `TermLabSshClient` + `SshCredentialResolver`
 infrastructure.
 
 **Out of scope (later phases):**
@@ -41,13 +41,13 @@ infrastructure.
 ```
 plugins/sftp/
 ├── BUILD.bazel                     # new: jvm_library target + resourcegroup
-├── intellij.conch.sftp.iml         # new: JPS module descriptor
+├── intellij.termlab.sftp.iml         # new: JPS module descriptor
 ├── resources/
 │   └── META-INF/
 │       └── plugin.xml              # new: toolWindow + service declarations
-└── src/com/conch/sftp/
+└── src/com/termlab/sftp/
     ├── client/
-    │   ├── ConchSftpClient.java    # new: wraps MINA SftpClient, exposes
+    │   ├── TermLabSftpClient.java    # new: wraps MINA SftpClient, exposes
     │   │                           #   listDirectory, stat, close. Owned
     │   │                           #   by a single RemoteFilePane instance.
     │   └── SftpListingException.java  # new: typed failure wrapper
@@ -60,7 +60,7 @@ plugins/sftp/
     │   └── RemoteFileEntry.java    # new: record built from
     │                               #   SftpClient.DirEntry
     ├── persistence/
-    │   └── ConchSftpConfig.java    # new: PersistentStateComponent,
+    │   └── TermLabSftpConfig.java    # new: PersistentStateComponent,
     │                               #   last-browsed local path + last host id
     ├── toolwindow/
     │   ├── SftpToolWindow.java     # new: JBSplitter host, wires the two
@@ -87,39 +87,39 @@ plugins/sftp/
 
 **Files:**
 - Create: `plugins/sftp/BUILD.bazel`
-- Create: `plugins/sftp/intellij.conch.sftp.iml`
+- Create: `plugins/sftp/intellij.termlab.sftp.iml`
 - Create: `plugins/sftp/resources/META-INF/plugin.xml` (skeleton)
 - Create: `plugins/sftp/resources/META-INF/.gitkeep` (so git tracks the empty dir)
-- Create: `plugins/sftp/src/com/conch/sftp/.gitkeep`
-- Modify: `BUILD.bazel` — add `//conch/plugins/sftp` to `conch_run` runtime_deps
-- Modify: `BUILD.bazel` — add `//conch/plugins/sftp` to `conch-main` jvm_library runtime_deps
-- Modify: `build/src/org/jetbrains/intellij/build/conch/ConchProperties.kt` — add `"intellij.conch.sftp"` to `productLayout.bundledPluginModules`
-- Modify: `customization/resources/idea/ConchApplicationInfo.xml` — add `<essential-plugin>com.conch.sftp</essential-plugin>`
-- Modify: `/Users/dustin/projects/intellij-community/.idea/modules.xml` — register `intellij.conch.sftp.iml`
+- Create: `plugins/sftp/src/com/termlab/sftp/.gitkeep`
+- Modify: `BUILD.bazel` — add `//termlab/plugins/sftp` to `termlab_run` runtime_deps
+- Modify: `BUILD.bazel` — add `//termlab/plugins/sftp` to `termlab-main` jvm_library runtime_deps
+- Modify: `build/src/org/jetbrains/intellij/build/termlab/TermLabProperties.kt` — add `"intellij.termlab.sftp"` to `productLayout.bundledPluginModules`
+- Modify: `customization/resources/idea/TermLabApplicationInfo.xml` — add `<essential-plugin>com.termlab.sftp</essential-plugin>`
+- Modify: `/Users/dustin/projects/intellij-community/.idea/modules.xml` — register `intellij.termlab.sftp.iml`
 
 - [ ] **Step 1.1: Write plugin.xml skeleton**
 
 ```xml
 <idea-plugin>
-    <id>com.conch.sftp</id>
-    <name>Conch SFTP</name>
+    <id>com.termlab.sftp</id>
+    <name>TermLab SFTP</name>
     <version>0.1.0</version>
-    <vendor>Conch</vendor>
-    <description>Dual-pane SFTP browser for Conch Workbench.</description>
+    <vendor>TermLab</vendor>
+    <description>Dual-pane SFTP browser for TermLab.</description>
 
     <depends>com.intellij.modules.platform</depends>
-    <depends>com.conch.core</depends>
-    <depends>com.conch.ssh</depends>
+    <depends>com.termlab.core</depends>
+    <depends>com.termlab.ssh</depends>
 
     <extensions defaultExtensionNs="com.intellij">
         <applicationService
-            serviceImplementation="com.conch.sftp.persistence.ConchSftpConfig"/>
+            serviceImplementation="com.termlab.sftp.persistence.TermLabSftpConfig"/>
 
         <toolWindow
-            id="Conch SFTP"
+            id="TermLab SFTP"
             anchor="bottom"
             icon="AllIcons.Nodes.ExtractedFolder"
-            factoryClass="com.conch.sftp.toolwindow.SftpToolWindowFactory"/>
+            factoryClass="com.termlab.sftp.toolwindow.SftpToolWindowFactory"/>
     </extensions>
 </idea-plugin>
 ```
@@ -127,18 +127,18 @@ plugins/sftp/
 - [ ] **Step 1.2: Write BUILD.bazel following the tunnels plugin pattern**
 
 Reference: `plugins/tunnels/BUILD.bazel`. Key changes for sftp:
-- `module_name = "intellij.conch.sftp"`
-- deps: `//conch/sdk`, `//conch/core`, `//conch/plugins/ssh`, plus platform deps
+- `module_name = "intellij.termlab.sftp"`
+- deps: `//termlab/sdk`, `//termlab/core`, `//termlab/plugins/ssh`, plus platform deps
   listed in the tunnels plugin. **Do not** add SFTP library yet — that's
   Task 2.
 - `resources = [":sftp_resources"]`, mirroring the tunnels resourcegroup
 
 - [ ] **Step 1.3: Write the iml file**
 
-Copy `plugins/tunnels/intellij.conch.tunnels.iml` as a template. Change
-module name to `intellij.conch.sftp`. Dependencies list should match what
-Bazel BUILD.bazel declares — module deps on `intellij.conch.sdk`,
-`intellij.conch.core`, `intellij.conch.ssh`, `intellij.platform.core`,
+Copy `plugins/tunnels/intellij.termlab.tunnels.iml` as a template. Change
+module name to `intellij.termlab.sftp`. Dependencies list should match what
+Bazel BUILD.bazel declares — module deps on `intellij.termlab.sdk`,
+`intellij.termlab.core`, `intellij.termlab.ssh`, `intellij.platform.core`,
 `intellij.platform.core.impl`, `intellij.platform.ide`, `intellij.platform.ide.impl`,
 `intellij.platform.util.ui`; library deps on `jetbrains-annotations` and
 `kotlin-stdlib`.
@@ -146,45 +146,45 @@ Bazel BUILD.bazel declares — module deps on `intellij.conch.sdk`,
 - [ ] **Step 1.4: Add to modules.xml**
 
 ```xml
-<module fileurl="file://$PROJECT_DIR$/conch/plugins/sftp/intellij.conch.sftp.iml"
-        filepath="$PROJECT_DIR$/conch/plugins/sftp/intellij.conch.sftp.iml" />
+<module fileurl="file://$PROJECT_DIR$/termlab/plugins/sftp/intellij.termlab.sftp.iml"
+        filepath="$PROJECT_DIR$/termlab/plugins/sftp/intellij.termlab.sftp.iml" />
 ```
 
-Insert alphabetically, right after the `conch/plugins/ssh` entry.
+Insert alphabetically, right after the `termlab/plugins/ssh` entry.
 
-- [ ] **Step 1.5: Add to conch_run + conch-main in root BUILD.bazel**
+- [ ] **Step 1.5: Add to termlab_run + termlab-main in root BUILD.bazel**
 
 ```python
-# In conch_run runtime_deps list:
-        "//conch/plugins/sftp",
+# In termlab_run runtime_deps list:
+        "//termlab/plugins/sftp",
 
-# In conch-main jvm_library runtime_deps list:
-        "//conch/plugins/sftp",
+# In termlab-main jvm_library runtime_deps list:
+        "//termlab/plugins/sftp",
 ```
 
-- [ ] **Step 1.6: Add to bundledPluginModules in ConchProperties.kt**
+- [ ] **Step 1.6: Add to bundledPluginModules in TermLabProperties.kt**
 
 Inside the `productLayout.bundledPluginModules = persistentListOf(...)`
-block, add `"intellij.conch.sftp",` to keep the terminal-first plugins
+block, add `"intellij.termlab.sftp",` to keep the terminal-first plugins
 together.
 
-- [ ] **Step 1.7: Add as essential plugin in ConchApplicationInfo.xml**
+- [ ] **Step 1.7: Add as essential plugin in TermLabApplicationInfo.xml**
 
-Right after `<essential-plugin>com.conch.tunnels</essential-plugin>`, add:
+Right after `<essential-plugin>com.termlab.tunnels</essential-plugin>`, add:
 
 ```xml
-<essential-plugin>com.conch.sftp</essential-plugin>
+<essential-plugin>com.termlab.sftp</essential-plugin>
 ```
 
 - [ ] **Step 1.8: Verify Bazel build succeeds**
 
 ```
-make conch-build
+make termlab-build
 ```
 
-Expected: `Target //conch:conch_run up-to-date`, no compile errors. At this
+Expected: `Target //termlab:termlab_run up-to-date`, no compile errors. At this
 point the plugin is registered, has no code, and does nothing but show a
-`Conch SFTP` tool window stripe button at the bottom of the frame. The tool
+`TermLab SFTP` tool window stripe button at the bottom of the frame. The tool
 window itself will be empty until Task 6.
 
 ---
@@ -211,9 +211,9 @@ window itself will be empty until Task 6.
 **Risk:** The `lib/MODULE.bazel` http_file declarations live inside an
 `### auto-generated section 'maven libs' start` block. If a regenerator
 ever runs, our addition disappears. Document a prominent comment near the
-edit: `# Conch: do not remove — see docs/plans/2026-04-13-sftp-plugin-phase-1.md`.
+edit: `# TermLab: do not remove — see docs/plans/2026-04-13-sftp-plugin-phase-1.md`.
 
-### Approach B — vendor the jar into the Conch SFTP plugin (recommended)
+### Approach B — vendor the jar into the TermLab SFTP plugin (recommended)
 
 **Files:**
 - Create: `plugins/sftp/libs/sshd-sftp-2.15.0.jar` — downloaded from
@@ -239,8 +239,8 @@ jvm_library(
 )
 ```
 
-- Modify: `build/src/org/jetbrains/intellij/build/conch/ConchProperties.kt` —
-  add a `PluginLayout.plugin("intellij.conch.sftp") { withJar(...) }` entry
+- Modify: `build/src/org/jetbrains/intellij/build/termlab/TermLabProperties.kt` —
+  add a `PluginLayout.plugin("intellij.termlab.sftp") { withJar(...) }` entry
   so the vendored jar gets bundled into the plugin's `lib/` directory in the
   shipped installer, same pattern as the `sshd-osgi` / `bouncy-castle-provider`
   bundling we already do for the ssh and vault plugins.
@@ -252,7 +252,7 @@ regeneration cycles, version pinned by filename.
 
 ### Recommended: Approach B
 
-Approach B is simpler, lower-risk, fully local to the Conch tree, and doesn't
+Approach B is simpler, lower-risk, fully local to the TermLab tree, and doesn't
 fight the upstream auto-generator. ~500KB binary is a reasonable price.
 **Executor should use Approach B unless Approach A is explicitly requested.**
 
@@ -278,10 +278,10 @@ Add the `java_import` and extend the plugin's `deps`.
 
 - [ ] **Step 2.3: Verify compile works when a new file imports SftpClient**
 
-Create a throwaway `plugins/sftp/src/com/conch/sftp/client/SftpImportProbe.java`:
+Create a throwaway `plugins/sftp/src/com/termlab/sftp/client/SftpImportProbe.java`:
 
 ```java
-package com.conch.sftp.client;
+package com.termlab.sftp.client;
 
 import org.apache.sshd.sftp.client.SftpClient;
 
@@ -292,23 +292,23 @@ final class SftpImportProbe {
 }
 ```
 
-Run `make conch-build`. Expected: clean build. If it fails with `package
+Run `make termlab-build`. Expected: clean build. If it fails with `package
 org.apache.sshd.sftp.client does not exist`, the vendored jar isn't on the
 classpath — re-check `deps` in BUILD.bazel.
 
 - [ ] **Step 2.4: Remove the probe file**
 
 ```
-rm plugins/sftp/src/com/conch/sftp/client/SftpImportProbe.java
+rm plugins/sftp/src/com/termlab/sftp/client/SftpImportProbe.java
 ```
 
-- [ ] **Step 2.5: Add plugin layout entry in ConchProperties.kt**
+- [ ] **Step 2.5: Add plugin layout entry in TermLabProperties.kt**
 
 In the `productLayout.pluginLayouts` block, add:
 
 ```kotlin
-PluginLayout.plugin(mainModuleName = "intellij.conch.sftp", auto = true) { spec ->
-  spec.withModule("intellij.conch.sftp")
+PluginLayout.plugin(mainModuleName = "intellij.termlab.sftp", auto = true) { spec ->
+  spec.withModule("intellij.termlab.sftp")
   // The vendored sshd-sftp jar is already referenced via the Bazel
   // java_import in plugins/sftp/BUILD.bazel, so the installer build's
   // plugin layout will pick it up automatically from the module's
@@ -316,22 +316,22 @@ PluginLayout.plugin(mainModuleName = "intellij.conch.sftp", auto = true) { spec 
 },
 ```
 
-Run `make conch-installers-mac` and inspect the produced DMG to confirm
-`Conch Workbench 2026.2 EAP.app/Contents/plugins/conch-sftp/lib/` contains
-both `conch-sftp.jar` (the plugin code) and `sshd-sftp-2.15.0.jar` (the
+Run `make termlab-installers-mac` and inspect the produced DMG to confirm
+`TermLab 2026.2 EAP.app/Contents/plugins/termlab-sftp/lib/` contains
+both `termlab-sftp.jar` (the plugin code) and `sshd-sftp-2.15.0.jar` (the
 vendored library).
 
 ---
 
-## Task 3: Extend ConchSshClient with `openSftpSession()`
+## Task 3: Extend TermLabSshClient with `openSftpSession()`
 
 Goal: expose a way for the SFTP plugin to get an `SftpClient` that's bound
-to a fresh SSH session, reusing all of `ConchSshClient`'s existing auth /
+to a fresh SSH session, reusing all of `TermLabSshClient`'s existing auth /
 verifier / proxy-jump / bastion-auth machinery.
 
 **Files:**
-- Modify: `plugins/ssh/src/com/conch/ssh/client/ConchSshClient.java`
-- Create: `plugins/ssh/src/com/conch/ssh/client/SshSftpSession.java`
+- Modify: `plugins/ssh/src/com/termlab/ssh/client/TermLabSshClient.java`
+- Create: `plugins/ssh/src/com/termlab/ssh/client/SshSftpSession.java`
 
 **Rationale:** SFTP is a subsystem over an existing `ClientSession`. We
 already have `connectSession()` which returns an authed `ClientSession`
@@ -342,7 +342,7 @@ returned session.
 - [ ] **Step 3.1: Create the SshSftpSession wrapper record**
 
 ```java
-package com.conch.ssh.client;
+package com.termlab.ssh.client;
 
 import org.apache.sshd.client.session.ClientSession;
 import org.apache.sshd.sftp.client.SftpClient;
@@ -354,7 +354,7 @@ import java.io.IOException;
  * Owns a MINA {@link SftpClient} and the underlying
  * {@link ClientSession}. Closing the session closes both.
  *
- * <p>Conch's SFTP plugin takes one of these per active remote pane.
+ * <p>TermLab's SFTP plugin takes one of these per active remote pane.
  * The pane holds the reference for the lifetime of the user's
  * connection and calls {@link #close()} when the user disconnects
  * or the pane is disposed.
@@ -391,11 +391,11 @@ public final class SshSftpSession implements AutoCloseable {
 }
 ```
 
-- [ ] **Step 3.2: Add openSftpSession method to ConchSshClient**
+- [ ] **Step 3.2: Add openSftpSession method to TermLabSshClient**
 
 ```java
 /**
- * Open an SFTP session to {@code host}, reusing the standard Conch
+ * Open an SFTP session to {@code host}, reusing the standard TermLab
  * auth / host-key verifier / proxy-jump pipeline. Returns a
  * short-lived {@link SshSftpSession} the caller owns and must
  * {@link SshSftpSession#close()} when done.
@@ -417,7 +417,7 @@ public @NotNull SshSftpSession openSftpSession(
     try {
         SftpClientFactory factory = SftpClientFactory.instance();
         SftpClient client = factory.createSftpClient(session);
-        LOG.info("Conch SFTP: session established host=" + host.host() + ":" + host.port()
+        LOG.info("TermLab SFTP: session established host=" + host.host() + ":" + host.port()
             + " user=" + credential.username());
         return new SshSftpSession(session, client);
     } catch (IOException e) {
@@ -430,7 +430,7 @@ public @NotNull SshSftpSession openSftpSession(
 }
 ```
 
-Add imports at the top of ConchSshClient.java:
+Add imports at the top of TermLabSshClient.java:
 
 ```java
 import org.apache.sshd.sftp.client.SftpClient;
@@ -440,7 +440,7 @@ import org.apache.sshd.sftp.client.SftpClientFactory;
 - [ ] **Step 3.3: Verify ssh plugin still compiles**
 
 ```
-cd /Users/dustin/projects/intellij-community && bash bazel.cmd build //conch/plugins/ssh:ssh
+cd /Users/dustin/projects/intellij-community && bash bazel.cmd build //termlab/plugins/ssh:ssh
 ```
 
 Expected: clean build. **This step will fail** unless the ssh plugin's
@@ -449,19 +449,19 @@ BUILD.bazel gains a dep on the sftp library. Two options:
 1. Add the vendored jar's `java_import` target to the ssh plugin's deps too.
 2. Move the import dep-declaration into a shared location.
 
-**Recommended:** Don't share. The SFTP plugin **re-exports** `ConchSshClient`
+**Recommended:** Don't share. The SFTP plugin **re-exports** `TermLabSshClient`
 as the thing the SFTP tool window calls. The ssh plugin itself doesn't need
 `SftpClient` on its classpath — the factory call can live in the SFTP
 plugin instead.
 
-Restructure: instead of adding `openSftpSession()` to `ConchSshClient`,
+Restructure: instead of adding `openSftpSession()` to `TermLabSshClient`,
 put the SFTP-specific wrapping in a new helper class inside the SFTP plugin:
 
 ```java
-// in plugins/sftp/src/com/conch/sftp/client/ConchSftpConnector.java
-public final class ConchSftpConnector {
+// in plugins/sftp/src/com/termlab/sftp/client/TermLabSftpConnector.java
+public final class TermLabSftpConnector {
     public static SshSftpSession open(SshHost host, ...) throws SshConnectException {
-        ConchSshClient sshClient = ApplicationManager.getApplication().getService(ConchSshClient.class);
+        TermLabSshClient sshClient = ApplicationManager.getApplication().getService(TermLabSshClient.class);
         ClientSession session = sshClient.connectSession(host, credential, bastionAuth, verifier);
         SftpClient client = SftpClientFactory.instance().createSftpClient(session);
         return new SshSftpSession(session, client);
@@ -473,23 +473,23 @@ public final class ConchSftpConnector {
 wrapper). The ssh plugin doesn't need to know SFTP exists.
 
 **Revised Task 3:**
-- Skip the `ConchSshClient.openSftpSession` addition.
-- Create `SshSftpSession` under `plugins/sftp/src/com/conch/sftp/client/` instead.
-- Create `ConchSftpConnector` as the bridge class the tool window calls.
+- Skip the `TermLabSshClient.openSftpSession` addition.
+- Create `SshSftpSession` under `plugins/sftp/src/com/termlab/sftp/client/` instead.
+- Create `TermLabSftpConnector` as the bridge class the tool window calls.
 
 ---
 
 ## Task 4: Shared `FileEntry` model
 
 **Files:**
-- Create: `plugins/sftp/src/com/conch/sftp/model/FileEntry.java`
-- Create: `plugins/sftp/src/com/conch/sftp/model/LocalFileEntry.java`
-- Create: `plugins/sftp/src/com/conch/sftp/model/RemoteFileEntry.java`
+- Create: `plugins/sftp/src/com/termlab/sftp/model/FileEntry.java`
+- Create: `plugins/sftp/src/com/termlab/sftp/model/LocalFileEntry.java`
+- Create: `plugins/sftp/src/com/termlab/sftp/model/RemoteFileEntry.java`
 
 - [ ] **Step 4.1: FileEntry interface**
 
 ```java
-package com.conch.sftp.model;
+package com.termlab.sftp.model;
 
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -517,7 +517,7 @@ public interface FileEntry {
 - [ ] **Step 4.2: LocalFileEntry record**
 
 ```java
-package com.conch.sftp.model;
+package com.termlab.sftp.model;
 
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -566,7 +566,7 @@ public record LocalFileEntry(
 - [ ] **Step 4.3: RemoteFileEntry record**
 
 ```java
-package com.conch.sftp.model;
+package com.termlab.sftp.model;
 
 import org.apache.sshd.sftp.client.SftpClient;
 import org.apache.sshd.sftp.common.SftpConstants;
@@ -618,7 +618,7 @@ public record RemoteFileEntry(
 - [ ] **Step 4.4: Build and verify**
 
 ```
-make conch-build
+make termlab-build
 ```
 
 Expected: clean build.
@@ -628,14 +628,14 @@ Expected: clean build.
 ## Task 5: FileTableModel + file-table rendering
 
 **Files:**
-- Create: `plugins/sftp/src/com/conch/sftp/toolwindow/FileTableModel.java`
+- Create: `plugins/sftp/src/com/termlab/sftp/toolwindow/FileTableModel.java`
 
 - [ ] **Step 5.1: Write the table model**
 
 ```java
-package com.conch.sftp.toolwindow;
+package com.termlab.sftp.toolwindow;
 
-import com.conch.sftp.model.FileEntry;
+import com.termlab.sftp.model.FileEntry;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -738,7 +738,7 @@ public final class FileTableModel extends AbstractTableModel {
 ## Task 6: LocalFilePane
 
 **Files:**
-- Create: `plugins/sftp/src/com/conch/sftp/toolwindow/LocalFilePane.java`
+- Create: `plugins/sftp/src/com/termlab/sftp/toolwindow/LocalFilePane.java`
 
 - [ ] **Step 6.1: Pane skeleton with table + toolbar + nav**
 
@@ -753,8 +753,8 @@ public final class FileTableModel extends AbstractTableModel {
   `AppExecutorUtil.getAppExecutorService()`, updates the model on EDT via
   `SwingUtilities.invokeLater`
 - Persist current dir on each successful navigation via
-  `ConchSftpConfig.getInstance().setLastLocalPath(...)`
-- Initial load: `ConchSftpConfig.getInstance().getLastLocalPath()`,
+  `TermLabSftpConfig.getInstance().setLastLocalPath(...)`
+- Initial load: `TermLabSftpConfig.getInstance().getLastLocalPath()`,
   fallback `Path.of(System.getProperty("user.home"))` if missing or
   the stored path no longer exists / isn't a directory
 
@@ -789,7 +789,7 @@ private void reload(@NotNull Path dir) {
             }
             currentDir = dir;
             model.setEntries(snapshot, dir.getParent() != null);
-            ConchSftpConfig.getInstance().setLastLocalPath(dir.toString());
+            TermLabSftpConfig.getInstance().setLastLocalPath(dir.toString());
         });
     });
 }
@@ -800,7 +800,7 @@ private void reload(@NotNull Path dir) {
 ## Task 7: RemoteFilePane
 
 **Files:**
-- Create: `plugins/sftp/src/com/conch/sftp/toolwindow/RemoteFilePane.java`
+- Create: `plugins/sftp/src/com/termlab/sftp/toolwindow/RemoteFilePane.java`
 
 The biggest pane by far. Layout:
 
@@ -825,17 +825,17 @@ State machine:
   CONNECTED → (user selects different host in picker) → (prompt to disconnect first) → DISCONNECTED
 ```
 
-- [ ] **Step 7.1: Write ConchSftpConnector bridge class**
+- [ ] **Step 7.1: Write TermLabSftpConnector bridge class**
 
 ```java
-// plugins/sftp/src/com/conch/sftp/client/ConchSftpConnector.java
-package com.conch.sftp.client;
+// plugins/sftp/src/com/termlab/sftp/client/TermLabSftpConnector.java
+package com.termlab.sftp.client;
 
-import com.conch.ssh.client.ConchServerKeyVerifier;
-import com.conch.ssh.client.ConchSshClient;
-import com.conch.ssh.client.SshConnectException;
-import com.conch.ssh.client.SshResolvedCredential;
-import com.conch.ssh.model.SshHost;
+import com.termlab.ssh.client.TermLabServerKeyVerifier;
+import com.termlab.ssh.client.TermLabSshClient;
+import com.termlab.ssh.client.SshConnectException;
+import com.termlab.ssh.client.SshResolvedCredential;
+import com.termlab.ssh.model.SshHost;
 import com.intellij.openapi.application.ApplicationManager;
 import org.apache.sshd.client.session.ClientSession;
 import org.apache.sshd.sftp.client.SftpClient;
@@ -845,20 +845,20 @@ import org.jetbrains.annotations.Nullable;
 
 import java.io.IOException;
 
-public final class ConchSftpConnector {
-    private ConchSftpConnector() {}
+public final class TermLabSftpConnector {
+    private TermLabSftpConnector() {}
 
     public static @NotNull SshSftpSession open(
         @NotNull SshHost host,
         @NotNull SshResolvedCredential credential,
-        @Nullable ConchSshClient.BastionAuth bastionAuth
+        @Nullable TermLabSshClient.BastionAuth bastionAuth
     ) throws SshConnectException {
-        ConchSshClient client = ApplicationManager.getApplication().getService(ConchSshClient.class);
+        TermLabSshClient client = ApplicationManager.getApplication().getService(TermLabSshClient.class);
         if (client == null) {
-            client = new ConchSshClient();  // dev fallback
+            client = new TermLabSshClient();  // dev fallback
         }
         ClientSession session = client.connectSession(
-            host, credential, bastionAuth, new ConchServerKeyVerifier());
+            host, credential, bastionAuth, new TermLabServerKeyVerifier());
         try {
             SftpClient sftpClient = SftpClientFactory.instance().createSftpClient(session);
             return new SshSftpSession(session, sftpClient);
@@ -883,10 +883,10 @@ whole code path, **extract a reusable helper** from `SshSessionProvider` into
 a new package-accessible class inside the ssh plugin:
 
 ```java
-// plugins/ssh/src/com/conch/ssh/credentials/HostCredentialBundle.java
+// plugins/ssh/src/com/termlab/ssh/credentials/HostCredentialBundle.java
 public record HostCredentialBundle(
     @NotNull SshResolvedCredential target,
-    @Nullable ConchSshClient.BastionAuth bastion
+    @Nullable TermLabSshClient.BastionAuth bastion
 ) implements AutoCloseable {
     @Override public void close() {
         target.close();
@@ -928,7 +928,7 @@ private void connect(@NotNull SshHost host) {
         public void run(@NotNull ProgressIndicator indicator) {
             indicator.setIndeterminate(true);
             try {
-                SshSftpSession session = ConchSftpConnector.open(
+                SshSftpSession session = TermLabSftpConnector.open(
                     host, bundle.target(), bundle.bastion());
                 SwingUtilities.invokeLater(() -> {
                     activeSession = session;
@@ -947,7 +947,7 @@ private void connect(@NotNull SshHost host) {
                 });
             } finally {
                 // Target credential was consumed by connectSession. Bastion
-                // credential was closed inside ConchSshClient.connectSession's
+                // credential was closed inside TermLabSshClient.connectSession's
                 // finally block. The bundle's own close is now a no-op.
             }
         }
@@ -1009,16 +1009,16 @@ the `canonicalize` method. Test against a Linux box + a macOS target.
 
 ---
 
-## Task 8: Persistence (ConchSftpConfig)
+## Task 8: Persistence (TermLabSftpConfig)
 
 **Files:**
-- Create: `plugins/sftp/src/com/conch/sftp/persistence/ConchSftpConfig.java`
+- Create: `plugins/sftp/src/com/termlab/sftp/persistence/TermLabSftpConfig.java`
 
 Standard IntelliJ `PersistentStateComponent` pattern, matching
-`ConchTerminalConfig` in `core/src/com/conch/core/settings/`.
+`TermLabTerminalConfig` in `core/src/com/termlab/core/settings/`.
 
 ```java
-package com.conch.sftp.persistence;
+package com.termlab.sftp.persistence;
 
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.components.PersistentStateComponent;
@@ -1028,10 +1028,10 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 @State(
-    name = "ConchSftpConfig",
-    storages = @Storage("conch-sftp.xml")
+    name = "TermLabSftpConfig",
+    storages = @Storage("termlab-sftp.xml")
 )
-public final class ConchSftpConfig implements PersistentStateComponent<ConchSftpConfig.State> {
+public final class TermLabSftpConfig implements PersistentStateComponent<TermLabSftpConfig.State> {
 
     public static final class State {
         public @Nullable String lastLocalPath;
@@ -1040,8 +1040,8 @@ public final class ConchSftpConfig implements PersistentStateComponent<ConchSftp
 
     private State state = new State();
 
-    public static @NotNull ConchSftpConfig getInstance() {
-        return ApplicationManager.getApplication().getService(ConchSftpConfig.class);
+    public static @NotNull TermLabSftpConfig getInstance() {
+        return ApplicationManager.getApplication().getService(TermLabSftpConfig.class);
     }
 
     public @Nullable String getLastLocalPath() { return state.lastLocalPath; }
@@ -1066,13 +1066,13 @@ added in Task 1.
 ## Task 9: SftpToolWindow + Factory
 
 **Files:**
-- Create: `plugins/sftp/src/com/conch/sftp/toolwindow/SftpToolWindow.java`
-- Create: `plugins/sftp/src/com/conch/sftp/toolwindow/SftpToolWindowFactory.java`
+- Create: `plugins/sftp/src/com/termlab/sftp/toolwindow/SftpToolWindow.java`
+- Create: `plugins/sftp/src/com/termlab/sftp/toolwindow/SftpToolWindowFactory.java`
 
 - [ ] **Step 9.1: Factory**
 
 ```java
-package com.conch.sftp.toolwindow;
+package com.termlab.sftp.toolwindow;
 
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.wm.ToolWindow;
@@ -1095,7 +1095,7 @@ public final class SftpToolWindowFactory implements ToolWindowFactory {
 - [ ] **Step 9.2: SftpToolWindow wrapper JPanel**
 
 ```java
-package com.conch.sftp.toolwindow;
+package com.termlab.sftp.toolwindow;
 
 import com.intellij.openapi.project.Project;
 import com.intellij.ui.JBSplitter;
@@ -1126,11 +1126,11 @@ public final class SftpToolWindow extends JPanel {
 ## Task 10: Search Everywhere tab
 
 **Files:**
-- Create: `plugins/sftp/src/com/conch/sftp/palette/SftpSearchEverywhereContributor.java`
-- Modify: `core/src/com/conch/core/palette/ConchTabsCustomizationStrategy.java` —
-  add `"ConchSftp"` to the `ALLOWED_TAB_IDS` set.
+- Create: `plugins/sftp/src/com/termlab/sftp/palette/SftpSearchEverywhereContributor.java`
+- Modify: `core/src/com/termlab/core/palette/TermLabTabsCustomizationStrategy.java` —
+  add `"TermLabSftp"` to the `ALLOWED_TAB_IDS` set.
 - Modify: `plugins/sftp/resources/META-INF/plugin.xml` — register
-  `<searchEverywhereContributor implementation="com.conch.sftp.palette.SftpSearchEverywhereContributor$Factory"/>`
+  `<searchEverywhereContributor implementation="com.termlab.sftp.palette.SftpSearchEverywhereContributor$Factory"/>`
 
 Phase 1 scope for the SE tab: a single row per *connection action*:
 
@@ -1138,21 +1138,21 @@ Phase 1 scope for the SE tab: a single row per *connection action*:
 - One row per saved host: "Connect SFTP to <host.label()>"
 
 Selecting a row activates the tool window via
-`ToolWindowManager.getInstance(project).getToolWindow("Conch SFTP").show()`,
+`ToolWindowManager.getInstance(project).getToolWindow("TermLab SFTP").show()`,
 and for the per-host rows, pre-selects that host in the remote pane's
 picker and fires `connect()`.
 
-Reference implementation: `plugins/tunnels/src/com/conch/tunnels/palette/TunnelsSearchEverywhereContributor.java`.
+Reference implementation: `plugins/tunnels/src/com/termlab/tunnels/palette/TunnelsSearchEverywhereContributor.java`.
 Copy and adapt.
 
 ---
 
 ## Task 11: End-to-end verification
 
-- [ ] **Step 11.1: make conch-build** — clean compile, no new errors
-- [ ] **Step 11.2: make conch** — launch the dev Conch, Conch SFTP tool
+- [ ] **Step 11.1: make termlab-build** — clean compile, no new errors
+- [ ] **Step 11.2: make termlab** — launch the dev TermLab, TermLab SFTP tool
   window button appears at the bottom of the frame
-- [ ] **Step 11.3: Click Conch SFTP** — tool window opens. Local pane shows
+- [ ] **Step 11.3: Click TermLab SFTP** — tool window opens. Local pane shows
   current directory (last browsed or `$HOME`). Remote pane shows "Not
   connected" with host picker populated from HostStore.
 - [ ] **Step 11.4: Navigate local** — double-click a subdirectory,
@@ -1171,9 +1171,9 @@ Copy and adapt.
   Connect. Old session closes cleanly, new one opens.
 - [ ] **Step 11.9: Search Everywhere integration** — press Cmd+Shift+P, type
   "sftp", the tab appears with "Open SFTP tool window" + per-host entries.
-- [ ] **Step 11.10: make conch-installers** — all 8 archives build cleanly,
-  inspect the Mac DMG to confirm `conch-sftp` plugin directory exists with
-  `conch-sftp.jar` + `sshd-sftp-2.15.0.jar` in its `lib/`.
+- [ ] **Step 11.10: make termlab-installers** — all 8 archives build cleanly,
+  inspect the Mac DMG to confirm `termlab-sftp` plugin directory exists with
+  `termlab-sftp.jar` + `sshd-sftp-2.15.0.jar` in its `lib/`.
 
 ---
 
@@ -1184,7 +1184,7 @@ Copy and adapt.
 - Remote pane connects to any saved SshHost using the existing credential
   dispatch (vault / keyfile / prompt) and browses its directory tree
 - Proxy-jump hosts work end-to-end (bastion credential resolution + session
-  establishment) because we reuse `ConchSshClient.connectSession`
+  establishment) because we reuse `TermLabSshClient.connectSession`
 - Nothing is transferred yet. That's Phase 2.
 
 If all 11 verification steps pass, commit and move to Phase 2.
@@ -1205,7 +1205,7 @@ a corner:
   Overwrite Always / Rename / Skip / Skip Always, remember choice for the
   batch.
 - **Phase 3:** New `SshSessionRegistry` service in the ssh plugin; every
-  terminal tab opened via `ConchSshClient.connect()` registers its
+  terminal tab opened via `TermLabSshClient.connect()` registers its
   `ClientSession` there. The SFTP tool window subscribes; when the active
   terminal tab points at a host, the SFTP remote pane auto-connects to
   that host via `openSftpSession()` (reusing auth state is trickier — may

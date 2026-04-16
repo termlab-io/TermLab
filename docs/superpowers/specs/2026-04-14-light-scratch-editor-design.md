@@ -7,7 +7,7 @@
 
 ## Goals
 
-Add a minimal, opt-in editor surface to Conch Workbench so users can:
+Add a minimal, opt-in editor surface to TermLab so users can:
 
 1. Create and save scratch text files.
 2. Edit local and remote files by double-clicking them in the SFTP panel.
@@ -29,7 +29,7 @@ The feature must not affect users who don't opt in: no extra memory, no extra cl
 After the workbench is up, a sticky notification appears in the corner:
 
 > **Light scripting & file editing**
-> Conch Workbench can provide an editor-like environment for light scripting and remote file editing. Enable it?
+> TermLab can provide an editor-like environment for light scripting and remote file editing. Enable it?
 > [Enable] [Not now] [Don't ask again]
 
 - **Enable** → enables the editor plugin and prompts restart.
@@ -57,13 +57,13 @@ A new bundled plugin parallel to the existing ones:
 
 | Field | Value |
 |---|---|
-| Plugin ID | `com.conch.editor` |
-| Source root | `plugins/editor/src/com/conch/editor/` |
+| Plugin ID | `com.termlab.editor` |
+| Source root | `plugins/editor/src/com/termlab/editor/` |
 | Manifest | `plugins/editor/resources/META-INF/plugin.xml` |
 | Bazel target | `//plugins/editor:editor` |
-| Depends on | `com.conch.core`, `com.conch.sftp`, `org.jetbrains.plugins.textmate` |
+| Depends on | `com.termlab.core`, `com.termlab.sftp`, `org.jetbrains.plugins.textmate` |
 
-**Subpackages inside `com.conch.editor`:**
+**Subpackages inside `com.termlab.editor`:**
 
 - `scratch` — `NewScratchAction`, save-as-on-first-save handling.
 - `remote` — `RemoteEditService`, temp file management, upload-on-save hook, cleanup.
@@ -76,17 +76,17 @@ A new bundled plugin parallel to the existing ones:
 
 ### Distribution & Lifecycle
 
-**Bundled but disabled by default.** The editor plugin is built and packaged into the Conch distribution alongside `sftp`, `ssh`, etc. The `conch_run` Bazel target's packaging step seeds `disabled_plugins.txt` in the bundled config skeleton with both `com.conch.editor` and `org.jetbrains.plugins.textmate`. On a fresh install, neither plugin is loaded at IDE startup.
+**Bundled but disabled by default.** The editor plugin is built and packaged into the TermLab distribution alongside `sftp`, `ssh`, etc. The `termlab_run` Bazel target's packaging step seeds `disabled_plugins.txt` in the bundled config skeleton with both `com.termlab.editor` and `org.jetbrains.plugins.textmate`. On a fresh install, neither plugin is loaded at IDE startup.
 
-**Enable/disable toggles the IntelliJ plugin state.** Both the notification's Enable action and the Settings checkbox call `PluginManagerCore.enablePlugins({com.conch.editor, org.jetbrains.plugins.textmate})` / `disablePlugins(...)` and then show IntelliJ's standard "Restart required" dialog. Toggling requires a restart in both directions. We use IntelliJ's plugin-enabled state as the single source of truth — we do not shadow it with a separate boolean setting.
+**Enable/disable toggles the IntelliJ plugin state.** Both the notification's Enable action and the Settings checkbox call `PluginManagerCore.enablePlugins({com.termlab.editor, org.jetbrains.plugins.textmate})` / `disablePlugins(...)` and then show IntelliJ's standard "Restart required" dialog. Toggling requires a restart in both directions. We use IntelliJ's plugin-enabled state as the single source of truth — we do not shadow it with a separate boolean setting.
 
-**First-launch marker.** A `PropertiesComponent` key `conch.editor.firstLaunchHandled` (application-level, owned by `core`) controls whether the first-launch notification fires. It is set to `true` on Enable and on Don't-ask-again. It is not set on Not-now, so the prompt reappears next launch.
+**First-launch marker.** A `PropertiesComponent` key `termlab.editor.firstLaunchHandled` (application-level, owned by `core`) controls whether the first-launch notification fires. It is set to `true` on Enable and on Don't-ask-again. It is not set on Not-now, so the prompt reappears next launch.
 
 ### Editor Plugin Internals
 
-#### `com.conch.editor.scratch`
+#### `com.termlab.editor.scratch`
 
-- `NewScratchAction extends AnAction`, registered under `<action id="Conch.Editor.NewScratch">` in `plugin.xml`.
+- `NewScratchAction extends AnAction`, registered under `<action id="TermLab.Editor.NewScratch">` in `plugin.xml`.
   - Placed in `FileMenu` at the top.
   - Keyboard shortcut: `meta N` (Mac) / `control N` (Win/Linux).
   - Automatically available in the command palette via action registration.
@@ -100,7 +100,7 @@ A new bundled plugin parallel to the existing ones:
 - If the user cancels the Save-As dialog, no write occurs, the scratch tab remains open and modified, and the original `Cmd+S` keystroke has no effect beyond presenting the dialog.
 - Standard close-with-unsaved-changes prompt is provided by the platform.
 
-#### `com.conch.editor.remote`
+#### `com.termlab.editor.remote`
 
 - `RemoteEditService` — application-level service. Two entry points:
   ```
@@ -114,7 +114,7 @@ A new bundled plugin parallel to the existing ones:
   - Rejection → error balloon; no download, no tab opened.
 - **Temp path layout:**
   ```
-  {PathManager.getSystemPath()}/conch-sftp-edits/
+  {PathManager.getSystemPath()}/termlab-sftp-edits/
     {sha1(host.connectionString)[:8]}/
       {sha1(remoteAbsolutePath)[:8]}/
         {basename}
@@ -131,17 +131,17 @@ A new bundled plugin parallel to the existing ones:
 ##### Cleanup Policy
 
 1. **On tab close** (`FileEditorManagerListener.fileClosed`): if the closed file has a remote binding, delete its temp file. Then walk up: delete the per-path dir if empty, and the per-host dir if empty.
-2. **On app shutdown** (`AppLifecycleListener.appWillBeClosed`): delete the entire `conch-sftp-edits` root directory.
-3. **On editor plugin startup** (post-enable restart or every subsequent launch): sweep `conch-sftp-edits` and delete anything present — these are orphans from a crash or a forced quit. This runs in a background thread so it doesn't block startup.
+2. **On app shutdown** (`AppLifecycleListener.appWillBeClosed`): delete the entire `termlab-sftp-edits` root directory.
+3. **On editor plugin startup** (post-enable restart or every subsequent launch): sweep `termlab-sftp-edits` and delete anything present — these are orphans from a crash or a forced quit. This runs in a background thread so it doesn't block startup.
 
-#### `com.conch.editor.sftp`
+#### `com.termlab.editor.sftp`
 
 The bridge between SFTP double-click and the editor:
 
 - **Two new extension points declared in the `sftp` plugin** (`sftp` owns them because it is the consumer):
-  - `com.conch.sftp.remoteFileOpener` with interface `RemoteFileOpener { void open(HostDescriptor host, RemoteFileEntry entry); }`
-  - `com.conch.sftp.localFileOpener` with interface `LocalFileOpener { void open(LocalFileEntry entry); }`
-- **`editor` plugin registers implementations** for both extension points via `<extensions defaultExtensionNs="com.conch.sftp">` in its `plugin.xml`.
+  - `com.termlab.sftp.remoteFileOpener` with interface `RemoteFileOpener { void open(HostDescriptor host, RemoteFileEntry entry); }`
+  - `com.termlab.sftp.localFileOpener` with interface `LocalFileOpener { void open(LocalFileEntry entry); }`
+- **`editor` plugin registers implementations** for both extension points via `<extensions defaultExtensionNs="com.termlab.sftp">` in its `plugin.xml`.
 - **`sftp` double-click handlers changed** in `RemoteFilePane.onRowActivated` and `LocalFilePane.onRowActivated` (file case only — directory navigation is unchanged):
   ```
   var openers = RemoteFileOpener.EP_NAME.getExtensionList();
@@ -154,33 +154,33 @@ The bridge between SFTP double-click and the editor:
 
 **Notification:**
 
-- Registered notification group `com.conch.editor.firstLaunch` with `displayType="STICKY_BALLOON"` in `core/plugin.xml`.
+- Registered notification group `com.termlab.editor.firstLaunch` with `displayType="STICKY_BALLOON"` in `core/plugin.xml`.
 - Triggered from a `ProjectActivity` (`postStartupActivity`) that runs after the terminal tool window initializes.
-- Guard: skip if `conch.editor.firstLaunchHandled` is `true`.
+- Guard: skip if `termlab.editor.firstLaunchHandled` is `true`.
 - Three actions as described above.
 
 **Settings page:**
 
 - New top-level `<applicationConfigurable>`:
-  - `id="conch.workbench.settings"`, `displayName="Conch Workbench"`, no parent.
-  - This is a new group sibling to `conch.terminal.settings`. Rationale: terminal settings are narrowly about the terminal; workbench-level toggles (like the editor) belong in a distinct group so adding more opt-in features later doesn't pollute the terminal tree.
-- Subpage `id="conch.workbench.settings.editor"`, `parentId="conch.workbench.settings"`, `displayName="Light Editor"`.
+  - `id="termlab.workbench.settings"`, `displayName="TermLab"`, no parent.
+  - This is a new group sibling to `termlab.terminal.settings`. Rationale: terminal settings are narrowly about the terminal; workbench-level toggles (like the editor) belong in a distinct group so adding more opt-in features later doesn't pollute the terminal tree.
+- Subpage `id="termlab.workbench.settings.editor"`, `parentId="termlab.workbench.settings"`, `displayName="Light Editor"`.
 - UI: a single checkbox "Enable light editor and remote file editing", a short description, and a status label that reads "Restart required to apply" when the toggle state differs from the actual plugin state.
-- `apply()` calls `PluginManagerCore.enablePlugins` / `disablePlugins` for `{com.conch.editor, org.jetbrains.plugins.textmate}` and prompts for restart.
+- `apply()` calls `PluginManagerCore.enablePlugins` / `disablePlugins` for `{com.termlab.editor, org.jetbrains.plugins.textmate}` and prompts for restart.
 - `reset()` reads the current plugin state every time the page is opened — no drift.
 
 **Persistent state (application-level `PropertiesComponent`):**
 
-- `conch.editor.firstLaunchHandled: boolean` — gates the first-launch notification.
+- `termlab.editor.firstLaunchHandled: boolean` — gates the first-launch notification.
 
 Everything else — whether the feature is currently active — is derived from IntelliJ's plugin-enabled state. One source of truth.
 
 ### Bazel Packaging Change
 
-The `conch_run` product target must seed the bundled config skeleton with a `disabled_plugins.txt` containing:
+The `termlab_run` product target must seed the bundled config skeleton with a `disabled_plugins.txt` containing:
 
 ```
-com.conch.editor
+com.termlab.editor
 org.jetbrains.plugins.textmate
 ```
 
@@ -200,7 +200,7 @@ This is what makes the feature "off by default on fresh install." The exact shap
 - Size cap 5 MB (private constant).
 - Extension blocklist hard-coded (not user-configurable in MVP).
 - Null-byte sniff on first 8 KB after download.
-- Temp root under `{PathManager.getSystemPath()}/conch-sftp-edits/`.
+- Temp root under `{PathManager.getSystemPath()}/termlab-sftp-edits/`.
 - Cleanup on tab close, app shutdown, and startup orphan sweep.
 - Upload on save is automatic; failure keeps local changes and offers retry.
 

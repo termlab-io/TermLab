@@ -4,29 +4,29 @@
 
 **Goal:** Build a Tunnel Manager plugin that lets users create, manage, and activate SSH tunnels (local and remote port forwarding) through a right-sidebar tool window, with hosts sourced from both the SSH plugin's HostStore and `~/.ssh/config` aliases.
 
-**Architecture:** Separate plugin at `plugins/tunnels/` depending on the SSH plugin for host definitions, credential resolution, and connection infrastructure. Data model follows the SSH plugin's patterns (sealed types, Gson adapters, versioned JSON). Connection engine establishes per-tunnel `ClientSession`s via `ConchSshClient`, then calls MINA's `PortForwardingManager` API (which `ClientSession` directly implements) for local/remote forwarding. Tool window mirrors `HostsToolWindow`'s layout with added state indicators (connected/disconnected/error). Health monitoring via daemon threads watching `session.waitFor(CLOSED)`.
+**Architecture:** Separate plugin at `plugins/tunnels/` depending on the SSH plugin for host definitions, credential resolution, and connection infrastructure. Data model follows the SSH plugin's patterns (sealed types, Gson adapters, versioned JSON). Connection engine establishes per-tunnel `ClientSession`s via `TermLabSshClient`, then calls MINA's `PortForwardingManager` API (which `ClientSession` directly implements) for local/remote forwarding. Tool window mirrors `HostsToolWindow`'s layout with added state indicators (connected/disconnected/error). Health monitoring via daemon threads watching `session.waitFor(CLOSED)`.
 
 **Tech Stack:** Java 21 records + sealed types, Apache MINA SSHD 2.15 (`ClientSession.startLocalPortForwarding` / `startRemotePortForwarding`), IntelliJ Platform (`ToolWindowFactory`, `DialogWrapper`, `SearchEverywhereContributor`), Gson, JUnit 5.
 
 **Reference spec:** `docs/specs/2026-04-12-tunnel-manager-design.md`
 
-**Reference patterns:** The SSH plugin at `plugins/ssh/` is the canonical pattern for everything — model records, sealed types + Gson adapters, persistence to `~/.config/conch/`, application services, tool windows, edit dialogs, SE contributors, and plugin.xml structure.
+**Reference patterns:** The SSH plugin at `plugins/ssh/` is the canonical pattern for everything — model records, sealed types + Gson adapters, persistence to `~/.config/termlab/`, application services, tool windows, edit dialogs, SE contributors, and plugin.xml structure.
 
 ---
 
 ## Build & test commands
 
-From `/Users/dustin/projects/conch_workbench`:
+From `/Users/dustin/projects/termlab_workbench`:
 
 ```bash
 # Full product build:
-make conch-build
+make termlab-build
 
 # Tunnel plugin tests (once test runner exists):
-cd /Users/dustin/projects/intellij-community && bash bazel.cmd run //conch/plugins/tunnels:tunnels_test_runner
+cd /Users/dustin/projects/intellij-community && bash bazel.cmd run //termlab/plugins/tunnels:tunnels_test_runner
 
 # SSH plugin tests (regression):
-cd /Users/dustin/projects/intellij-community && bash bazel.cmd run //conch/plugins/ssh:ssh_test_runner
+cd /Users/dustin/projects/intellij-community && bash bazel.cmd run //termlab/plugins/ssh:ssh_test_runner
 ```
 
 ---
@@ -37,38 +37,38 @@ cd /Users/dustin/projects/intellij-community && bash bazel.cmd run //conch/plugi
 
 **Build:**
 - `plugins/tunnels/BUILD.bazel` — Bazel targets for main, test, and test runner
-- `plugins/tunnels/intellij.conch.tunnels.iml` — IntelliJ module file
+- `plugins/tunnels/intellij.termlab.tunnels.iml` — IntelliJ module file
 - `plugins/tunnels/resources/META-INF/plugin.xml` — plugin descriptor
 
-**Model (`src/com/conch/tunnels/model/`):**
+**Model (`src/com/termlab/tunnels/model/`):**
 - `SshTunnel.java` — record: id, label, type, host, bindPort, bindAddress, targetHost, targetPort, timestamps
 - `TunnelType.java` — enum: LOCAL, REMOTE
 - `TunnelHost.java` — sealed interface + `InternalHost(UUID)` + `SshConfigHost(String)`
 - `TunnelState.java` — enum: DISCONNECTED, CONNECTING, ACTIVE, ERROR
 - `TunnelStore.java` — application service holding the tunnel list, mirroring HostStore
 
-**Persistence (`src/com/conch/tunnels/persistence/`):**
-- `TunnelPaths.java` — `~/.config/conch/tunnels.json`
+**Persistence (`src/com/termlab/tunnels/persistence/`):**
+- `TunnelPaths.java` — `~/.config/termlab/tunnels.json`
 - `TunnelsFile.java` — atomic JSON save/load with versioned envelope
 - `TunnelGson.java` — Gson with Instant + TunnelHost adapters
 
-**Client (`src/com/conch/tunnels/client/`):**
+**Client (`src/com/termlab/tunnels/client/`):**
 - `TunnelConnection.java` — handle for one active tunnel (session + bound address + state)
 - `TunnelConnectionManager.java` — application service managing active tunnel connections
 - `SshConfigParser.java` — lightweight `~/.ssh/config` Host alias reader
 
-**Tool window (`src/com/conch/tunnels/toolwindow/`):**
+**Tool window (`src/com/termlab/tunnels/toolwindow/`):**
 - `TunnelsToolWindow.java` — JPanel with toolbar + JBList + context menu
 - `TunnelsToolWindowFactory.java` — ToolWindowFactory impl
 - `TunnelCellRenderer.java` — two-line renderer with status icons
 
-**UI (`src/com/conch/tunnels/ui/`):**
+**UI (`src/com/termlab/tunnels/ui/`):**
 - `TunnelEditDialog.java` — modal add/edit dialog
 
-**Search Everywhere (`src/com/conch/tunnels/palette/`):**
+**Search Everywhere (`src/com/termlab/tunnels/palette/`):**
 - `TunnelsSearchEverywhereContributor.java` — SE tab with connect/disconnect action
 
-**Tests (`test/com/conch/tunnels/`):**
+**Tests (`test/com/termlab/tunnels/`):**
 - `TestRunner.java` — JUnit 5 standalone runner
 - `model/SshTunnelTest.java` — record factory + with-methods
 - `model/TunnelStoreTest.java` — CRUD + save/reload
@@ -78,10 +78,10 @@ cd /Users/dustin/projects/intellij-community && bash bazel.cmd run //conch/plugi
 
 ### Modified files (SSH plugin + core)
 
-- `plugins/ssh/src/com/conch/ssh/client/ConchSshClient.java` — add `connectSession()` method (auth without shell channel)
-- `customization/resources/idea/ConchApplicationInfo.xml` — add `<essential-plugin>com.conch.tunnels</essential-plugin>`
-- `build/src/org/jetbrains/intellij/build/conch/ConchProperties.kt` — add `"intellij.conch.tunnels"` to bundledPluginModules
-- `core/src/com/conch/core/palette/ConchTabsCustomizationStrategy.java` — add `"ConchTunnels"` to ALLOWED_TAB_IDS
+- `plugins/ssh/src/com/termlab/ssh/client/TermLabSshClient.java` — add `connectSession()` method (auth without shell channel)
+- `customization/resources/idea/TermLabApplicationInfo.xml` — add `<essential-plugin>com.termlab.tunnels</essential-plugin>`
+- `build/src/org/jetbrains/intellij/build/termlab/TermLabProperties.kt` — add `"intellij.termlab.tunnels"` to bundledPluginModules
+- `core/src/com/termlab/core/palette/TermLabTabsCustomizationStrategy.java` — add `"TermLabTunnels"` to ALLOWED_TAB_IDS
 
 ---
 
@@ -91,7 +91,7 @@ cd /Users/dustin/projects/intellij-community && bash bazel.cmd run //conch/plugi
 
 **Files:**
 - Create: `plugins/tunnels/BUILD.bazel`
-- Create: `plugins/tunnels/intellij.conch.tunnels.iml`
+- Create: `plugins/tunnels/intellij.termlab.tunnels.iml`
 - Create: `plugins/tunnels/resources/META-INF/plugin.xml` (placeholder)
 
 - [ ] **Step 1: Create `BUILD.bazel`**
@@ -108,14 +108,14 @@ resourcegroup(
 
 jvm_library(
     name = "tunnels",
-    module_name = "intellij.conch.tunnels",
+    module_name = "intellij.termlab.tunnels",
     visibility = ["//visibility:public"],
     srcs = glob(["src/**/*.java"], allow_empty = True),
     resources = [":tunnels_resources"],
     deps = [
-        "//conch/sdk",
-        "//conch/core",
-        "//conch/plugins/ssh",
+        "//termlab/sdk",
+        "//termlab/core",
+        "//termlab/plugins/ssh",
         "//platform/analysis-api:analysis",
         "//platform/core-api:core",
         "//platform/core-ui",
@@ -136,13 +136,13 @@ jvm_library(
 
 jvm_library(
     name = "tunnels_test_lib",
-    module_name = "intellij.conch.tunnels.tests",
+    module_name = "intellij.termlab.tunnels.tests",
     visibility = ["//visibility:public"],
     srcs = glob(["test/**/*.java"], allow_empty = True),
     deps = [
         ":tunnels",
-        "//conch/sdk",
-        "//conch/plugins/ssh",
+        "//termlab/sdk",
+        "//termlab/plugins/ssh",
         "//libraries/junit5",
         "//libraries/junit5-jupiter",
         "//libraries/junit5-launcher",
@@ -154,7 +154,7 @@ jvm_library(
 
 java_binary(
     name = "tunnels_test_runner",
-    main_class = "com.conch.tunnels.TestRunner",
+    main_class = "com.termlab.tunnels.TestRunner",
     runtime_deps = [
         ":tunnels_test_lib",
         "//libraries/junit5-jupiter",
@@ -163,7 +163,7 @@ java_binary(
 )
 ```
 
-- [ ] **Step 2: Create `intellij.conch.tunnels.iml`**
+- [ ] **Step 2: Create `intellij.termlab.tunnels.iml`**
 
 ```xml
 <?xml version="1.0" encoding="UTF-8"?>
@@ -184,25 +184,25 @@ java_binary(
 
 ```xml
 <idea-plugin>
-    <id>com.conch.tunnels</id>
-    <name>Conch Tunnels</name>
-    <vendor>Conch</vendor>
+    <id>com.termlab.tunnels</id>
+    <name>TermLab Tunnels</name>
+    <vendor>TermLab</vendor>
     <description>SSH tunnel manager. Creates local and remote port
-    forwarding tunnels through hosts managed by the Conch SSH plugin
+    forwarding tunnels through hosts managed by the TermLab SSH plugin
     or defined in ~/.ssh/config.</description>
 
-    <depends>com.conch.core</depends>
-    <depends>com.conch.ssh</depends>
-    <depends>com.conch.vault</depends>
+    <depends>com.termlab.core</depends>
+    <depends>com.termlab.ssh</depends>
+    <depends>com.termlab.vault</depends>
 </idea-plugin>
 ```
 
 - [ ] **Step 4: Create test runner**
 
-Create `plugins/tunnels/test/com/conch/tunnels/TestRunner.java`:
+Create `plugins/tunnels/test/com/termlab/tunnels/TestRunner.java`:
 
 ```java
-package com.conch.tunnels;
+package com.termlab.tunnels;
 
 import org.junit.platform.launcher.Launcher;
 import org.junit.platform.launcher.LauncherDiscoveryRequest;
@@ -218,7 +218,7 @@ import static org.junit.platform.engine.discovery.DiscoverySelectors.selectPacka
 public final class TestRunner {
     public static void main(String[] args) {
         LauncherDiscoveryRequest request = LauncherDiscoveryRequestBuilder.request()
-            .selectors(selectPackage("com.conch.tunnels"))
+            .selectors(selectPackage("com.termlab.tunnels"))
             .build();
 
         SummaryGeneratingListener listener = new SummaryGeneratingListener();
@@ -235,7 +235,7 @@ public final class TestRunner {
 - [ ] **Step 5: Build to verify scaffolding compiles**
 
 ```bash
-cd /Users/dustin/projects/conch_workbench && make conch-build
+cd /Users/dustin/projects/termlab_workbench && make termlab-build
 ```
 
 - [ ] **Step 6: Commit**
@@ -252,20 +252,20 @@ Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>"
 ### Task 1.2: Data model — SshTunnel, TunnelType, TunnelHost, TunnelState
 
 **Files:**
-- Create: `plugins/tunnels/src/com/conch/tunnels/model/TunnelType.java`
-- Create: `plugins/tunnels/src/com/conch/tunnels/model/TunnelHost.java`
-- Create: `plugins/tunnels/src/com/conch/tunnels/model/InternalHost.java`
-- Create: `plugins/tunnels/src/com/conch/tunnels/model/SshConfigHost.java`
-- Create: `plugins/tunnels/src/com/conch/tunnels/model/TunnelState.java`
-- Create: `plugins/tunnels/src/com/conch/tunnels/model/SshTunnel.java`
-- Create: `plugins/tunnels/test/com/conch/tunnels/model/SshTunnelTest.java`
+- Create: `plugins/tunnels/src/com/termlab/tunnels/model/TunnelType.java`
+- Create: `plugins/tunnels/src/com/termlab/tunnels/model/TunnelHost.java`
+- Create: `plugins/tunnels/src/com/termlab/tunnels/model/InternalHost.java`
+- Create: `plugins/tunnels/src/com/termlab/tunnels/model/SshConfigHost.java`
+- Create: `plugins/tunnels/src/com/termlab/tunnels/model/TunnelState.java`
+- Create: `plugins/tunnels/src/com/termlab/tunnels/model/SshTunnel.java`
+- Create: `plugins/tunnels/test/com/termlab/tunnels/model/SshTunnelTest.java`
 
 - [ ] **Step 1: Write the failing test**
 
-Create `plugins/tunnels/test/com/conch/tunnels/model/SshTunnelTest.java`:
+Create `plugins/tunnels/test/com/termlab/tunnels/model/SshTunnelTest.java`:
 
 ```java
-package com.conch.tunnels.model;
+package com.termlab.tunnels.model;
 
 import org.junit.jupiter.api.Test;
 
@@ -350,7 +350,7 @@ class SshTunnelTest {
 - [ ] **Step 2: Run to confirm failure**
 
 ```bash
-cd /Users/dustin/projects/intellij-community && bash bazel.cmd build //conch/plugins/tunnels:tunnels_test_lib
+cd /Users/dustin/projects/intellij-community && bash bazel.cmd build //termlab/plugins/tunnels:tunnels_test_lib
 ```
 
 Expected: compile error on missing classes.
@@ -358,7 +358,7 @@ Expected: compile error on missing classes.
 - [ ] **Step 3: Create `TunnelType.java`**
 
 ```java
-package com.conch.tunnels.model;
+package com.termlab.tunnels.model;
 
 /**
  * SSH tunnel direction.
@@ -379,7 +379,7 @@ public enum TunnelType {
 
 `TunnelHost.java`:
 ```java
-package com.conch.tunnels.model;
+package com.termlab.tunnels.model;
 
 /**
  * Which host a tunnel connects through. Two variants:
@@ -397,7 +397,7 @@ public sealed interface TunnelHost permits InternalHost, SshConfigHost {
 
 `InternalHost.java`:
 ```java
-package com.conch.tunnels.model;
+package com.termlab.tunnels.model;
 
 import org.jetbrains.annotations.NotNull;
 
@@ -414,7 +414,7 @@ public record InternalHost(@NotNull UUID hostId) implements TunnelHost {
 
 `SshConfigHost.java`:
 ```java
-package com.conch.tunnels.model;
+package com.termlab.tunnels.model;
 
 import org.jetbrains.annotations.NotNull;
 
@@ -432,7 +432,7 @@ public record SshConfigHost(@NotNull String alias) implements TunnelHost {
 - [ ] **Step 5: Create `TunnelState.java`**
 
 ```java
-package com.conch.tunnels.model;
+package com.termlab.tunnels.model;
 
 /**
  * Lifecycle state of a tunnel.
@@ -452,7 +452,7 @@ public enum TunnelState {
 - [ ] **Step 6: Create `SshTunnel.java`**
 
 ```java
-package com.conch.tunnels.model;
+package com.termlab.tunnels.model;
 
 import org.jetbrains.annotations.NotNull;
 
@@ -462,7 +462,7 @@ import java.util.UUID;
 /**
  * A saved SSH tunnel definition.
  *
- * <p>Persisted to {@code ~/.config/conch/tunnels.json}. The actual
+ * <p>Persisted to {@code ~/.config/termlab/tunnels.json}. The actual
  * forwarding is managed by {@code TunnelConnectionManager} at runtime;
  * this record is the at-rest configuration.
  *
@@ -528,7 +528,7 @@ public record SshTunnel(
 - [ ] **Step 7: Run tests**
 
 ```bash
-cd /Users/dustin/projects/intellij-community && bash bazel.cmd run //conch/plugins/tunnels:tunnels_test_runner
+cd /Users/dustin/projects/intellij-community && bash bazel.cmd run //termlab/plugins/tunnels:tunnels_test_runner
 ```
 
 Expected: 6/6 passing.
@@ -536,7 +536,7 @@ Expected: 6/6 passing.
 - [ ] **Step 8: Commit**
 
 ```bash
-git add plugins/tunnels/src/com/conch/tunnels/model/ plugins/tunnels/test/com/conch/tunnels/model/
+git add plugins/tunnels/src/com/termlab/tunnels/model/ plugins/tunnels/test/com/termlab/tunnels/model/
 git commit -m "feat(tunnels): phase 1.2 — SshTunnel, TunnelType, TunnelHost, TunnelState
 
 Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>"
@@ -547,22 +547,22 @@ Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>"
 ### Task 1.3: Persistence — TunnelGson, TunnelPaths, TunnelsFile, TunnelStore
 
 **Files:**
-- Create: `plugins/tunnels/src/com/conch/tunnels/persistence/TunnelGson.java`
-- Create: `plugins/tunnels/src/com/conch/tunnels/persistence/TunnelPaths.java`
-- Create: `plugins/tunnels/src/com/conch/tunnels/persistence/TunnelsFile.java`
-- Create: `plugins/tunnels/src/com/conch/tunnels/model/TunnelStore.java`
-- Create: `plugins/tunnels/test/com/conch/tunnels/persistence/TunnelHostJsonTest.java`
-- Create: `plugins/tunnels/test/com/conch/tunnels/persistence/TunnelsFileTest.java`
-- Create: `plugins/tunnels/test/com/conch/tunnels/model/TunnelStoreTest.java`
+- Create: `plugins/tunnels/src/com/termlab/tunnels/persistence/TunnelGson.java`
+- Create: `plugins/tunnels/src/com/termlab/tunnels/persistence/TunnelPaths.java`
+- Create: `plugins/tunnels/src/com/termlab/tunnels/persistence/TunnelsFile.java`
+- Create: `plugins/tunnels/src/com/termlab/tunnels/model/TunnelStore.java`
+- Create: `plugins/tunnels/test/com/termlab/tunnels/persistence/TunnelHostJsonTest.java`
+- Create: `plugins/tunnels/test/com/termlab/tunnels/persistence/TunnelsFileTest.java`
+- Create: `plugins/tunnels/test/com/termlab/tunnels/model/TunnelStoreTest.java`
 
 - [ ] **Step 1: Write `TunnelHostJsonTest.java`**
 
 ```java
-package com.conch.tunnels.persistence;
+package com.termlab.tunnels.persistence;
 
-import com.conch.tunnels.model.InternalHost;
-import com.conch.tunnels.model.SshConfigHost;
-import com.conch.tunnels.model.TunnelHost;
+import com.termlab.tunnels.model.InternalHost;
+import com.termlab.tunnels.model.SshConfigHost;
+import com.termlab.tunnels.model.TunnelHost;
 import com.google.gson.JsonParseException;
 import org.junit.jupiter.api.Test;
 
@@ -606,12 +606,12 @@ class TunnelHostJsonTest {
 - [ ] **Step 2: Write `TunnelsFileTest.java`**
 
 ```java
-package com.conch.tunnels.persistence;
+package com.termlab.tunnels.persistence;
 
-import com.conch.tunnels.model.InternalHost;
-import com.conch.tunnels.model.SshConfigHost;
-import com.conch.tunnels.model.SshTunnel;
-import com.conch.tunnels.model.TunnelType;
+import com.termlab.tunnels.model.InternalHost;
+import com.termlab.tunnels.model.SshConfigHost;
+import com.termlab.tunnels.model.SshTunnel;
+import com.termlab.tunnels.model.TunnelType;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -686,7 +686,7 @@ class TunnelsFileTest {
 - [ ] **Step 3: Write `TunnelStoreTest.java`**
 
 ```java
-package com.conch.tunnels.model;
+package com.termlab.tunnels.model;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -754,7 +754,7 @@ class TunnelStoreTest {
 - [ ] **Step 4: Create `TunnelPaths.java`**
 
 ```java
-package com.conch.tunnels.persistence;
+package com.termlab.tunnels.persistence;
 
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -763,7 +763,7 @@ public final class TunnelPaths {
     private TunnelPaths() {}
 
     public static Path tunnelsFile() {
-        return Paths.get(System.getProperty("user.home"), ".config", "conch", "tunnels.json");
+        return Paths.get(System.getProperty("user.home"), ".config", "termlab", "tunnels.json");
     }
 }
 ```
@@ -771,11 +771,11 @@ public final class TunnelPaths {
 - [ ] **Step 5: Create `TunnelGson.java`**
 
 ```java
-package com.conch.tunnels.persistence;
+package com.termlab.tunnels.persistence;
 
-import com.conch.tunnels.model.InternalHost;
-import com.conch.tunnels.model.SshConfigHost;
-import com.conch.tunnels.model.TunnelHost;
+import com.termlab.tunnels.model.InternalHost;
+import com.termlab.tunnels.model.SshConfigHost;
+import com.termlab.tunnels.model.TunnelHost;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonDeserializer;
@@ -853,9 +853,9 @@ public final class TunnelGson {
 - [ ] **Step 6: Create `TunnelsFile.java`**
 
 ```java
-package com.conch.tunnels.persistence;
+package com.termlab.tunnels.persistence;
 
-import com.conch.tunnels.model.SshTunnel;
+import com.termlab.tunnels.model.SshTunnel;
 import org.jetbrains.annotations.NotNull;
 
 import java.io.IOException;
@@ -909,10 +909,10 @@ public final class TunnelsFile {
 - [ ] **Step 7: Create `TunnelStore.java`**
 
 ```java
-package com.conch.tunnels.model;
+package com.termlab.tunnels.model;
 
-import com.conch.tunnels.persistence.TunnelPaths;
-import com.conch.tunnels.persistence.TunnelsFile;
+import com.termlab.tunnels.persistence.TunnelPaths;
+import com.termlab.tunnels.persistence.TunnelsFile;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -925,7 +925,7 @@ import java.util.UUID;
 
 /**
  * Application service holding the saved tunnel list. Mirrors
- * {@code com.conch.ssh.model.HostStore}.
+ * {@code com.termlab.ssh.model.HostStore}.
  */
 public final class TunnelStore {
 
@@ -998,7 +998,7 @@ public final class TunnelStore {
 - [ ] **Step 8: Run all tests**
 
 ```bash
-cd /Users/dustin/projects/intellij-community && bash bazel.cmd run //conch/plugins/tunnels:tunnels_test_runner
+cd /Users/dustin/projects/intellij-community && bash bazel.cmd run //termlab/plugins/tunnels:tunnels_test_runner
 ```
 
 Expected: all tests pass (SshTunnelTest + TunnelHostJsonTest + TunnelsFileTest + TunnelStoreTest).
@@ -1006,7 +1006,7 @@ Expected: all tests pass (SshTunnelTest + TunnelHostJsonTest + TunnelsFileTest +
 - [ ] **Step 9: Commit**
 
 ```bash
-git add plugins/tunnels/src/com/conch/tunnels/persistence/ plugins/tunnels/src/com/conch/tunnels/model/TunnelStore.java plugins/tunnels/test/
+git add plugins/tunnels/src/com/termlab/tunnels/persistence/ plugins/tunnels/src/com/termlab/tunnels/model/TunnelStore.java plugins/tunnels/test/
 git commit -m "feat(tunnels): phase 1.3 — Gson adapters, persistence, TunnelStore
 
 Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>"
@@ -1017,8 +1017,8 @@ Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>"
 ## Phase 1 gate
 
 ```bash
-cd /Users/dustin/projects/conch_workbench && make conch-build
-cd /Users/dustin/projects/intellij-community && bash bazel.cmd run //conch/plugins/tunnels:tunnels_test_runner
+cd /Users/dustin/projects/termlab_workbench && make termlab-build
+cd /Users/dustin/projects/intellij-community && bash bazel.cmd run //termlab/plugins/tunnels:tunnels_test_runner
 ```
 
 All tests pass, full product builds.
@@ -1027,14 +1027,14 @@ All tests pass, full product builds.
 
 ## Phase 2 — Connection engine
 
-### Task 2.1: `ConchSshClient.connectSession()` — auth without shell channel
+### Task 2.1: `TermLabSshClient.connectSession()` — auth without shell channel
 
 **Files:**
-- Modify: `plugins/ssh/src/com/conch/ssh/client/ConchSshClient.java`
+- Modify: `plugins/ssh/src/com/termlab/ssh/client/TermLabSshClient.java`
 
-- [ ] **Step 1: Add `connectSession()` method to `ConchSshClient`**
+- [ ] **Step 1: Add `connectSession()` method to `TermLabSshClient`**
 
-Read the current `ConchSshClient.java`. After the existing `connect()` method, add a new method that does TCP → auth but skips shell channel opening. This returns a raw `ClientSession` instead of an `SshConnection`:
+Read the current `TermLabSshClient.java`. After the existing `connect()` method, add a new method that does TCP → auth but skips shell channel opening. This returns a raw `ClientSession` instead of an `SshConnection`:
 
 ```java
 /**
@@ -1050,7 +1050,7 @@ public @NotNull ClientSession connectSession(
     @NotNull ServerKeyVerifier verifier
 ) throws SshConnectException {
     SshClient mina = ensureStarted();
-    LOG.info("Conch SSH: connectSession (no shell) host=" + host.host() + ":" + host.port());
+    LOG.info("TermLab SSH: connectSession (no shell) host=" + host.host() + ":" + host.port());
 
     mina.setServerKeyVerifier(verifier);
 
@@ -1106,13 +1106,13 @@ public @NotNull ClientSession connectSession(
 }
 ```
 
-Note: this reuses the existing `connectFutureFor()`, `attachIdentities()`, `configureSessionAuthPreferences()`, and `safeClose()` private methods already in `ConchSshClient`. The only difference from `connect()` is that it skips the shell channel opening.
+Note: this reuses the existing `connectFutureFor()`, `attachIdentities()`, `configureSessionAuthPreferences()`, and `safeClose()` private methods already in `TermLabSshClient`. The only difference from `connect()` is that it skips the shell channel opening.
 
 - [ ] **Step 2: Build and run SSH tests**
 
 ```bash
-cd /Users/dustin/projects/conch_workbench && make conch-build
-cd /Users/dustin/projects/intellij-community && bash bazel.cmd run //conch/plugins/ssh:ssh_test_runner
+cd /Users/dustin/projects/termlab_workbench && make termlab-build
+cd /Users/dustin/projects/intellij-community && bash bazel.cmd run //termlab/plugins/ssh:ssh_test_runner
 ```
 
 Expected: all SSH tests still pass (no behavioral change to existing code).
@@ -1120,7 +1120,7 @@ Expected: all SSH tests still pass (no behavioral change to existing code).
 - [ ] **Step 3: Commit**
 
 ```bash
-git add plugins/ssh/src/com/conch/ssh/client/ConchSshClient.java
+git add plugins/ssh/src/com/termlab/ssh/client/TermLabSshClient.java
 git commit -m "feat(ssh): add connectSession() for auth-only without shell channel
 
 Used by the tunnel plugin to get a ClientSession for port forwarding
@@ -1134,13 +1134,13 @@ Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>"
 ### Task 2.2: `SshConfigParser` — `~/.ssh/config` host alias reader
 
 **Files:**
-- Create: `plugins/tunnels/src/com/conch/tunnels/client/SshConfigParser.java`
-- Create: `plugins/tunnels/test/com/conch/tunnels/client/SshConfigParserTest.java`
+- Create: `plugins/tunnels/src/com/termlab/tunnels/client/SshConfigParser.java`
+- Create: `plugins/tunnels/test/com/termlab/tunnels/client/SshConfigParserTest.java`
 
 - [ ] **Step 1: Write `SshConfigParserTest.java`**
 
 ```java
-package com.conch.tunnels.client;
+package com.termlab.tunnels.client;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -1226,7 +1226,7 @@ class SshConfigParserTest {
 - [ ] **Step 2: Create `SshConfigParser.java`**
 
 ```java
-package com.conch.tunnels.client;
+package com.termlab.tunnels.client;
 
 import org.jetbrains.annotations.NotNull;
 
@@ -1285,7 +1285,7 @@ public final class SshConfigParser {
 - [ ] **Step 3: Run tests**
 
 ```bash
-cd /Users/dustin/projects/intellij-community && bash bazel.cmd run //conch/plugins/tunnels:tunnels_test_runner
+cd /Users/dustin/projects/intellij-community && bash bazel.cmd run //termlab/plugins/tunnels:tunnels_test_runner
 ```
 
 Expected: all tests pass including the 6 new SshConfigParser tests.
@@ -1293,7 +1293,7 @@ Expected: all tests pass including the 6 new SshConfigParser tests.
 - [ ] **Step 4: Commit**
 
 ```bash
-git add plugins/tunnels/src/com/conch/tunnels/client/SshConfigParser.java plugins/tunnels/test/com/conch/tunnels/client/
+git add plugins/tunnels/src/com/termlab/tunnels/client/SshConfigParser.java plugins/tunnels/test/com/termlab/tunnels/client/
 git commit -m "feat(tunnels): phase 2.2 — SshConfigParser for ~/.ssh/config host aliases
 
 Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>"
@@ -1304,15 +1304,15 @@ Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>"
 ### Task 2.3: `TunnelConnection` + `TunnelConnectionManager`
 
 **Files:**
-- Create: `plugins/tunnels/src/com/conch/tunnels/client/TunnelConnection.java`
-- Create: `plugins/tunnels/src/com/conch/tunnels/client/TunnelConnectionManager.java`
+- Create: `plugins/tunnels/src/com/termlab/tunnels/client/TunnelConnection.java`
+- Create: `plugins/tunnels/src/com/termlab/tunnels/client/TunnelConnectionManager.java`
 
 - [ ] **Step 1: Create `TunnelConnection.java`**
 
 ```java
-package com.conch.tunnels.client;
+package com.termlab.tunnels.client;
 
-import com.conch.tunnels.model.TunnelState;
+import com.termlab.tunnels.model.TunnelState;
 import org.apache.sshd.client.session.ClientSession;
 import org.apache.sshd.common.util.net.SshdSocketAddress;
 import org.jetbrains.annotations.NotNull;
@@ -1377,17 +1377,17 @@ public final class TunnelConnection implements AutoCloseable {
 - [ ] **Step 2: Create `TunnelConnectionManager.java`**
 
 ```java
-package com.conch.tunnels.client;
+package com.termlab.tunnels.client;
 
-import com.conch.ssh.client.ConchServerKeyVerifier;
-import com.conch.ssh.client.ConchSshClient;
-import com.conch.ssh.client.SshConnectException;
-import com.conch.ssh.client.SshResolvedCredential;
-import com.conch.ssh.credentials.SshCredentialPicker;
-import com.conch.ssh.credentials.SshCredentialResolver;
-import com.conch.ssh.model.*;
-import com.conch.ssh.ui.InlineCredentialPromptDialog;
-import com.conch.tunnels.model.*;
+import com.termlab.ssh.client.TermLabServerKeyVerifier;
+import com.termlab.ssh.client.TermLabSshClient;
+import com.termlab.ssh.client.SshConnectException;
+import com.termlab.ssh.client.SshResolvedCredential;
+import com.termlab.ssh.credentials.SshCredentialPicker;
+import com.termlab.ssh.credentials.SshCredentialResolver;
+import com.termlab.ssh.model.*;
+import com.termlab.ssh.ui.InlineCredentialPromptDialog;
+import com.termlab.tunnels.model.*;
 import com.intellij.notification.NotificationGroupManager;
 import com.intellij.notification.NotificationType;
 import com.intellij.openapi.application.ApplicationManager;
@@ -1447,7 +1447,7 @@ public final class TunnelConnectionManager {
                 bound = session.startRemotePortForwarding(remote, local);
             }
             conn.markActive(bound);
-            LOG.info("Conch tunnel: activated '" + tunnel.label()
+            LOG.info("TermLab tunnel: activated '" + tunnel.label()
                 + "' bound=" + bound + " type=" + tunnel.type());
 
             // Start health monitor
@@ -1464,7 +1464,7 @@ public final class TunnelConnectionManager {
         if (conn != null) {
             conn.close();
             conn.markDisconnected();
-            LOG.info("Conch tunnel: disconnected tunnel " + tunnelId);
+            LOG.info("TermLab tunnel: disconnected tunnel " + tunnelId);
         }
     }
 
@@ -1490,10 +1490,10 @@ public final class TunnelConnectionManager {
                 conn.markError("Connection lost");
                 connections.remove(tunnel.id());
                 ApplicationManager.getApplication().invokeLater(() -> {
-                    LOG.warn("Conch tunnel: '" + tunnel.label() + "' disconnected unexpectedly");
+                    LOG.warn("TermLab tunnel: '" + tunnel.label() + "' disconnected unexpectedly");
                 });
             }
-        }, "Conch-tunnel-monitor-" + tunnel.label());
+        }, "TermLab-tunnel-monitor-" + tunnel.label());
         monitor.setDaemon(true);
         monitor.start();
     }
@@ -1503,13 +1503,13 @@ public final class TunnelConnectionManager {
 - [ ] **Step 3: Build**
 
 ```bash
-cd /Users/dustin/projects/conch_workbench && make conch-build
+cd /Users/dustin/projects/termlab_workbench && make termlab-build
 ```
 
 - [ ] **Step 4: Commit**
 
 ```bash
-git add plugins/tunnels/src/com/conch/tunnels/client/TunnelConnection.java plugins/tunnels/src/com/conch/tunnels/client/TunnelConnectionManager.java
+git add plugins/tunnels/src/com/termlab/tunnels/client/TunnelConnection.java plugins/tunnels/src/com/termlab/tunnels/client/TunnelConnectionManager.java
 git commit -m "feat(tunnels): phase 2.3 — TunnelConnection + TunnelConnectionManager
 
 Per-tunnel ClientSession lifecycle, health monitoring via daemon
@@ -1523,9 +1523,9 @@ Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>"
 ## Phase 2 gate
 
 ```bash
-make conch-build
-cd /Users/dustin/projects/intellij-community && bash bazel.cmd run //conch/plugins/tunnels:tunnels_test_runner
-cd /Users/dustin/projects/intellij-community && bash bazel.cmd run //conch/plugins/ssh:ssh_test_runner
+make termlab-build
+cd /Users/dustin/projects/intellij-community && bash bazel.cmd run //termlab/plugins/tunnels:tunnels_test_runner
+cd /Users/dustin/projects/intellij-community && bash bazel.cmd run //termlab/plugins/ssh:ssh_test_runner
 ```
 
 ---
@@ -1535,17 +1535,17 @@ cd /Users/dustin/projects/intellij-community && bash bazel.cmd run //conch/plugi
 ### Task 3.1: `TunnelCellRenderer`
 
 **Files:**
-- Create: `plugins/tunnels/src/com/conch/tunnels/toolwindow/TunnelCellRenderer.java`
+- Create: `plugins/tunnels/src/com/termlab/tunnels/toolwindow/TunnelCellRenderer.java`
 
 - [ ] **Step 1: Create the renderer**
 
 ```java
-package com.conch.tunnels.toolwindow;
+package com.termlab.tunnels.toolwindow;
 
-import com.conch.tunnels.client.TunnelConnectionManager;
-import com.conch.tunnels.model.SshTunnel;
-import com.conch.tunnels.model.TunnelState;
-import com.conch.tunnels.model.TunnelType;
+import com.termlab.tunnels.client.TunnelConnectionManager;
+import com.termlab.tunnels.model.SshTunnel;
+import com.termlab.tunnels.model.TunnelState;
+import com.termlab.tunnels.model.TunnelType;
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.util.ui.JBUI;
 
@@ -1630,8 +1630,8 @@ public final class TunnelCellRenderer extends JPanel implements ListCellRenderer
 - [ ] **Step 2: Build, commit**
 
 ```bash
-make conch-build
-git add plugins/tunnels/src/com/conch/tunnels/toolwindow/TunnelCellRenderer.java
+make termlab-build
+git add plugins/tunnels/src/com/termlab/tunnels/toolwindow/TunnelCellRenderer.java
 git commit -m "feat(tunnels): phase 3.1 — TunnelCellRenderer with status icons
 
 Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>"
@@ -1642,7 +1642,7 @@ Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>"
 ### Task 3.2: `TunnelEditDialog`
 
 **Files:**
-- Create: `plugins/tunnels/src/com/conch/tunnels/ui/TunnelEditDialog.java`
+- Create: `plugins/tunnels/src/com/termlab/tunnels/ui/TunnelEditDialog.java`
 
 - [ ] **Step 1: Create the dialog**
 
@@ -1661,8 +1661,8 @@ Code is ~250 lines following the exact `HostEditDialog` structure. The subagent 
 - [ ] **Step 2: Build, commit**
 
 ```bash
-make conch-build
-git add plugins/tunnels/src/com/conch/tunnels/ui/TunnelEditDialog.java
+make termlab-build
+git add plugins/tunnels/src/com/termlab/tunnels/ui/TunnelEditDialog.java
 git commit -m "feat(tunnels): phase 3.2 — TunnelEditDialog
 
 Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>"
@@ -1673,13 +1673,13 @@ Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>"
 ### Task 3.3: `TunnelsToolWindow` + `TunnelsToolWindowFactory`
 
 **Files:**
-- Create: `plugins/tunnels/src/com/conch/tunnels/toolwindow/TunnelsToolWindow.java`
-- Create: `plugins/tunnels/src/com/conch/tunnels/toolwindow/TunnelsToolWindowFactory.java`
+- Create: `plugins/tunnels/src/com/termlab/tunnels/toolwindow/TunnelsToolWindow.java`
+- Create: `plugins/tunnels/src/com/termlab/tunnels/toolwindow/TunnelsToolWindowFactory.java`
 
 - [ ] **Step 1: Create `TunnelsToolWindowFactory.java`**
 
 ```java
-package com.conch.tunnels.toolwindow;
+package com.termlab.tunnels.toolwindow;
 
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.wm.ToolWindow;
@@ -1711,7 +1711,7 @@ Mirrors `HostsToolWindow` exactly — `JPanel(BorderLayout)` with:
 The connect flow in `TunnelsToolWindow`:
 1. Resolve `TunnelHost` → get an `SshHost` (from HostStore) or build a synthetic one (from config alias)
 2. Resolve credentials (same dispatch as `SshSessionProvider.authSourceFor`)
-3. Run `Task.Modal` → call `ConchSshClient.connectSession(host, credential, new ConchServerKeyVerifier())`
+3. Run `Task.Modal` → call `TermLabSshClient.connectSession(host, credential, new TermLabServerKeyVerifier())`
 4. On success → `TunnelConnectionManager.connect(tunnel, session)` which starts forwarding
 5. Refresh list to show status icon change
 6. On error → show error dialog, refresh list
@@ -1721,8 +1721,8 @@ Code is ~300 lines following `HostsToolWindow` structure. Subagent should refere
 - [ ] **Step 3: Build, commit**
 
 ```bash
-make conch-build
-git add plugins/tunnels/src/com/conch/tunnels/toolwindow/
+make termlab-build
+git add plugins/tunnels/src/com/termlab/tunnels/toolwindow/
 git commit -m "feat(tunnels): phase 3.3 — TunnelsToolWindow + Factory
 
 Right-sidebar tool window with connect/disconnect, edit, duplicate,
@@ -1745,28 +1745,28 @@ Replace the placeholder with full registrations:
 
 ```xml
 <idea-plugin>
-    <id>com.conch.tunnels</id>
-    <name>Conch Tunnels</name>
-    <vendor>Conch</vendor>
+    <id>com.termlab.tunnels</id>
+    <name>TermLab Tunnels</name>
+    <vendor>TermLab</vendor>
     <description>SSH tunnel manager. Creates local and remote port
-    forwarding tunnels through hosts managed by the Conch SSH plugin
+    forwarding tunnels through hosts managed by the TermLab SSH plugin
     or defined in ~/.ssh/config.</description>
 
-    <depends>com.conch.core</depends>
-    <depends>com.conch.ssh</depends>
-    <depends>com.conch.vault</depends>
+    <depends>com.termlab.core</depends>
+    <depends>com.termlab.ssh</depends>
+    <depends>com.termlab.vault</depends>
 
     <extensions defaultExtensionNs="com.intellij">
         <applicationService
-            serviceImplementation="com.conch.tunnels.model.TunnelStore"/>
+            serviceImplementation="com.termlab.tunnels.model.TunnelStore"/>
 
         <applicationService
-            serviceImplementation="com.conch.tunnels.client.TunnelConnectionManager"/>
+            serviceImplementation="com.termlab.tunnels.client.TunnelConnectionManager"/>
 
         <toolWindow id="Tunnels"
                     anchor="right"
                     icon="AllIcons.Nodes.SecurityRole"
-                    factoryClass="com.conch.tunnels.toolwindow.TunnelsToolWindowFactory"/>
+                    factoryClass="com.termlab.tunnels.toolwindow.TunnelsToolWindowFactory"/>
     </extensions>
 </idea-plugin>
 ```
@@ -1774,7 +1774,7 @@ Replace the placeholder with full registrations:
 - [ ] **Step 2: Build**
 
 ```bash
-make conch-build
+make termlab-build
 ```
 
 - [ ] **Step 3: Commit**
@@ -1791,8 +1791,8 @@ Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>"
 ## Phase 3 gate
 
 ```bash
-make conch-build
-cd /Users/dustin/projects/intellij-community && bash bazel.cmd run //conch/plugins/tunnels:tunnels_test_runner
+make termlab-build
+cd /Users/dustin/projects/intellij-community && bash bazel.cmd run //termlab/plugins/tunnels:tunnels_test_runner
 ```
 
 ---
@@ -1802,12 +1802,12 @@ cd /Users/dustin/projects/intellij-community && bash bazel.cmd run //conch/plugi
 ### Task 4.1: `TunnelsSearchEverywhereContributor`
 
 **Files:**
-- Create: `plugins/tunnels/src/com/conch/tunnels/palette/TunnelsSearchEverywhereContributor.java`
+- Create: `plugins/tunnels/src/com/termlab/tunnels/palette/TunnelsSearchEverywhereContributor.java`
 - Modify: `plugins/tunnels/resources/META-INF/plugin.xml`
 
 - [ ] **Step 1: Create the contributor**
 
-Same pattern as `HostsSearchEverywhereContributor`. Tab name "Tunnels", weight 45, `getSearchProviderId()` → `"ConchTunnels"`. `fetchElements` reads `TunnelStore`, filters by label/targetHost. `processSelectedItem` toggles connect/disconnect based on current state.
+Same pattern as `HostsSearchEverywhereContributor`. Tab name "Tunnels", weight 45, `getSearchProviderId()` → `"TermLabTunnels"`. `fetchElements` reads `TunnelStore`, filters by label/targetHost. `processSelectedItem` toggles connect/disconnect based on current state.
 
 - [ ] **Step 2: Register in plugin.xml**
 
@@ -1815,7 +1815,7 @@ Add inside `<extensions defaultExtensionNs="com.intellij">`:
 
 ```xml
 <searchEverywhereContributor
-    implementation="com.conch.tunnels.palette.TunnelsSearchEverywhereContributor$Factory"/>
+    implementation="com.termlab.tunnels.palette.TunnelsSearchEverywhereContributor$Factory"/>
 ```
 
 - [ ] **Step 3: Build, commit**
@@ -1825,32 +1825,32 @@ Add inside `<extensions defaultExtensionNs="com.intellij">`:
 ### Task 4.2: Product registration
 
 **Files:**
-- Modify: `customization/resources/idea/ConchApplicationInfo.xml`
-- Modify: `build/src/org/jetbrains/intellij/build/conch/ConchProperties.kt`
-- Modify: `core/src/com/conch/core/palette/ConchTabsCustomizationStrategy.java`
+- Modify: `customization/resources/idea/TermLabApplicationInfo.xml`
+- Modify: `build/src/org/jetbrains/intellij/build/termlab/TermLabProperties.kt`
+- Modify: `core/src/com/termlab/core/palette/TermLabTabsCustomizationStrategy.java`
 
 - [ ] **Step 1: Essential plugin**
 
-Add to `ConchApplicationInfo.xml`:
+Add to `TermLabApplicationInfo.xml`:
 ```xml
-<essential-plugin>com.conch.tunnels</essential-plugin>
+<essential-plugin>com.termlab.tunnels</essential-plugin>
 ```
 
 - [ ] **Step 2: Bundled module**
 
-Add to `ConchProperties.kt` `bundledPluginModules`:
+Add to `TermLabProperties.kt` `bundledPluginModules`:
 ```kotlin
-"intellij.conch.tunnels",
+"intellij.termlab.tunnels",
 ```
 
 - [ ] **Step 3: Tab allowlist**
 
-Add `"ConchTunnels"` to `ConchTabsCustomizationStrategy.ALLOWED_TAB_IDS`.
+Add `"TermLabTunnels"` to `TermLabTabsCustomizationStrategy.ALLOWED_TAB_IDS`.
 
 - [ ] **Step 4: Build, commit**
 
 ```bash
-make conch-build
+make termlab-build
 git add customization/ build/ core/ plugins/tunnels/
 git commit -m "feat(tunnels): phase 4 — SE contributor + product registration
 
@@ -1867,19 +1867,19 @@ Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>"
 - [ ] **Step 1: Full build**
 
 ```bash
-make conch-build
+make termlab-build
 ```
 
 - [ ] **Step 2: All test suites**
 
 ```bash
-cd /Users/dustin/projects/intellij-community && bash bazel.cmd run //conch/plugins/tunnels:tunnels_test_runner
-cd /Users/dustin/projects/intellij-community && bash bazel.cmd run //conch/plugins/ssh:ssh_test_runner
+cd /Users/dustin/projects/intellij-community && bash bazel.cmd run //termlab/plugins/tunnels:tunnels_test_runner
+cd /Users/dustin/projects/intellij-community && bash bazel.cmd run //termlab/plugins/ssh:ssh_test_runner
 ```
 
 - [ ] **Step 3: Manual — tool window appears**
 
-`make conch`. Tunnels tool window should appear in the right sidebar below Hosts.
+`make termlab`. Tunnels tool window should appear in the right sidebar below Hosts.
 
 - [ ] **Step 4: Manual — add a local tunnel**
 
@@ -1914,10 +1914,10 @@ Add a tunnel using a host from ~/.ssh/config (if you have entries). The combo sh
 - TunnelType LOCAL/REMOTE → Task 1.2 ✓
 - TunnelHost sealed (InternalHost + SshConfigHost) → Task 1.2 ✓
 - TunnelState enum → Task 1.2 ✓
-- Persistence to ~/.config/conch/tunnels.json → Task 1.3 ✓
+- Persistence to ~/.config/termlab/tunnels.json → Task 1.3 ✓
 - TunnelStore application service → Task 1.3 ✓
 - Gson adapter with discriminator → Task 1.3 ✓
-- ConchSshClient.connectSession() → Task 2.1 ✓
+- TermLabSshClient.connectSession() → Task 2.1 ✓
 - SshConfigParser host alias reader → Task 2.2 ✓
 - TunnelConnection + TunnelConnectionManager → Task 2.3 ✓
 - Health monitoring via daemon thread → Task 2.3 ✓
@@ -1936,7 +1936,7 @@ No gaps.
 - `TunnelStore` API: `getTunnels()`, `addTunnel()`, `removeTunnel()`, `updateTunnel()`, `save()`, `reload()` — consistent
 - `TunnelConnectionManager.connect(SshTunnel, ClientSession)` — takes tunnel + pre-authenticated session
 - `TunnelConnectionManager.getState(UUID)` — returns TunnelState, used by renderer and SE contributor
-- `ConchSshClient.connectSession(SshHost, SshResolvedCredential, ServerKeyVerifier)` → `ClientSession` — new method, distinct from `connect()` which returns `SshConnection`
+- `TermLabSshClient.connectSession(SshHost, SshResolvedCredential, ServerKeyVerifier)` → `ClientSession` — new method, distinct from `connect()` which returns `SshConnection`
 
 **3. Placeholder scan:**
 Tasks 3.2 and 3.3 describe structure rather than complete code due to the 250-300 line size of each file. They reference `HostEditDialog.java` and `HostsToolWindow.java` as patterns and specify exact fields/methods. The subagent implementer should read those reference files and build the tunnel equivalents. All other tasks have complete code blocks.

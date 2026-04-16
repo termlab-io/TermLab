@@ -1,0 +1,57 @@
+package com.termlab.sftp.persistence;
+
+import com.intellij.openapi.application.ApplicationManager;
+import com.intellij.openapi.components.PersistentStateComponent;
+import com.intellij.openapi.components.State;
+import com.intellij.openapi.components.Storage;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
+
+/**
+ * Application-level persistence for the TermLab SFTP plugin. Keeps
+ * track of the user's last local directory and last connected host
+ * so the tool window restores sensible context across restarts.
+ */
+@State(
+    name = "TermLabSftpConfig",
+    storages = @Storage("termlab-sftp.xml")
+)
+public final class TermLabSftpConfig implements PersistentStateComponent<TermLabSftpConfig.State> {
+
+    public static final class State {
+        public @Nullable String lastLocalPath;
+        public @Nullable String lastRemoteHostId;
+    }
+
+    private State state = new State();
+
+    public static @NotNull TermLabSftpConfig getInstance() {
+        return ApplicationManager.getApplication().getService(TermLabSftpConfig.class);
+    }
+
+    public @Nullable String getLastLocalPath() {
+        return state.lastLocalPath;
+    }
+
+    public void setLastLocalPath(@Nullable String path) {
+        state.lastLocalPath = path;
+    }
+
+    public @Nullable String getLastRemoteHostId() {
+        return state.lastRemoteHostId;
+    }
+
+    public void setLastRemoteHostId(@Nullable String hostId) {
+        state.lastRemoteHostId = hostId;
+    }
+
+    @Override
+    public @NotNull State getState() {
+        return state;
+    }
+
+    @Override
+    public void loadState(@NotNull State state) {
+        this.state = state;
+    }
+}

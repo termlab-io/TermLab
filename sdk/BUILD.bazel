@@ -2,7 +2,7 @@ load("@rules_jvm//:jvm.bzl", "jvm_library")
 
 jvm_library(
     name = "sdk",
-    module_name = "intellij.conch.sdk",
+    module_name = "intellij.termlab.sdk",
     visibility = ["//visibility:public"],
     srcs = glob(["src/**/*.java"]),
     deps = [
@@ -11,4 +11,4 @@ jvm_library(
     ],
 )
 
-exports_files(["intellij.conch.sdk.iml"], visibility = ["//visibility:public"])
+exports_files(["intellij.termlab.sdk.iml"], visibility = ["//visibility:public"])

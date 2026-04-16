@@ -1,11 +1,11 @@
 <idea-plugin>
-    <id>com.conch.vault</id>
+    <id>com.termlab.vault</id>
     <name>Credential Vault</name>
-    <vendor>Conch</vendor>
-    <description>Encrypted credential vault. Stores SSH credentials (passwords, keys, passphrases) on disk with AES-256-GCM and Argon2id, device-bound via IntelliJ's cross-platform PasswordSafe (Keychain / Credential Manager / libsecret / KWallet / encrypted file), and exposes them to other Conch plugins through the CredentialProvider extension point.</description>
+    <vendor>TermLab</vendor>
+    <description>Encrypted credential vault. Stores SSH credentials (passwords, keys, passphrases) on disk with AES-256-GCM and Argon2id, device-bound via IntelliJ's cross-platform PasswordSafe (Keychain / Credential Manager / libsecret / KWallet / encrypted file), and exposes them to other TermLab plugins through the CredentialProvider extension point.</description>
 
-    <!-- The credentialProvider extension point is declared by com.conch.core. -->
-    <depends>com.conch.core</depends>
+    <!-- The credentialProvider extension point is declared by com.termlab.core. -->
+    <depends>com.termlab.core</depends>
 
     <extensions defaultExtensionNs="com.intellij">
         <!--
@@ -13,52 +13,52 @@
           and if so, what does it contain". Registered as an application service
           so every caller talks to the same instance.
         -->
-        <applicationService serviceImplementation="com.conch.vault.lock.LockManager"/>
+        <applicationService serviceImplementation="com.termlab.vault.lock.LockManager"/>
 
         <!-- Top-level Settings entry for the vault. parentId="root" puts it at
-             the root of the Settings tree, sibling of "Conch Terminal". -->
+             the root of the Settings tree, sibling of "TermLab Terminal". -->
         <applicationConfigurable
             parentId="root"
-            instance="com.conch.vault.settings.ConchVaultConfigurable"
-            id="conch.vault.settings"
+            instance="com.termlab.vault.settings.TermLabVaultConfigurable"
+            id="termlab.vault.settings"
             displayName="Credential Vault"/>
 
         <!-- Lock/unlock indicator widget, anchored to the right of the status bar. -->
         <statusBarWidgetFactory
-            id="com.conch.vault.lockWidget"
-            implementation="com.conch.vault.ui.VaultLockStatusBarWidgetFactory"
+            id="com.termlab.vault.lockWidget"
+            implementation="com.termlab.vault.ui.VaultLockStatusBarWidgetFactory"
             order="last"/>
 
         <searchEverywhereContributor
-            implementation="com.conch.vault.palette.VaultSearchEverywhereContributor$Factory"/>
+            implementation="com.termlab.vault.palette.VaultSearchEverywhereContributor$Factory"/>
     </extensions>
 
     <!--
       Register the vault's credential provider under the core extension point.
       Other plugins (e.g. the forthcoming SSH plugin) query it via
-      com.conch.sdk.CredentialProvider.
+      com.termlab.sdk.CredentialProvider.
     -->
-    <extensions defaultExtensionNs="com.conch.core">
-        <credentialProvider implementation="com.conch.vault.credentials.VaultCredentialProvider"/>
+    <extensions defaultExtensionNs="com.termlab.core">
+        <credentialProvider implementation="com.termlab.vault.credentials.VaultCredentialProvider"/>
     </extensions>
 
     <actions>
         <!-- Cmd+Shift+V (macOS) / Ctrl+Shift+V (Linux, Windows) opens the vault. -->
-        <action id="com.conch.vault.OpenVault"
-                class="com.conch.vault.actions.OpenVaultAction"
+        <action id="com.termlab.vault.OpenVault"
+                class="com.termlab.vault.actions.OpenVaultAction"
                 text="Open Vault…"
-                description="Open the Conch credential vault">
+                description="Open the TermLab credential vault">
             <keyboard-shortcut keymap="$default" first-keystroke="meta shift V"/>
             <keyboard-shortcut keymap="$default" first-keystroke="ctrl shift V"/>
         </action>
 
-        <action id="com.conch.vault.LockVault"
-                class="com.conch.vault.actions.LockVaultAction"
+        <action id="com.termlab.vault.LockVault"
+                class="com.termlab.vault.actions.LockVaultAction"
                 text="Lock Vault"
-                description="Seal the Conch credential vault and drop cached credentials"/>
+                description="Seal the TermLab credential vault and drop cached credentials"/>
 
-        <action id="com.conch.vault.GenerateSshKey"
-                class="com.conch.vault.actions.GenerateSshKeyAction"
+        <action id="com.termlab.vault.GenerateSshKey"
+                class="com.termlab.vault.actions.GenerateSshKeyAction"
                 text="Generate SSH Key…"
                 description="Create a new Ed25519, ECDSA, or RSA key pair in the vault"/>
     </actions>

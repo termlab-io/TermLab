@@ -1,4 +1,4 @@
-# Conch Platform Foundation — Implementation Plan
+# TermLab Platform Foundation — Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
@@ -8,36 +8,36 @@
 
 **Tech Stack:** Java 21, IntelliJ Platform 2024.3 (Community Edition), JediTerm (standalone library), pty4j, Gradle with IntelliJ Platform Gradle Plugin 2.x
 
-**Reference spec:** `docs/superpowers/specs/2026-04-08-conch-workstation-design.md`
+**Reference spec:** `docs/superpowers/specs/2026-04-08-termlab-workstation-design.md`
 
 ---
 
 ## File Structure
 
 ```
-conch_2/
+termlab_2/
 ├── build.gradle.kts                              # Root build (version catalog, common config)
 ├── settings.gradle.kts                           # Multi-module project settings
 ├── gradle.properties                             # IntelliJ Platform version, JVM args
-├── conch-sdk/
+├── termlab-sdk/
 │   ├── build.gradle.kts                          # SDK module build (no platform dependency)
-│   └── src/main/java/com/conch/sdk/
+│   └── src/main/java/com/termlab/sdk/
 │       ├── TerminalSessionProvider.java          # Extension point: supply TtyConnector
 │       ├── CommandPaletteContributor.java         # Extension point: add palette items
 │       ├── CredentialProvider.java                # Extension point: supply credentials
 │       └── PaletteItem.java                       # Data class for palette search results
-├── conch-core/
+├── termlab-core/
 │   ├── build.gradle.kts                          # Core plugin build (platform dependency)
 │   └── src/
 │       ├── main/
-│       │   ├── java/com/conch/core/
-│       │   │   ├── ConchStartupActivity.java     # Project startup: restore workspace
+│       │   ├── java/com/termlab/core/
+│       │   │   ├── TermLabStartupActivity.java     # Project startup: restore workspace
 │       │   │   ├── terminal/
-│       │   │   │   ├── ConchTerminalFileType.java       # FileType for terminal sessions
-│       │   │   │   ├── ConchTerminalVirtualFile.java    # VirtualFile representing a session
-│       │   │   │   ├── ConchTerminalEditorProvider.java # FileEditorProvider for terminals
-│       │   │   │   ├── ConchTerminalEditor.java         # FileEditor wrapping JediTermWidget
-│       │   │   │   ├── ConchTerminalSettings.java       # JediTerm settings provider
+│       │   │   │   ├── TermLabTerminalFileType.java       # FileType for terminal sessions
+│       │   │   │   ├── TermLabTerminalVirtualFile.java    # VirtualFile representing a session
+│       │   │   │   ├── TermLabTerminalEditorProvider.java # FileEditorProvider for terminals
+│       │   │   │   ├── TermLabTerminalEditor.java         # FileEditor wrapping JediTermWidget
+│       │   │   │   ├── TermLabTerminalSettings.java       # JediTerm settings provider
 │       │   │   │   └── LocalPtySessionProvider.java     # Built-in local PTY provider
 │       │   │   ├── workspace/
 │       │   │   │   ├── WorkspaceState.java              # Data model: tabs, layout, tool windows
@@ -60,7 +60,7 @@ conch_2/
 │       │   └── resources/
 │       │       └── META-INF/
 │       │           └── plugin.xml                # Plugin descriptor: extensions, actions, EPs
-│       └── test/java/com/conch/core/
+│       └── test/java/com/termlab/core/
 │           └── workspace/
 │               └── WorkspaceSerializerTest.java  # Unit tests for workspace serialization
 └── docs/
@@ -77,15 +77,15 @@ conch_2/
 - Create: `settings.gradle.kts`
 - Create: `build.gradle.kts`
 - Create: `gradle.properties`
-- Create: `conch-sdk/build.gradle.kts`
-- Create: `conch-core/build.gradle.kts`
-- Create: `conch-core/src/main/resources/META-INF/plugin.xml`
+- Create: `termlab-sdk/build.gradle.kts`
+- Create: `termlab-core/build.gradle.kts`
+- Create: `termlab-core/src/main/resources/META-INF/plugin.xml`
 
 - [ ] **Step 1: Initialize Gradle wrapper**
 
 Run:
 ```bash
-cd /Users/dustin/projects/conch_2
+cd /Users/dustin/projects/termlab_2
 gradle wrapper --gradle-version 8.12
 ```
 
@@ -94,10 +94,10 @@ Expected: `gradle/wrapper/` directory created, `gradlew` and `gradlew.bat` creat
 - [ ] **Step 2: Create `settings.gradle.kts`**
 
 ```kotlin
-rootProject.name = "conch"
+rootProject.name = "termlab"
 
-include("conch-sdk")
-include("conch-core")
+include("termlab-sdk")
+include("termlab-core")
 ```
 
 - [ ] **Step 3: Create `gradle.properties`**
@@ -121,7 +121,7 @@ plugins {
     id("org.jetbrains.intellij.platform") version "2.2.1" apply false
 }
 
-group = "com.conch"
+group = "com.termlab"
 version = "0.1.0"
 
 subprojects {
@@ -138,7 +138,7 @@ subprojects {
 }
 ```
 
-- [ ] **Step 5: Create `conch-sdk/build.gradle.kts`**
+- [ ] **Step 5: Create `termlab-sdk/build.gradle.kts`**
 
 The SDK module has no IntelliJ Platform dependency — it's a plain Java library so plugin authors don't need the platform to compile against it.
 
@@ -147,7 +147,7 @@ plugins {
     id("java-library")
 }
 
-group = "com.conch"
+group = "com.termlab"
 version = "0.1.0"
 
 dependencies {
@@ -155,7 +155,7 @@ dependencies {
 }
 ```
 
-- [ ] **Step 6: Create `conch-core/build.gradle.kts`**
+- [ ] **Step 6: Create `termlab-core/build.gradle.kts`**
 
 ```kotlin
 plugins {
@@ -163,7 +163,7 @@ plugins {
     id("org.jetbrains.intellij.platform")
 }
 
-group = "com.conch"
+group = "com.termlab"
 version = "0.1.0"
 
 repositories {
@@ -174,7 +174,7 @@ repositories {
 }
 
 dependencies {
-    implementation(project(":conch-sdk"))
+    implementation(project(":termlab-sdk"))
 
     // JediTerm standalone (not the IntelliJ terminal plugin)
     implementation("org.jetbrains.jediterm:jediterm-core:3.1.0")
@@ -195,8 +195,8 @@ dependencies {
 
 intellijPlatform {
     pluginConfiguration {
-        id = "com.conch.core"
-        name = "Conch Core"
+        id = "com.termlab.core"
+        name = "TermLab Core"
         version = project.version.toString()
     }
 }
@@ -208,14 +208,14 @@ tasks {
 }
 ```
 
-- [ ] **Step 7: Create minimal `conch-core/src/main/resources/META-INF/plugin.xml`**
+- [ ] **Step 7: Create minimal `termlab-core/src/main/resources/META-INF/plugin.xml`**
 
 ```xml
 <idea-plugin>
-    <id>com.conch.core</id>
-    <name>Conch Core</name>
+    <id>com.termlab.core</id>
+    <name>TermLab Core</name>
     <version>0.1.0</version>
-    <vendor>Conch</vendor>
+    <vendor>TermLab</vendor>
     <description>Terminal-driven workstation built on IntelliJ Platform</description>
 
     <depends>com.intellij.modules.platform</depends>
@@ -232,17 +232,17 @@ tasks {
 
 Run:
 ```bash
-./gradlew :conch-core:runIde
+./gradlew :termlab-core:runIde
 ```
 
-Expected: IntelliJ CE launches with the Conch Core plugin loaded. Check via Help > About > Plugin list. Close the IDE.
+Expected: IntelliJ CE launches with the TermLab Core plugin loaded. Check via Help > About > Plugin list. Close the IDE.
 
 - [ ] **Step 9: Commit**
 
 ```bash
 git init
 echo ".gradle/\nbuild/\n.idea/\n*.iml\nout/\n.DS_Store" > .gitignore
-git add .gitignore settings.gradle.kts build.gradle.kts gradle.properties gradlew gradlew.bat gradle/ conch-sdk/ conch-core/ docs/
+git add .gitignore settings.gradle.kts build.gradle.kts gradle.properties gradlew gradlew.bat gradle/ termlab-sdk/ termlab-core/ docs/
 git commit -m "feat: scaffold IntelliJ Platform project with SDK and core modules"
 ```
 
@@ -251,15 +251,15 @@ git commit -m "feat: scaffold IntelliJ Platform project with SDK and core module
 ## Task 2: Plugin SDK Interfaces
 
 **Files:**
-- Create: `conch-sdk/src/main/java/com/conch/sdk/TerminalSessionProvider.java`
-- Create: `conch-sdk/src/main/java/com/conch/sdk/CommandPaletteContributor.java`
-- Create: `conch-sdk/src/main/java/com/conch/sdk/CredentialProvider.java`
-- Create: `conch-sdk/src/main/java/com/conch/sdk/PaletteItem.java`
+- Create: `termlab-sdk/src/main/java/com/termlab/sdk/TerminalSessionProvider.java`
+- Create: `termlab-sdk/src/main/java/com/termlab/sdk/CommandPaletteContributor.java`
+- Create: `termlab-sdk/src/main/java/com/termlab/sdk/CredentialProvider.java`
+- Create: `termlab-sdk/src/main/java/com/termlab/sdk/PaletteItem.java`
 
 - [ ] **Step 1: Create `TerminalSessionProvider.java`**
 
 ```java
-package com.conch.sdk;
+package com.termlab.sdk;
 
 import com.jediterm.terminal.TtyConnector;
 import org.jetbrains.annotations.NotNull;
@@ -274,7 +274,7 @@ import javax.swing.*;
  */
 public interface TerminalSessionProvider {
 
-    /** Unique identifier for this provider (e.g., "com.conch.local-pty"). */
+    /** Unique identifier for this provider (e.g., "com.termlab.local-pty"). */
     @NotNull String getId();
 
     /** Human-readable name shown in UI (e.g., "Local Terminal", "SSH"). */
@@ -312,7 +312,7 @@ public interface TerminalSessionProvider {
 - [ ] **Step 2: Create `PaletteItem.java`**
 
 ```java
-package com.conch.sdk;
+package com.termlab.sdk;
 
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -352,7 +352,7 @@ public final class PaletteItem {
 - [ ] **Step 3: Create `CommandPaletteContributor.java`**
 
 ```java
-package com.conch.sdk;
+package com.termlab.sdk;
 
 import org.jetbrains.annotations.NotNull;
 
@@ -385,7 +385,7 @@ public interface CommandPaletteContributor {
 - [ ] **Step 4: Create `CredentialProvider.java`**
 
 ```java
-package com.conch.sdk;
+package com.termlab.sdk;
 
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -447,10 +447,10 @@ public interface CredentialProvider {
 
 Run:
 ```bash
-./gradlew :conch-sdk:build
+./gradlew :termlab-sdk:build
 ```
 
-Expected: BUILD SUCCESSFUL. Note: The SDK depends on JediTerm for the `TtyConnector` type in `TerminalSessionProvider`. Add to `conch-sdk/build.gradle.kts`:
+Expected: BUILD SUCCESSFUL. Note: The SDK depends on JediTerm for the `TtyConnector` type in `TerminalSessionProvider`. Add to `termlab-sdk/build.gradle.kts`:
 
 ```kotlin
 dependencies {
@@ -461,7 +461,7 @@ dependencies {
 
 Then re-run:
 ```bash
-./gradlew :conch-sdk:build
+./gradlew :termlab-sdk:build
 ```
 
 Expected: BUILD SUCCESSFUL.
@@ -469,7 +469,7 @@ Expected: BUILD SUCCESSFUL.
 - [ ] **Step 6: Commit**
 
 ```bash
-git add conch-sdk/
+git add termlab-sdk/
 git commit -m "feat: define plugin SDK interfaces — TerminalSessionProvider, CommandPaletteContributor, CredentialProvider"
 ```
 
@@ -478,19 +478,19 @@ git commit -m "feat: define plugin SDK interfaces — TerminalSessionProvider, C
 ## Task 3: Terminal FileType, VirtualFile, and EditorProvider
 
 **Files:**
-- Create: `conch-core/src/main/java/com/conch/core/terminal/ConchTerminalFileType.java`
-- Create: `conch-core/src/main/java/com/conch/core/terminal/ConchTerminalVirtualFile.java`
-- Create: `conch-core/src/main/java/com/conch/core/terminal/ConchTerminalEditorProvider.java`
-- Create: `conch-core/src/main/java/com/conch/core/terminal/ConchTerminalEditor.java`
-- Create: `conch-core/src/main/java/com/conch/core/terminal/ConchTerminalSettings.java`
-- Modify: `conch-core/src/main/resources/META-INF/plugin.xml`
+- Create: `termlab-core/src/main/java/com/termlab/core/terminal/TermLabTerminalFileType.java`
+- Create: `termlab-core/src/main/java/com/termlab/core/terminal/TermLabTerminalVirtualFile.java`
+- Create: `termlab-core/src/main/java/com/termlab/core/terminal/TermLabTerminalEditorProvider.java`
+- Create: `termlab-core/src/main/java/com/termlab/core/terminal/TermLabTerminalEditor.java`
+- Create: `termlab-core/src/main/java/com/termlab/core/terminal/TermLabTerminalSettings.java`
+- Modify: `termlab-core/src/main/resources/META-INF/plugin.xml`
 
-- [ ] **Step 1: Create `ConchTerminalFileType.java`**
+- [ ] **Step 1: Create `TermLabTerminalFileType.java`**
 
 A marker FileType for terminal sessions. Not registered for file extensions — only used programmatically.
 
 ```java
-package com.conch.core.terminal;
+package com.termlab.core.terminal;
 
 import com.intellij.icons.AllIcons;
 import com.intellij.openapi.fileTypes.FileType;
@@ -499,14 +499,14 @@ import org.jetbrains.annotations.Nullable;
 
 import javax.swing.*;
 
-public final class ConchTerminalFileType implements FileType {
+public final class TermLabTerminalFileType implements FileType {
 
-    public static final ConchTerminalFileType INSTANCE = new ConchTerminalFileType();
+    public static final TermLabTerminalFileType INSTANCE = new TermLabTerminalFileType();
 
-    private ConchTerminalFileType() {}
+    private TermLabTerminalFileType() {}
 
-    @Override public @NotNull String getName() { return "ConchTerminal"; }
-    @Override public @NotNull String getDescription() { return "Conch Terminal Session"; }
+    @Override public @NotNull String getName() { return "TermLabTerminal"; }
+    @Override public @NotNull String getDescription() { return "TermLab Terminal Session"; }
     @Override public @NotNull String getDefaultExtension() { return ""; }
     @Override public @Nullable Icon getIcon() { return AllIcons.Debugger.Console; }
     @Override public boolean isBinary() { return true; }
@@ -514,12 +514,12 @@ public final class ConchTerminalFileType implements FileType {
 }
 ```
 
-- [ ] **Step 2: Create `ConchTerminalVirtualFile.java`**
+- [ ] **Step 2: Create `TermLabTerminalVirtualFile.java`**
 
 ```java
-package com.conch.core.terminal;
+package com.termlab.core.terminal;
 
-import com.conch.sdk.TerminalSessionProvider;
+import com.termlab.sdk.TerminalSessionProvider;
 import com.intellij.testFramework.LightVirtualFile;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -530,15 +530,15 @@ import java.util.UUID;
  * A virtual file representing a terminal session.
  * Each open terminal tab corresponds to one of these.
  */
-public final class ConchTerminalVirtualFile extends LightVirtualFile {
+public final class TermLabTerminalVirtualFile extends LightVirtualFile {
 
     private final String sessionId;
     private final TerminalSessionProvider provider;
     private String currentWorkingDirectory;
 
-    public ConchTerminalVirtualFile(@NotNull String title,
+    public TermLabTerminalVirtualFile(@NotNull String title,
                                      @NotNull TerminalSessionProvider provider) {
-        super(title, ConchTerminalFileType.INSTANCE, "");
+        super(title, TermLabTerminalFileType.INSTANCE, "");
         this.sessionId = UUID.randomUUID().toString();
         this.provider = provider;
     }
@@ -555,7 +555,7 @@ public final class ConchTerminalVirtualFile extends LightVirtualFile {
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
-        if (!(o instanceof ConchTerminalVirtualFile other)) return false;
+        if (!(o instanceof TermLabTerminalVirtualFile other)) return false;
         return sessionId.equals(other.sessionId);
     }
 
@@ -564,19 +564,19 @@ public final class ConchTerminalVirtualFile extends LightVirtualFile {
 }
 ```
 
-- [ ] **Step 3: Create `ConchTerminalSettings.java`**
+- [ ] **Step 3: Create `TermLabTerminalSettings.java`**
 
 JediTerm settings provider with sensible defaults.
 
 ```java
-package com.conch.core.terminal;
+package com.termlab.core.terminal;
 
 import com.jediterm.terminal.ui.settings.DefaultSettingsProvider;
 import org.jetbrains.annotations.NotNull;
 
 import java.awt.*;
 
-public final class ConchTerminalSettings extends DefaultSettingsProvider {
+public final class TermLabTerminalSettings extends DefaultSettingsProvider {
 
     @Override
     public @NotNull Font getTerminalFont() {
@@ -611,12 +611,12 @@ public final class ConchTerminalSettings extends DefaultSettingsProvider {
 }
 ```
 
-- [ ] **Step 4: Create `ConchTerminalEditor.java`**
+- [ ] **Step 4: Create `TermLabTerminalEditor.java`**
 
 ```java
-package com.conch.core.terminal;
+package com.termlab.core.terminal;
 
-import com.conch.sdk.TerminalSessionProvider;
+import com.termlab.sdk.TerminalSessionProvider;
 import com.intellij.openapi.fileEditor.FileEditor;
 import com.intellij.openapi.fileEditor.FileEditorState;
 import com.intellij.openapi.project.Project;
@@ -629,18 +629,18 @@ import org.jetbrains.annotations.Nullable;
 import javax.swing.*;
 import java.beans.PropertyChangeListener;
 
-public final class ConchTerminalEditor extends UserDataHolderBase implements FileEditor {
+public final class TermLabTerminalEditor extends UserDataHolderBase implements FileEditor {
 
     private final Project project;
-    private final ConchTerminalVirtualFile file;
+    private final TermLabTerminalVirtualFile file;
     private final JediTermWidget terminalWidget;
     private TtyConnector connector;
 
-    public ConchTerminalEditor(@NotNull Project project,
-                                @NotNull ConchTerminalVirtualFile file) {
+    public TermLabTerminalEditor(@NotNull Project project,
+                                @NotNull TermLabTerminalVirtualFile file) {
         this.project = project;
         this.file = file;
-        this.terminalWidget = new JediTermWidget(new ConchTerminalSettings());
+        this.terminalWidget = new JediTermWidget(new TermLabTerminalSettings());
 
         initTerminalSession();
     }
@@ -700,15 +700,15 @@ public final class ConchTerminalEditor extends UserDataHolderBase implements Fil
         }
     }
 
-    public @NotNull ConchTerminalVirtualFile getTerminalFile() { return file; }
+    public @NotNull TermLabTerminalVirtualFile getTerminalFile() { return file; }
     public @NotNull JediTermWidget getTerminalWidget() { return terminalWidget; }
 }
 ```
 
-- [ ] **Step 5: Create `ConchTerminalEditorProvider.java`**
+- [ ] **Step 5: Create `TermLabTerminalEditorProvider.java`**
 
 ```java
-package com.conch.core.terminal;
+package com.termlab.core.terminal;
 
 import com.intellij.openapi.fileEditor.FileEditor;
 import com.intellij.openapi.fileEditor.FileEditorPolicy;
@@ -718,21 +718,21 @@ import com.intellij.openapi.project.Project;
 import com.intellij.openapi.vfs.VirtualFile;
 import org.jetbrains.annotations.NotNull;
 
-public final class ConchTerminalEditorProvider implements FileEditorProvider, DumbAware {
+public final class TermLabTerminalEditorProvider implements FileEditorProvider, DumbAware {
 
     @Override
     public boolean accept(@NotNull Project project, @NotNull VirtualFile file) {
-        return file instanceof ConchTerminalVirtualFile;
+        return file instanceof TermLabTerminalVirtualFile;
     }
 
     @Override
     public @NotNull FileEditor createEditor(@NotNull Project project, @NotNull VirtualFile file) {
-        return new ConchTerminalEditor(project, (ConchTerminalVirtualFile) file);
+        return new TermLabTerminalEditor(project, (TermLabTerminalVirtualFile) file);
     }
 
     @Override
     public @NotNull String getEditorTypeId() {
-        return "conch-terminal-editor";
+        return "termlab-terminal-editor";
     }
 
     @Override
@@ -744,34 +744,34 @@ public final class ConchTerminalEditorProvider implements FileEditorProvider, Du
 
 - [ ] **Step 6: Register the editor provider and extension points in `plugin.xml`**
 
-Update `conch-core/src/main/resources/META-INF/plugin.xml`:
+Update `termlab-core/src/main/resources/META-INF/plugin.xml`:
 
 ```xml
 <idea-plugin>
-    <id>com.conch.core</id>
-    <name>Conch Core</name>
+    <id>com.termlab.core</id>
+    <name>TermLab Core</name>
     <version>0.1.0</version>
-    <vendor>Conch</vendor>
+    <vendor>TermLab</vendor>
     <description>Terminal-driven workstation built on IntelliJ Platform</description>
 
     <depends>com.intellij.modules.platform</depends>
 
-    <!-- Conch-defined extension points for plugins to implement -->
+    <!-- TermLab-defined extension points for plugins to implement -->
     <extensionPoints>
         <extensionPoint name="terminalSessionProvider"
-                        interface="com.conch.sdk.TerminalSessionProvider"
+                        interface="com.termlab.sdk.TerminalSessionProvider"
                         dynamic="true"/>
         <extensionPoint name="commandPaletteContributor"
-                        interface="com.conch.sdk.CommandPaletteContributor"
+                        interface="com.termlab.sdk.CommandPaletteContributor"
                         dynamic="true"/>
         <extensionPoint name="credentialProvider"
-                        interface="com.conch.sdk.CredentialProvider"
+                        interface="com.termlab.sdk.CredentialProvider"
                         dynamic="true"/>
     </extensionPoints>
 
     <extensions defaultExtensionNs="com.intellij">
         <fileEditorProvider
-            implementation="com.conch.core.terminal.ConchTerminalEditorProvider"/>
+            implementation="com.termlab.core.terminal.TermLabTerminalEditorProvider"/>
     </extensions>
 
     <actions>
@@ -785,7 +785,7 @@ These extension points allow future plugins (SSH, Docker, serial, etc.) to regis
 
 Run:
 ```bash
-./gradlew :conch-core:build
+./gradlew :termlab-core:build
 ```
 
 Expected: BUILD SUCCESSFUL. Don't run the IDE yet — we need the PTY provider first.
@@ -793,7 +793,7 @@ Expected: BUILD SUCCESSFUL. Don't run the IDE yet — we need the PTY provider f
 - [ ] **Step 8: Commit**
 
 ```bash
-git add conch-core/src/main/java/com/conch/core/terminal/ conch-core/src/main/resources/META-INF/plugin.xml
+git add termlab-core/src/main/java/com/termlab/core/terminal/ termlab-core/src/main/resources/META-INF/plugin.xml
 git commit -m "feat: terminal FileType, VirtualFile, EditorProvider, and JediTerm Editor"
 ```
 
@@ -802,16 +802,16 @@ git commit -m "feat: terminal FileType, VirtualFile, EditorProvider, and JediTer
 ## Task 4: Local PTY Session Provider and New Tab Action
 
 **Files:**
-- Create: `conch-core/src/main/java/com/conch/core/terminal/LocalPtySessionProvider.java`
-- Create: `conch-core/src/main/java/com/conch/core/actions/NewTerminalTabAction.java`
-- Modify: `conch-core/src/main/resources/META-INF/plugin.xml`
+- Create: `termlab-core/src/main/java/com/termlab/core/terminal/LocalPtySessionProvider.java`
+- Create: `termlab-core/src/main/java/com/termlab/core/actions/NewTerminalTabAction.java`
+- Modify: `termlab-core/src/main/resources/META-INF/plugin.xml`
 
 - [ ] **Step 1: Create `LocalPtySessionProvider.java`**
 
 ```java
-package com.conch.core.terminal;
+package com.termlab.core.terminal;
 
-import com.conch.sdk.TerminalSessionProvider;
+import com.termlab.sdk.TerminalSessionProvider;
 import com.jediterm.terminal.TtyConnector;
 import com.jediterm.terminal.ProcessTtyConnector;
 import com.pty4j.PtyProcess;
@@ -828,7 +828,7 @@ import java.util.Map;
 public final class LocalPtySessionProvider implements TerminalSessionProvider {
 
     @Override
-    public @NotNull String getId() { return "com.conch.local-pty"; }
+    public @NotNull String getId() { return "com.termlab.local-pty"; }
 
     @Override
     public @NotNull String getDisplayName() { return "Local Terminal"; }
@@ -875,10 +875,10 @@ public final class LocalPtySessionProvider implements TerminalSessionProvider {
 - [ ] **Step 2: Create `NewTerminalTabAction.java`**
 
 ```java
-package com.conch.core.actions;
+package com.termlab.core.actions;
 
-import com.conch.core.terminal.ConchTerminalVirtualFile;
-import com.conch.core.terminal.LocalPtySessionProvider;
+import com.termlab.core.terminal.TermLabTerminalVirtualFile;
+import com.termlab.core.terminal.LocalPtySessionProvider;
 import com.intellij.openapi.actionSystem.AnAction;
 import com.intellij.openapi.actionSystem.AnActionEvent;
 import com.intellij.openapi.fileEditor.FileEditorManager;
@@ -895,8 +895,8 @@ public final class NewTerminalTabAction extends AnAction implements DumbAware {
         Project project = e.getProject();
         if (project == null) return;
 
-        ConchTerminalVirtualFile terminalFile =
-            new ConchTerminalVirtualFile("Terminal", ptyProvider);
+        TermLabTerminalVirtualFile terminalFile =
+            new TermLabTerminalVirtualFile("Terminal", ptyProvider);
 
         FileEditorManager.getInstance(project).openFile(terminalFile, true);
     }
@@ -914,8 +914,8 @@ Update the `<actions>` section of `plugin.xml`:
 
 ```xml
     <actions>
-        <action id="Conch.NewTerminalTab"
-                class="com.conch.core.actions.NewTerminalTabAction"
+        <action id="TermLab.NewTerminalTab"
+                class="com.termlab.core.actions.NewTerminalTabAction"
                 text="New Terminal Tab"
                 description="Open a new local terminal tab">
             <keyboard-shortcut keymap="$default"
@@ -928,7 +928,7 @@ Update the `<actions>` section of `plugin.xml`:
 
 Run:
 ```bash
-./gradlew :conch-core:runIde
+./gradlew :termlab-core:runIde
 ```
 
 In the launched IDE:
@@ -944,7 +944,7 @@ Expected: A fully working terminal in the editor area.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add conch-core/src/main/java/com/conch/core/terminal/LocalPtySessionProvider.java conch-core/src/main/java/com/conch/core/actions/NewTerminalTabAction.java conch-core/src/main/resources/META-INF/plugin.xml
+git add termlab-core/src/main/java/com/termlab/core/terminal/LocalPtySessionProvider.java termlab-core/src/main/java/com/termlab/core/actions/NewTerminalTabAction.java termlab-core/src/main/resources/META-INF/plugin.xml
 git commit -m "feat: local PTY provider and new terminal tab action (Cmd+T)"
 ```
 
@@ -953,17 +953,17 @@ git commit -m "feat: local PTY provider and new terminal tab action (Cmd+T)"
 ## Task 5: Tab Management Actions
 
 **Files:**
-- Create: `conch-core/src/main/java/com/conch/core/actions/CloseTerminalTabAction.java`
-- Create: `conch-core/src/main/java/com/conch/core/actions/SplitTerminalHorizontalAction.java`
-- Create: `conch-core/src/main/java/com/conch/core/actions/SplitTerminalVerticalAction.java`
-- Modify: `conch-core/src/main/resources/META-INF/plugin.xml`
+- Create: `termlab-core/src/main/java/com/termlab/core/actions/CloseTerminalTabAction.java`
+- Create: `termlab-core/src/main/java/com/termlab/core/actions/SplitTerminalHorizontalAction.java`
+- Create: `termlab-core/src/main/java/com/termlab/core/actions/SplitTerminalVerticalAction.java`
+- Modify: `termlab-core/src/main/resources/META-INF/plugin.xml`
 
 - [ ] **Step 1: Create `CloseTerminalTabAction.java`**
 
 ```java
-package com.conch.core.actions;
+package com.termlab.core.actions;
 
-import com.conch.core.terminal.ConchTerminalVirtualFile;
+import com.termlab.core.terminal.TermLabTerminalVirtualFile;
 import com.intellij.openapi.actionSystem.AnAction;
 import com.intellij.openapi.actionSystem.AnActionEvent;
 import com.intellij.openapi.fileEditor.FileEditorManager;
@@ -984,7 +984,7 @@ public final class CloseTerminalTabAction extends AnAction implements DumbAware 
             ? manager.getSelectedEditor().getFile()
             : null;
 
-        if (selectedFile instanceof ConchTerminalVirtualFile) {
+        if (selectedFile instanceof TermLabTerminalVirtualFile) {
             manager.closeFile(selectedFile);
         }
     }
@@ -996,7 +996,7 @@ public final class CloseTerminalTabAction extends AnAction implements DumbAware 
         if (project != null) {
             FileEditorManager manager = FileEditorManager.getInstance(project);
             var editor = manager.getSelectedEditor();
-            enabled = editor != null && editor.getFile() instanceof ConchTerminalVirtualFile;
+            enabled = editor != null && editor.getFile() instanceof TermLabTerminalVirtualFile;
         }
         e.getPresentation().setEnabledAndVisible(enabled);
     }
@@ -1008,10 +1008,10 @@ public final class CloseTerminalTabAction extends AnAction implements DumbAware 
 This leverages IntelliJ's built-in split editor support. We open a new terminal in the existing split group.
 
 ```java
-package com.conch.core.actions;
+package com.termlab.core.actions;
 
-import com.conch.core.terminal.ConchTerminalVirtualFile;
-import com.conch.core.terminal.LocalPtySessionProvider;
+import com.termlab.core.terminal.TermLabTerminalVirtualFile;
+import com.termlab.core.terminal.LocalPtySessionProvider;
 import com.intellij.openapi.actionSystem.AnAction;
 import com.intellij.openapi.actionSystem.AnActionEvent;
 import com.intellij.openapi.fileEditor.FileEditorManager;
@@ -1035,8 +1035,8 @@ public final class SplitTerminalHorizontalAction extends AnAction implements Dum
         // then open a new terminal in the new split
         manager.createSplitter(javax.swing.SwingConstants.VERTICAL, manager.getCurrentWindow());
 
-        ConchTerminalVirtualFile terminalFile =
-            new ConchTerminalVirtualFile("Terminal", ptyProvider);
+        TermLabTerminalVirtualFile terminalFile =
+            new TermLabTerminalVirtualFile("Terminal", ptyProvider);
         manager.openFile(terminalFile, true);
     }
 
@@ -1050,10 +1050,10 @@ public final class SplitTerminalHorizontalAction extends AnAction implements Dum
 - [ ] **Step 3: Create `SplitTerminalVerticalAction.java`**
 
 ```java
-package com.conch.core.actions;
+package com.termlab.core.actions;
 
-import com.conch.core.terminal.ConchTerminalVirtualFile;
-import com.conch.core.terminal.LocalPtySessionProvider;
+import com.termlab.core.terminal.TermLabTerminalVirtualFile;
+import com.termlab.core.terminal.LocalPtySessionProvider;
 import com.intellij.openapi.actionSystem.AnAction;
 import com.intellij.openapi.actionSystem.AnActionEvent;
 import com.intellij.openapi.fileEditor.ex.FileEditorManagerEx;
@@ -1075,8 +1075,8 @@ public final class SplitTerminalVerticalAction extends AnAction implements DumbA
         // Split horizontally (top-bottom)
         manager.createSplitter(javax.swing.SwingConstants.HORIZONTAL, manager.getCurrentWindow());
 
-        ConchTerminalVirtualFile terminalFile =
-            new ConchTerminalVirtualFile("Terminal", ptyProvider);
+        TermLabTerminalVirtualFile terminalFile =
+            new TermLabTerminalVirtualFile("Terminal", ptyProvider);
         manager.openFile(terminalFile, true);
     }
 
@@ -1093,35 +1093,35 @@ Replace the `<actions>` section:
 
 ```xml
     <actions>
-        <group id="Conch.TerminalActions" text="Terminal" popup="true">
+        <group id="TermLab.TerminalActions" text="Terminal" popup="true">
             <add-to-group group-id="MainMenu" anchor="before" relative-to-action="HelpMenu"/>
 
-            <action id="Conch.NewTerminalTab"
-                    class="com.conch.core.actions.NewTerminalTabAction"
+            <action id="TermLab.NewTerminalTab"
+                    class="com.termlab.core.actions.NewTerminalTabAction"
                     text="New Terminal Tab"
                     description="Open a new local terminal tab">
                 <keyboard-shortcut keymap="$default"
                                    first-keystroke="meta T"/>
             </action>
 
-            <action id="Conch.CloseTerminalTab"
-                    class="com.conch.core.actions.CloseTerminalTabAction"
+            <action id="TermLab.CloseTerminalTab"
+                    class="com.termlab.core.actions.CloseTerminalTabAction"
                     text="Close Terminal Tab"
                     description="Close the active terminal tab">
                 <keyboard-shortcut keymap="$default"
                                    first-keystroke="meta W"/>
             </action>
 
-            <action id="Conch.SplitHorizontal"
-                    class="com.conch.core.actions.SplitTerminalHorizontalAction"
+            <action id="TermLab.SplitHorizontal"
+                    class="com.termlab.core.actions.SplitTerminalHorizontalAction"
                     text="Split Terminal Right"
                     description="Split the editor area and open a new terminal to the right">
                 <keyboard-shortcut keymap="$default"
                                    first-keystroke="meta D"/>
             </action>
 
-            <action id="Conch.SplitVertical"
-                    class="com.conch.core.actions.SplitTerminalVerticalAction"
+            <action id="TermLab.SplitVertical"
+                    class="com.termlab.core.actions.SplitTerminalVerticalAction"
                     text="Split Terminal Down"
                     description="Split the editor area and open a new terminal below">
                 <keyboard-shortcut keymap="$default"
@@ -1135,7 +1135,7 @@ Replace the `<actions>` section:
 
 Run:
 ```bash
-./gradlew :conch-core:runIde
+./gradlew :termlab-core:runIde
 ```
 
 Test in the launched IDE:
@@ -1153,7 +1153,7 @@ Note: `Cmd+1..9` for direct tab access and `Alt+1..9` for tool windows are built
 - [ ] **Step 6: Commit**
 
 ```bash
-git add conch-core/src/main/java/com/conch/core/actions/ conch-core/src/main/resources/META-INF/plugin.xml
+git add termlab-core/src/main/java/com/termlab/core/actions/ termlab-core/src/main/resources/META-INF/plugin.xml
 git commit -m "feat: tab management actions — close, split horizontal, split vertical"
 ```
 
@@ -1162,17 +1162,17 @@ git commit -m "feat: tab management actions — close, split horizontal, split v
 ## Task 6: Workspace Persistence
 
 **Files:**
-- Create: `conch-core/src/main/java/com/conch/core/workspace/WorkspaceState.java`
-- Create: `conch-core/src/main/java/com/conch/core/workspace/WorkspaceSerializer.java`
-- Create: `conch-core/src/main/java/com/conch/core/workspace/WorkspaceManager.java`
-- Create: `conch-core/src/main/java/com/conch/core/ConchStartupActivity.java`
-- Create: `conch-core/src/test/java/com/conch/core/workspace/WorkspaceSerializerTest.java`
-- Modify: `conch-core/src/main/resources/META-INF/plugin.xml`
+- Create: `termlab-core/src/main/java/com/termlab/core/workspace/WorkspaceState.java`
+- Create: `termlab-core/src/main/java/com/termlab/core/workspace/WorkspaceSerializer.java`
+- Create: `termlab-core/src/main/java/com/termlab/core/workspace/WorkspaceManager.java`
+- Create: `termlab-core/src/main/java/com/termlab/core/TermLabStartupActivity.java`
+- Create: `termlab-core/src/test/java/com/termlab/core/workspace/WorkspaceSerializerTest.java`
+- Modify: `termlab-core/src/main/resources/META-INF/plugin.xml`
 
 - [ ] **Step 1: Write failing test for workspace serialization**
 
 ```java
-package com.conch.core.workspace;
+package com.termlab.core.workspace;
 
 import org.junit.Test;
 
@@ -1196,11 +1196,11 @@ public class WorkspaceSerializerTest {
     public void roundTripsWorkspaceWithTabs() {
         List<WorkspaceState.TabState> tabs = List.of(
             new WorkspaceState.TabState(
-                "tab-1", "Terminal", "com.conch.local-pty",
+                "tab-1", "Terminal", "com.termlab.local-pty",
                 "/Users/dustin/projects", null
             ),
             new WorkspaceState.TabState(
-                "tab-2", "prod-server", "com.conch.ssh",
+                "tab-2", "prod-server", "com.termlab.ssh",
                 null, "server-uuid-123"
             )
         );
@@ -1215,12 +1215,12 @@ public class WorkspaceSerializerTest {
         WorkspaceState.TabState tab1 = restored.tabs().get(0);
         assertEquals("tab-1", tab1.sessionId());
         assertEquals("Terminal", tab1.title());
-        assertEquals("com.conch.local-pty", tab1.providerId());
+        assertEquals("com.termlab.local-pty", tab1.providerId());
         assertEquals("/Users/dustin/projects", tab1.workingDirectory());
         assertNull(tab1.connectionId());
 
         WorkspaceState.TabState tab2 = restored.tabs().get(1);
-        assertEquals("com.conch.ssh", tab2.providerId());
+        assertEquals("com.termlab.ssh", tab2.providerId());
         assertEquals("server-uuid-123", tab2.connectionId());
     }
 
@@ -1243,7 +1243,7 @@ public class WorkspaceSerializerTest {
 
 Run:
 ```bash
-./gradlew :conch-core:test --tests "com.conch.core.workspace.WorkspaceSerializerTest"
+./gradlew :termlab-core:test --tests "com.termlab.core.workspace.WorkspaceSerializerTest"
 ```
 
 Expected: FAIL — classes `WorkspaceState` and `WorkspaceSerializer` do not exist.
@@ -1251,7 +1251,7 @@ Expected: FAIL — classes `WorkspaceState` and `WorkspaceSerializer` do not exi
 - [ ] **Step 3: Create `WorkspaceState.java`**
 
 ```java
-package com.conch.core.workspace;
+package com.termlab.core.workspace;
 
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -1282,7 +1282,7 @@ public record WorkspaceState(
 - [ ] **Step 4: Create `WorkspaceSerializer.java`**
 
 ```java
-package com.conch.core.workspace;
+package com.termlab.core.workspace;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
@@ -1314,12 +1314,12 @@ public final class WorkspaceSerializer {
 
 Run:
 ```bash
-./gradlew :conch-core:test --tests "com.conch.core.workspace.WorkspaceSerializerTest"
+./gradlew :termlab-core:test --tests "com.termlab.core.workspace.WorkspaceSerializerTest"
 ```
 
 Expected: All 3 tests PASS.
 
-Note: Gson is bundled with the IntelliJ Platform runtime. If the test classpath doesn't include it, add to `conch-core/build.gradle.kts`:
+Note: Gson is bundled with the IntelliJ Platform runtime. If the test classpath doesn't include it, add to `termlab-core/build.gradle.kts`:
 
 ```kotlin
 testImplementation("com.google.code.gson:gson:2.11.0")
@@ -1328,11 +1328,11 @@ testImplementation("com.google.code.gson:gson:2.11.0")
 - [ ] **Step 6: Create `WorkspaceManager.java`**
 
 ```java
-package com.conch.core.workspace;
+package com.termlab.core.workspace;
 
-import com.conch.core.terminal.ConchTerminalEditor;
-import com.conch.core.terminal.ConchTerminalVirtualFile;
-import com.conch.core.terminal.LocalPtySessionProvider;
+import com.termlab.core.terminal.TermLabTerminalEditor;
+import com.termlab.core.terminal.TermLabTerminalVirtualFile;
+import com.termlab.core.terminal.LocalPtySessionProvider;
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.components.Service;
 import com.intellij.openapi.diagnostic.Logger;
@@ -1354,7 +1354,7 @@ public final class WorkspaceManager {
 
     private static final Logger LOG = Logger.getInstance(WorkspaceManager.class);
     private static final Path WORKSPACES_DIR = Path.of(
-        System.getProperty("user.home"), ".config", "conch", "workspaces"
+        System.getProperty("user.home"), ".config", "termlab", "workspaces"
     );
     private static final String DEFAULT_WORKSPACE = "default.json";
 
@@ -1377,7 +1377,7 @@ public final class WorkspaceManager {
         List<WorkspaceState.TabState> tabs = new ArrayList<>();
 
         for (VirtualFile file : editorManager.getOpenFiles()) {
-            if (file instanceof ConchTerminalVirtualFile termFile) {
+            if (file instanceof TermLabTerminalVirtualFile termFile) {
                 tabs.add(new WorkspaceState.TabState(
                     termFile.getSessionId(),
                     termFile.getName(),
@@ -1445,9 +1445,9 @@ public final class WorkspaceManager {
             for (WorkspaceState.TabState tab : state.tabs()) {
                 // For now, only restore local PTY tabs.
                 // SSH tabs will show as "disconnected" once the SSH plugin exists.
-                if ("com.conch.local-pty".equals(tab.providerId())) {
-                    ConchTerminalVirtualFile termFile =
-                        new ConchTerminalVirtualFile(tab.title(), ptyProvider);
+                if ("com.termlab.local-pty".equals(tab.providerId())) {
+                    TermLabTerminalVirtualFile termFile =
+                        new TermLabTerminalVirtualFile(tab.title(), ptyProvider);
                     termFile.setCurrentWorkingDirectory(tab.workingDirectory());
                     editorManager.openFile(termFile, false);
                 }
@@ -1483,21 +1483,21 @@ public final class WorkspaceManager {
 
     private void openDefaultTerminal() {
         LocalPtySessionProvider ptyProvider = new LocalPtySessionProvider();
-        ConchTerminalVirtualFile termFile =
-            new ConchTerminalVirtualFile("Terminal", ptyProvider);
+        TermLabTerminalVirtualFile termFile =
+            new TermLabTerminalVirtualFile("Terminal", ptyProvider);
         FileEditorManager.getInstance(project).openFile(termFile, true);
     }
 }
 ```
 
-- [ ] **Step 7: Create `ConchStartupActivity.java`**
+- [ ] **Step 7: Create `TermLabStartupActivity.java`**
 
 Restores workspace on project open, saves on project close.
 
 ```java
-package com.conch.core;
+package com.termlab.core;
 
-import com.conch.core.workspace.WorkspaceManager;
+import com.termlab.core.workspace.WorkspaceManager;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.startup.ProjectActivity;
 import kotlin.Unit;
@@ -1509,7 +1509,7 @@ import org.jetbrains.annotations.Nullable;
  * Restores the workspace when a project opens.
  * Workspace save is handled via ProjectManagerListener (see plugin.xml).
  */
-public final class ConchStartupActivity implements ProjectActivity {
+public final class TermLabStartupActivity implements ProjectActivity {
 
     @Override
     public @Nullable Object execute(@NotNull Project project,
@@ -1526,25 +1526,25 @@ Add to the `<extensions>` section:
 
 ```xml
         <postStartupActivity
-            implementation="com.conch.core.ConchStartupActivity"/>
+            implementation="com.termlab.core.TermLabStartupActivity"/>
 
         <projectService
-            serviceImplementation="com.conch.core.workspace.WorkspaceManager"/>
+            serviceImplementation="com.termlab.core.workspace.WorkspaceManager"/>
 ```
 
 Note: For saving workspace on project close, we need a `ProjectManagerListener`. Create a small listener class:
 
-Create `conch-core/src/main/java/com/conch/core/ConchProjectCloseListener.java`:
+Create `termlab-core/src/main/java/com/termlab/core/TermLabProjectCloseListener.java`:
 
 ```java
-package com.conch.core;
+package com.termlab.core;
 
-import com.conch.core.workspace.WorkspaceManager;
+import com.termlab.core.workspace.WorkspaceManager;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.project.ProjectManagerListener;
 import org.jetbrains.annotations.NotNull;
 
-public final class ConchProjectCloseListener implements ProjectManagerListener {
+public final class TermLabProjectCloseListener implements ProjectManagerListener {
 
     @Override
     public void projectClosing(@NotNull Project project) {
@@ -1557,14 +1557,14 @@ Add to `plugin.xml` `<extensions>` section:
 
 ```xml
         <projectCloseListener
-            implementation="com.conch.core.ConchProjectCloseListener"/>
+            implementation="com.termlab.core.TermLabProjectCloseListener"/>
 ```
 
 - [ ] **Step 9: Run serialization tests**
 
 Run:
 ```bash
-./gradlew :conch-core:test --tests "com.conch.core.workspace.WorkspaceSerializerTest"
+./gradlew :termlab-core:test --tests "com.termlab.core.workspace.WorkspaceSerializerTest"
 ```
 
 Expected: All 3 tests PASS.
@@ -1573,14 +1573,14 @@ Expected: All 3 tests PASS.
 
 Run:
 ```bash
-./gradlew :conch-core:runIde
+./gradlew :termlab-core:runIde
 ```
 
 1. Open a project, press `Cmd+T` twice (two terminal tabs)
 2. In one terminal, `cd /tmp`
 3. Close the IDE
-4. Check `~/.config/conch/workspaces/default.json` exists and contains tab state
-5. Relaunch with `./gradlew :conch-core:runIde`
+4. Check `~/.config/termlab/workspaces/default.json` exists and contains tab state
+5. Relaunch with `./gradlew :termlab-core:runIde`
 6. The two terminal tabs should be restored (the one that was in `/tmp` should start in `/tmp`)
 
 Expected: Workspace round-trips across IDE restarts.
@@ -1588,7 +1588,7 @@ Expected: Workspace round-trips across IDE restarts.
 - [ ] **Step 11: Commit**
 
 ```bash
-git add conch-core/src/main/java/com/conch/core/workspace/ conch-core/src/main/java/com/conch/core/ConchStartupActivity.java conch-core/src/main/java/com/conch/core/ConchProjectCloseListener.java conch-core/src/test/java/com/conch/core/workspace/ conch-core/src/main/resources/META-INF/plugin.xml
+git add termlab-core/src/main/java/com/termlab/core/workspace/ termlab-core/src/main/java/com/termlab/core/TermLabStartupActivity.java termlab-core/src/main/java/com/termlab/core/TermLabProjectCloseListener.java termlab-core/src/test/java/com/termlab/core/workspace/ termlab-core/src/main/resources/META-INF/plugin.xml
 git commit -m "feat: workspace persistence — auto-save on close, restore on launch"
 ```
 
@@ -1597,16 +1597,16 @@ git commit -m "feat: workspace persistence — auto-save on close, restore on la
 ## Task 7: CWD File Explorer Sync
 
 **Files:**
-- Create: `conch-core/src/main/java/com/conch/core/explorer/CwdSyncManager.java`
-- Modify: `conch-core/src/main/java/com/conch/core/terminal/ConchTerminalEditor.java`
-- Modify: `conch-core/src/main/resources/META-INF/plugin.xml`
+- Create: `termlab-core/src/main/java/com/termlab/core/explorer/CwdSyncManager.java`
+- Modify: `termlab-core/src/main/java/com/termlab/core/terminal/TermLabTerminalEditor.java`
+- Modify: `termlab-core/src/main/resources/META-INF/plugin.xml`
 
 - [ ] **Step 1: Create `CwdSyncManager.java`**
 
 Listens for CWD changes from the active terminal and navigates the Project View.
 
 ```java
-package com.conch.core.explorer;
+package com.termlab.core.explorer;
 
 import com.intellij.ide.projectView.ProjectView;
 import com.intellij.openapi.application.ApplicationManager;
@@ -1653,16 +1653,16 @@ public final class CwdSyncManager {
 }
 ```
 
-- [ ] **Step 2: Add CWD tracking to `ConchTerminalEditor.java`**
+- [ ] **Step 2: Add CWD tracking to `TermLabTerminalEditor.java`**
 
 JediTerm processes OSC sequences internally. We intercept CWD changes by subclassing or wrapping the terminal's command handler. The simplest approach: poll the PTY's foreground process CWD, or parse OSC 7 from the output stream.
 
 For a pragmatic v1, we wrap the `TtyConnector` to intercept output and parse OSC 7 sequences:
 
-Create `conch-core/src/main/java/com/conch/core/terminal/OscTrackingTtyConnector.java`:
+Create `termlab-core/src/main/java/com/termlab/core/terminal/OscTrackingTtyConnector.java`:
 
 ```java
-package com.conch.core.terminal;
+package com.termlab.core.terminal;
 
 import com.jediterm.terminal.TtyConnector;
 import org.jetbrains.annotations.NotNull;
@@ -1734,9 +1734,9 @@ public final class OscTrackingTtyConnector implements TtyConnector {
 }
 ```
 
-- [ ] **Step 3: Wire CWD tracking into `ConchTerminalEditor`**
+- [ ] **Step 3: Wire CWD tracking into `TermLabTerminalEditor`**
 
-Update `ConchTerminalEditor.java` — modify the `initTerminalSession()` method to wrap the connector:
+Update `TermLabTerminalEditor.java` — modify the `initTerminalSession()` method to wrap the connector:
 
 ```java
     private void initTerminalSession() {
@@ -1763,9 +1763,9 @@ Update `ConchTerminalEditor.java` — modify the `initTerminalSession()` method 
     }
 ```
 
-Add these imports to `ConchTerminalEditor.java`:
+Add these imports to `TermLabTerminalEditor.java`:
 ```java
-import com.conch.core.explorer.CwdSyncManager;
+import com.termlab.core.explorer.CwdSyncManager;
 ```
 
 - [ ] **Step 4: Register CwdSyncManager service in `plugin.xml`**
@@ -1774,14 +1774,14 @@ Add to `<extensions>`:
 
 ```xml
         <projectService
-            serviceImplementation="com.conch.core.explorer.CwdSyncManager"/>
+            serviceImplementation="com.termlab.core.explorer.CwdSyncManager"/>
 ```
 
 - [ ] **Step 5: Verify CWD sync**
 
 Run:
 ```bash
-./gradlew :conch-core:runIde
+./gradlew :termlab-core:runIde
 ```
 
 1. Open a project with the Project View visible (View > Tool Windows > Project)
@@ -1800,7 +1800,7 @@ Expected: File explorer follows terminal CWD.
 - [ ] **Step 6: Commit**
 
 ```bash
-git add conch-core/src/main/java/com/conch/core/explorer/ conch-core/src/main/java/com/conch/core/terminal/OscTrackingTtyConnector.java conch-core/src/main/java/com/conch/core/terminal/ConchTerminalEditor.java conch-core/src/main/resources/META-INF/plugin.xml
+git add termlab-core/src/main/java/com/termlab/core/explorer/ termlab-core/src/main/java/com/termlab/core/terminal/OscTrackingTtyConnector.java termlab-core/src/main/java/com/termlab/core/terminal/TermLabTerminalEditor.java termlab-core/src/main/resources/META-INF/plugin.xml
 git commit -m "feat: CWD-aware file explorer — OSC 7 tracking syncs Project View"
 ```
 
@@ -1809,17 +1809,17 @@ git commit -m "feat: CWD-aware file explorer — OSC 7 tracking syncs Project Vi
 ## Task 8: Command Palette
 
 **Files:**
-- Create: `conch-core/src/main/java/com/conch/core/palette/TerminalPaletteContributor.java`
-- Modify: `conch-core/src/main/resources/META-INF/plugin.xml`
+- Create: `termlab-core/src/main/java/com/termlab/core/palette/TerminalPaletteContributor.java`
+- Modify: `termlab-core/src/main/resources/META-INF/plugin.xml`
 
 - [ ] **Step 1: Create `TerminalPaletteContributor.java`**
 
 A Search Everywhere contributor that searches open terminal tabs.
 
 ```java
-package com.conch.core.palette;
+package com.termlab.core.palette;
 
-import com.conch.core.terminal.ConchTerminalVirtualFile;
+import com.termlab.core.terminal.TermLabTerminalVirtualFile;
 import com.intellij.icons.AllIcons;
 import com.intellij.ide.actions.searcheverywhere.AbstractGotoSEContributor;
 import com.intellij.ide.actions.searcheverywhere.SearchEverywhereContributor;
@@ -1853,7 +1853,7 @@ public final class TerminalPaletteContributor implements SearchEverywhereContrib
 
     @Override
     public @NotNull String getSearchProviderId() {
-        return "ConchTerminals";
+        return "TermLabTerminals";
     }
 
     @Override
@@ -1881,7 +1881,7 @@ public final class TerminalPaletteContributor implements SearchEverywhereContrib
         for (VirtualFile file : manager.getOpenFiles()) {
             if (progressIndicator.isCanceled()) return;
 
-            if (file instanceof ConchTerminalVirtualFile termFile) {
+            if (file instanceof TermLabTerminalVirtualFile termFile) {
                 String title = termFile.getName().toLowerCase();
                 String cwd = termFile.getCurrentWorkingDirectory();
                 String cwdLower = cwd != null ? cwd.toLowerCase() : "";
@@ -1897,7 +1897,7 @@ public final class TerminalPaletteContributor implements SearchEverywhereContrib
 
     @Override
     public boolean processSelectedItem(@NotNull Object selected, int modifiers, @NotNull String searchText) {
-        if (selected instanceof ConchTerminalVirtualFile termFile) {
+        if (selected instanceof TermLabTerminalVirtualFile termFile) {
             FileEditorManager.getInstance(project).openFile(termFile, true);
             return true;
         }
@@ -1911,7 +1911,7 @@ public final class TerminalPaletteContributor implements SearchEverywhereContrib
             public java.awt.Component getListCellRendererComponent(
                 JList<?> list, Object value, int index, boolean selected, boolean focus) {
                 super.getListCellRendererComponent(list, value, index, selected, focus);
-                if (value instanceof ConchTerminalVirtualFile termFile) {
+                if (value instanceof TermLabTerminalVirtualFile termFile) {
                     String label = termFile.getName();
                     String cwd = termFile.getCurrentWorkingDirectory();
                     if (cwd != null) {
@@ -1951,16 +1951,16 @@ Add to `<extensions>`:
 
 ```xml
         <searchEverywhereContributor
-            implementation="com.conch.core.palette.TerminalPaletteContributor$Factory"/>
+            implementation="com.termlab.core.palette.TerminalPaletteContributor$Factory"/>
 ```
 
 Add to `<actions>` to remap Search Everywhere to `Cmd+Shift+P`:
 
 ```xml
-        <action id="Conch.CommandPalette"
+        <action id="TermLab.CommandPalette"
                 class="com.intellij.ide.actions.SearchEverywhereAction"
                 text="Command Palette"
-                description="Open the Conch command palette">
+                description="Open the TermLab command palette">
             <keyboard-shortcut keymap="$default"
                                first-keystroke="meta shift P"/>
         </action>
@@ -1976,7 +1976,7 @@ Verify this when testing — if unwanted tabs appear, they can be suppressed by 
 
 Run:
 ```bash
-./gradlew :conch-core:runIde
+./gradlew :termlab-core:runIde
 ```
 
 1. Open a project, `Cmd+T` to create a few terminals
@@ -1985,14 +1985,14 @@ Run:
 4. You should see tabs: "All", "Actions", "Terminals"
 5. Type part of a directory name — matching terminal tabs should appear
 6. Select one — it should focus that terminal tab
-7. The "Actions" tab should list all registered Conch actions
+7. The "Actions" tab should list all registered TermLab actions
 
 Expected: Command palette with Terminals and Actions tabs only.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add conch-core/src/main/java/com/conch/core/palette/ conch-core/src/main/resources/META-INF/plugin.xml
+git add termlab-core/src/main/java/com/termlab/core/palette/ termlab-core/src/main/resources/META-INF/plugin.xml
 git commit -m "feat: command palette — search terminals and actions via Cmd+Shift+P"
 ```
 
@@ -2001,20 +2001,20 @@ git commit -m "feat: command palette — search terminals and actions via Cmd+Sh
 ## Task 9: Mini-Window
 
 **Files:**
-- Create: `conch-core/src/main/java/com/conch/core/miniwindow/MiniTerminalWindow.java`
-- Create: `conch-core/src/main/java/com/conch/core/actions/OpenMiniWindowAction.java`
-- Modify: `conch-core/src/main/resources/META-INF/plugin.xml`
+- Create: `termlab-core/src/main/java/com/termlab/core/miniwindow/MiniTerminalWindow.java`
+- Create: `termlab-core/src/main/java/com/termlab/core/actions/OpenMiniWindowAction.java`
+- Modify: `termlab-core/src/main/resources/META-INF/plugin.xml`
 
 - [ ] **Step 1: Create `MiniTerminalWindow.java`**
 
 A bare JFrame with just a JediTerm widget. No tool windows, no chrome.
 
 ```java
-package com.conch.core.miniwindow;
+package com.termlab.core.miniwindow;
 
-import com.conch.core.terminal.ConchTerminalSettings;
-import com.conch.core.terminal.LocalPtySessionProvider;
-import com.conch.sdk.TerminalSessionProvider;
+import com.termlab.core.terminal.TermLabTerminalSettings;
+import com.termlab.core.terminal.LocalPtySessionProvider;
+import com.termlab.sdk.TerminalSessionProvider;
 import com.jediterm.terminal.TtyConnector;
 import com.jediterm.terminal.ui.JediTermWidget;
 import org.jetbrains.annotations.NotNull;
@@ -2036,12 +2036,12 @@ public final class MiniTerminalWindow {
     private TtyConnector connector;
 
     public MiniTerminalWindow() {
-        frame = new JFrame("Conch — Quick Terminal");
+        frame = new JFrame("TermLab — Quick Terminal");
         frame.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
         frame.setSize(800, 500);
         frame.setLocationRelativeTo(null);
 
-        terminalWidget = new JediTermWidget(new ConchTerminalSettings());
+        terminalWidget = new JediTermWidget(new TermLabTerminalSettings());
 
         // Start a local PTY session
         LocalPtySessionProvider ptyProvider = new LocalPtySessionProvider();
@@ -2098,9 +2098,9 @@ public final class MiniTerminalWindow {
 - [ ] **Step 2: Create `OpenMiniWindowAction.java`**
 
 ```java
-package com.conch.core.actions;
+package com.termlab.core.actions;
 
-import com.conch.core.miniwindow.MiniTerminalWindow;
+import com.termlab.core.miniwindow.MiniTerminalWindow;
 import com.intellij.openapi.actionSystem.AnAction;
 import com.intellij.openapi.actionSystem.AnActionEvent;
 import com.intellij.openapi.project.DumbAware;
@@ -2117,13 +2117,13 @@ public final class OpenMiniWindowAction extends AnAction implements DumbAware {
 
 - [ ] **Step 3: Register the action in `plugin.xml`**
 
-Add inside the `Conch.TerminalActions` group:
+Add inside the `TermLab.TerminalActions` group:
 
 ```xml
             <separator/>
 
-            <action id="Conch.OpenMiniWindow"
-                    class="com.conch.core.actions.OpenMiniWindowAction"
+            <action id="TermLab.OpenMiniWindow"
+                    class="com.termlab.core.actions.OpenMiniWindowAction"
                     text="Quick Terminal"
                     description="Open a lightweight terminal window">
                 <keyboard-shortcut keymap="$default"
@@ -2135,7 +2135,7 @@ Add inside the `Conch.TerminalActions` group:
 
 Run:
 ```bash
-./gradlew :conch-core:runIde
+./gradlew :termlab-core:runIde
 ```
 
 1. Press `Cmd+Shift+N` — a bare terminal window should appear
@@ -2150,7 +2150,7 @@ Expected: Quick, disposable terminal windows.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add conch-core/src/main/java/com/conch/core/miniwindow/ conch-core/src/main/java/com/conch/core/actions/OpenMiniWindowAction.java conch-core/src/main/resources/META-INF/plugin.xml
+git add termlab-core/src/main/java/com/termlab/core/miniwindow/ termlab-core/src/main/java/com/termlab/core/actions/OpenMiniWindowAction.java termlab-core/src/main/resources/META-INF/plugin.xml
 git commit -m "feat: mini-window — ephemeral quick terminal via Cmd+Shift+N"
 ```
 
@@ -2159,17 +2159,17 @@ git commit -m "feat: mini-window — ephemeral quick terminal via Cmd+Shift+N"
 ## Task 10: Platform Stripping and Save/Load Workspace Actions
 
 **Files:**
-- Create: `conch-core/src/main/java/com/conch/core/actions/SaveWorkspaceAction.java`
-- Create: `conch-core/src/main/java/com/conch/core/actions/LoadWorkspaceAction.java`
-- Modify: `conch-core/src/main/resources/META-INF/plugin.xml`
-- Modify: `conch-core/build.gradle.kts`
+- Create: `termlab-core/src/main/java/com/termlab/core/actions/SaveWorkspaceAction.java`
+- Create: `termlab-core/src/main/java/com/termlab/core/actions/LoadWorkspaceAction.java`
+- Modify: `termlab-core/src/main/resources/META-INF/plugin.xml`
+- Modify: `termlab-core/build.gradle.kts`
 
 - [ ] **Step 1: Create `SaveWorkspaceAction.java`**
 
 ```java
-package com.conch.core.actions;
+package com.termlab.core.actions;
 
-import com.conch.core.workspace.WorkspaceManager;
+import com.termlab.core.workspace.WorkspaceManager;
 import com.intellij.openapi.actionSystem.AnAction;
 import com.intellij.openapi.actionSystem.AnActionEvent;
 import com.intellij.openapi.project.DumbAware;
@@ -2206,9 +2206,9 @@ public final class SaveWorkspaceAction extends AnAction implements DumbAware {
 - [ ] **Step 2: Create `LoadWorkspaceAction.java`**
 
 ```java
-package com.conch.core.actions;
+package com.termlab.core.actions;
 
-import com.conch.core.workspace.WorkspaceManager;
+import com.termlab.core.workspace.WorkspaceManager;
 import com.intellij.openapi.actionSystem.AnAction;
 import com.intellij.openapi.actionSystem.AnActionEvent;
 import com.intellij.openapi.fileEditor.FileEditorManager;
@@ -2259,21 +2259,21 @@ public final class LoadWorkspaceAction extends AnAction implements DumbAware {
 
 - [ ] **Step 3: Register workspace actions in `plugin.xml`**
 
-Add inside the `Conch.TerminalActions` group:
+Add inside the `TermLab.TerminalActions` group:
 
 ```xml
             <separator/>
 
-            <action id="Conch.SaveWorkspace"
-                    class="com.conch.core.actions.SaveWorkspaceAction"
+            <action id="TermLab.SaveWorkspace"
+                    class="com.termlab.core.actions.SaveWorkspaceAction"
                     text="Save Workspace As..."
                     description="Save the current workspace layout with a name">
                 <keyboard-shortcut keymap="$default"
                                    first-keystroke="meta shift S"/>
             </action>
 
-            <action id="Conch.LoadWorkspace"
-                    class="com.conch.core.actions.LoadWorkspaceAction"
+            <action id="TermLab.LoadWorkspace"
+                    class="com.termlab.core.actions.LoadWorkspaceAction"
                     text="Load Workspace"
                     description="Load a saved workspace">
             </action>
@@ -2281,13 +2281,13 @@ Add inside the `Conch.TerminalActions` group:
 
 - [ ] **Step 4: Configure platform stripping in `build.gradle.kts`**
 
-Update `conch-core/build.gradle.kts` to exclude unwanted bundled plugins and configure the run task:
+Update `termlab-core/build.gradle.kts` to exclude unwanted bundled plugins and configure the run task:
 
 ```kotlin
 intellijPlatform {
     pluginConfiguration {
-        id = "com.conch.core"
-        name = "Conch Core"
+        id = "com.termlab.core"
+        name = "TermLab Core"
         version = project.version.toString()
     }
 }
@@ -2318,7 +2318,7 @@ Note: Full platform stripping (excluding bundled plugins from the distribution) 
 
 Run:
 ```bash
-./gradlew :conch-core:runIde
+./gradlew :termlab-core:runIde
 ```
 
 Full verification checklist:
@@ -2341,7 +2341,7 @@ Expected: A functional terminal workstation.
 - [ ] **Step 6: Commit**
 
 ```bash
-git add conch-core/
+git add termlab-core/
 git commit -m "feat: workspace save/load actions, platform stripping config — foundation complete"
 ```
 
@@ -2353,82 +2353,82 @@ After all tasks, the complete `plugin.xml` should look like this:
 
 ```xml
 <idea-plugin>
-    <id>com.conch.core</id>
-    <name>Conch Core</name>
+    <id>com.termlab.core</id>
+    <name>TermLab Core</name>
     <version>0.1.0</version>
-    <vendor>Conch</vendor>
+    <vendor>TermLab</vendor>
     <description>Terminal-driven workstation built on IntelliJ Platform</description>
 
     <depends>com.intellij.modules.platform</depends>
 
-    <!-- Conch-defined extension points for plugins to implement -->
+    <!-- TermLab-defined extension points for plugins to implement -->
     <extensionPoints>
         <extensionPoint name="terminalSessionProvider"
-                        interface="com.conch.sdk.TerminalSessionProvider"
+                        interface="com.termlab.sdk.TerminalSessionProvider"
                         dynamic="true"/>
         <extensionPoint name="commandPaletteContributor"
-                        interface="com.conch.sdk.CommandPaletteContributor"
+                        interface="com.termlab.sdk.CommandPaletteContributor"
                         dynamic="true"/>
         <extensionPoint name="credentialProvider"
-                        interface="com.conch.sdk.CredentialProvider"
+                        interface="com.termlab.sdk.CredentialProvider"
                         dynamic="true"/>
     </extensionPoints>
 
     <extensions defaultExtensionNs="com.intellij">
         <fileEditorProvider
-            implementation="com.conch.core.terminal.ConchTerminalEditorProvider"/>
+            implementation="com.termlab.core.terminal.TermLabTerminalEditorProvider"/>
 
         <postStartupActivity
-            implementation="com.conch.core.ConchStartupActivity"/>
+            implementation="com.termlab.core.TermLabStartupActivity"/>
 
         <projectService
-            serviceImplementation="com.conch.core.workspace.WorkspaceManager"/>
+            serviceImplementation="com.termlab.core.workspace.WorkspaceManager"/>
 
         <projectService
-            serviceImplementation="com.conch.core.explorer.CwdSyncManager"/>
+            serviceImplementation="com.termlab.core.explorer.CwdSyncManager"/>
 
         <searchEverywhereContributor
-            implementation="com.conch.core.palette.TerminalPaletteContributor$Factory"/>
+            implementation="com.termlab.core.palette.TerminalPaletteContributor$Factory"/>
     </extensions>
 
     <actions>
-        <action id="Conch.CommandPalette"
+        <action id="TermLab.CommandPalette"
                 class="com.intellij.ide.actions.SearchEverywhereAction"
                 text="Command Palette"
-                description="Open the Conch command palette">
+                description="Open the TermLab command palette">
             <keyboard-shortcut keymap="$default"
                                first-keystroke="meta shift P"/>
         </action>
 
-        <group id="Conch.TerminalActions" text="Terminal" popup="true">
+        <group id="TermLab.TerminalActions" text="Terminal" popup="true">
             <add-to-group group-id="MainMenu" anchor="before" relative-to-action="HelpMenu"/>
 
-            <action id="Conch.NewTerminalTab"
-                    class="com.conch.core.actions.NewTerminalTabAction"
+            <action id="TermLab.NewTerminalTab"
+                    class="com.termlab.core.actions.NewTerminalTabAction"
                     text="New Terminal Tab"
                     description="Open a new local terminal tab">
                 <keyboard-shortcut keymap="$default"
                                    first-keystroke="meta T"/>
             </action>
 
-            <action id="Conch.CloseTerminalTab"
-                    class="com.conch.core.actions.CloseTerminalTabAction"
+            <action id="TermLab.CloseTerminalTab"
+                    class="com.termlab.core.actions.CloseTerminalTabAction"
                     text="Close Terminal Tab"
                     description="Close the active terminal tab">
                 <keyboard-shortcut keymap="$default"
                                    first-keystroke="meta W"/>
             </action>
 
-            <action id="Conch.SplitHorizontal"
-                    class="com.conch.core.actions.SplitTerminalHorizontalAction"
+            <action id="TermLab.SplitHorizontal"
+                    class="com.termlab.core.actions.SplitTerminalHorizontalAction"
                     text="Split Terminal Right"
                     description="Split and open a new terminal to the right">
                 <keyboard-shortcut keymap="$default"
                                    first-keystroke="meta D"/>
             </action>
 
-            <action id="Conch.SplitVertical"
-                    class="com.conch.core.actions.SplitTerminalVerticalAction"
+            <action id="TermLab.SplitVertical"
+                    class="com.termlab.core.actions.SplitTerminalVerticalAction"
                     text="Split Terminal Down"
                     description="Split and open a new terminal below">
                 <keyboard-shortcut keymap="$default"
@@ -2437,8 +2437,8 @@ After all tasks, the complete `plugin.xml` should look like this:
 
             <separator/>
 
-            <action id="Conch.OpenMiniWindow"
-                    class="com.conch.core.actions.OpenMiniWindowAction"
+            <action id="TermLab.OpenMiniWindow"
+                    class="com.termlab.core.actions.OpenMiniWindowAction"
                     text="Quick Terminal"
                     description="Open a lightweight terminal window">
                 <keyboard-shortcut keymap="$default"
@@ -2447,16 +2447,16 @@ After all tasks, the complete `plugin.xml` should look like this:
 
             <separator/>
 
-            <action id="Conch.SaveWorkspace"
-                    class="com.conch.core.actions.SaveWorkspaceAction"
+            <action id="TermLab.SaveWorkspace"
+                    class="com.termlab.core.actions.SaveWorkspaceAction"
                     text="Save Workspace As..."
                     description="Save the current workspace layout">
                 <keyboard-shortcut keymap="$default"
                                    first-keystroke="meta shift S"/>
             </action>
 
-            <action id="Conch.LoadWorkspace"
-                    class="com.conch.core.actions.LoadWorkspaceAction"
+            <action id="TermLab.LoadWorkspace"
+                    class="com.termlab.core.actions.LoadWorkspaceAction"
                     text="Load Workspace"
                     description="Load a saved workspace">
             </action>

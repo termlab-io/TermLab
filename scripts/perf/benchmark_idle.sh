@@ -13,7 +13,7 @@ Required options:
 Optional options:
   --intellij-root <path>      Path to intellij-community checkout.
                               Defaults to .intellij-root, then ../intellij-community.
-  --workspace <path>          Workspace path passed to make conch (default: $HOME).
+  --workspace <path>          Workspace path passed to make termlab (default: $HOME).
   --warmup-sec <n>            Warmup seconds after IDE process appears (default: 90).
   --sample-sec <n>            Sample interval seconds (default: 5).
   --duration-sec <n>          Total sampling duration seconds (default: 300).
@@ -21,7 +21,7 @@ Optional options:
   --strict                    Exit non-zero if Stage A gate fails.
 
 Behavior:
-  Launches `make conch`, discovers the Conch JVM pid, samples RSS and CPU while idle,
+  Launches `make termlab`, discovers the TermLab JVM pid, samples RSS and CPU while idle,
   captures jcmd snapshots, writes CSV + JSON + env summaries, and prints pass/fail.
 USAGE
 }
@@ -147,22 +147,22 @@ mkdir -p "$RUN_DIR"
 CSV_FILE="$RUN_DIR/metrics.csv"
 SUMMARY_JSON="$RUN_DIR/summary.json"
 SUMMARY_ENV="$RUN_DIR/summary.env"
-RUN_LOG="$RUN_DIR/conch.log"
+RUN_LOG="$RUN_DIR/termlab.log"
 NMT_FILE="$RUN_DIR/jcmd-native-memory.txt"
 HEAP_FILE="$RUN_DIR/jcmd-heap-info.txt"
 FLAGS_FILE="$RUN_DIR/jcmd-vm-flags.txt"
 THREAD_FILE="$RUN_DIR/jcmd-thread-print.txt"
 CLASS_HISTO_FILE="$RUN_DIR/jcmd-class-histogram.txt"
 
-CONCH_PID=""
+TERMLAB_PID=""
 LAUNCHER_PID=""
 
 cleanup() {
-  if [[ -n "$CONCH_PID" ]] && kill -0 "$CONCH_PID" >/dev/null 2>&1; then
-    kill "$CONCH_PID" >/dev/null 2>&1 || true
+  if [[ -n "$TERMLAB_PID" ]] && kill -0 "$TERMLAB_PID" >/dev/null 2>&1; then
+    kill "$TERMLAB_PID" >/dev/null 2>&1 || true
     sleep 2
-    if kill -0 "$CONCH_PID" >/dev/null 2>&1; then
-      kill -9 "$CONCH_PID" >/dev/null 2>&1 || true
+    if kill -0 "$TERMLAB_PID" >/dev/null 2>&1; then
+      kill -9 "$TERMLAB_PID" >/dev/null 2>&1 || true
     fi
   fi
 
@@ -172,13 +172,13 @@ cleanup() {
 }
 trap cleanup EXIT
 
-SYSTEM_PATH="$INTELLIJ_ROOT/system/conch"
+SYSTEM_PATH="$INTELLIJ_ROOT/system/termlab"
 
-find_conch_pid() {
+find_termlab_pid() {
   ps -axo pid=,command= \
     | awk -v system_path="$SYSTEM_PATH" '
         $0 ~ /com\.intellij\.idea\.Main/ &&
-        $0 ~ /idea\.platform\.prefix=Conch/ &&
+        $0 ~ /idea\.platform\.prefix=TermLab/ &&
         index($0, system_path) > 0 {
           print $1
         }
@@ -186,27 +186,27 @@ find_conch_pid() {
     | tail -n 1
 }
 
-echo "==> Launching Conch for idle benchmark"
+echo "==> Launching TermLab for idle benchmark"
 echo "    repo:       $REPO_ROOT"
 echo "    intellij:   $INTELLIJ_ROOT"
 echo "    workspace:  $WORKSPACE"
 echo "    output:     $RUN_DIR"
 
-INTELLIJ_ROOT="$INTELLIJ_ROOT" CONCH_WORKSPACE="$WORKSPACE" make -C "$REPO_ROOT" conch >"$RUN_LOG" 2>&1 &
+INTELLIJ_ROOT="$INTELLIJ_ROOT" TERMLAB_WORKSPACE="$WORKSPACE" make -C "$REPO_ROOT" termlab >"$RUN_LOG" 2>&1 &
 LAUNCHER_PID=$!
 
 STARTUP_TIMEOUT=1800
 START_WAIT=0
 while [[ "$START_WAIT" -lt "$STARTUP_TIMEOUT" ]]; do
   if ! kill -0 "$LAUNCHER_PID" >/dev/null 2>&1; then
-    echo "ERROR: make conch exited before Conch JVM was discovered." >&2
+    echo "ERROR: make termlab exited before TermLab JVM was discovered." >&2
     echo "See log: $RUN_LOG" >&2
     exit 1
   fi
 
-  CANDIDATE_PID="$(find_conch_pid || true)"
+  CANDIDATE_PID="$(find_termlab_pid || true)"
   if [[ -n "$CANDIDATE_PID" ]]; then
-    CONCH_PID="$CANDIDATE_PID"
+    TERMLAB_PID="$CANDIDATE_PID"
     break
   fi
 
@@ -214,18 +214,18 @@ while [[ "$START_WAIT" -lt "$STARTUP_TIMEOUT" ]]; do
   START_WAIT=$((START_WAIT + 2))
 done
 
-if [[ -z "$CONCH_PID" ]]; then
-  echo "ERROR: timed out waiting for Conch JVM pid discovery." >&2
+if [[ -z "$TERMLAB_PID" ]]; then
+  echo "ERROR: timed out waiting for TermLab JVM pid discovery." >&2
   echo "See log: $RUN_LOG" >&2
   exit 1
 fi
 
-echo "==> Conch JVM pid: $CONCH_PID"
+echo "==> TermLab JVM pid: $TERMLAB_PID"
 echo "==> Warmup: ${WARMUP_SEC}s"
 sleep "$WARMUP_SEC"
 
-if ! kill -0 "$CONCH_PID" >/dev/null 2>&1; then
-  echo "ERROR: Conch JVM exited during warmup." >&2
+if ! kill -0 "$TERMLAB_PID" >/dev/null 2>&1; then
+  echo "ERROR: TermLab JVM exited during warmup." >&2
   echo "See log: $RUN_LOG" >&2
   exit 1
 fi
@@ -239,15 +239,15 @@ MAX_CPU="0"
 FIRST_TS="$(date +%s)"
 
 for ((i = 1; i <= SAMPLE_COUNT; i++)); do
-  if ! kill -0 "$CONCH_PID" >/dev/null 2>&1; then
-    echo "ERROR: Conch JVM exited during sampling." >&2
+  if ! kill -0 "$TERMLAB_PID" >/dev/null 2>&1; then
+    echo "ERROR: TermLab JVM exited during sampling." >&2
     echo "See log: $RUN_LOG" >&2
     exit 1
   fi
 
-  LINE="$(ps -p "$CONCH_PID" -o rss=,%cpu=,vsz= | awk '{$1=$1; print}')"
+  LINE="$(ps -p "$TERMLAB_PID" -o rss=,%cpu=,vsz= | awk '{$1=$1; print}')"
   if [[ -z "$LINE" ]]; then
-    echo "ERROR: failed to sample pid $CONCH_PID." >&2
+    echo "ERROR: failed to sample pid $TERMLAB_PID." >&2
     exit 1
   fi
 
@@ -280,11 +280,11 @@ AVG_RSS_MB="$(awk -v kb="$AVG_RSS_KB" 'BEGIN { printf "%.3f", kb / 1024.0 }')"
 MAX_RSS_MB="$(awk -v kb="$MAX_RSS_KB" 'BEGIN { printf "%.3f", kb / 1024.0 }')"
 AVG_CPU="$(awk -v sum="$CPU_SUM" -v n="$SAMPLE_COUNT" 'BEGIN { printf "%.3f", sum / n }')"
 
-jcmd "$CONCH_PID" VM.native_memory summary > "$NMT_FILE" 2>&1 || true
-jcmd "$CONCH_PID" GC.heap_info > "$HEAP_FILE" 2>&1 || true
-jcmd "$CONCH_PID" VM.flags > "$FLAGS_FILE" 2>&1 || true
-jcmd "$CONCH_PID" Thread.print -l > "$THREAD_FILE" 2>&1 || true
-jcmd "$CONCH_PID" GC.class_histogram > "$CLASS_HISTO_FILE" 2>&1 || true
+jcmd "$TERMLAB_PID" VM.native_memory summary > "$NMT_FILE" 2>&1 || true
+jcmd "$TERMLAB_PID" GC.heap_info > "$HEAP_FILE" 2>&1 || true
+jcmd "$TERMLAB_PID" VM.flags > "$FLAGS_FILE" 2>&1 || true
+jcmd "$TERMLAB_PID" Thread.print -l > "$THREAD_FILE" 2>&1 || true
+jcmd "$TERMLAB_PID" GC.class_histogram > "$CLASS_HISTO_FILE" 2>&1 || true
 
 STAGE_A_PASS=false
 STAGE_B_PASS=false
@@ -298,7 +298,7 @@ fi
 cat > "$SUMMARY_ENV" <<ENV
 run_id=$RUN_ID
 run_dir=$RUN_DIR
-pid=$CONCH_PID
+pid=$TERMLAB_PID
 sample_count=$SAMPLE_COUNT
 avg_rss_kb=$AVG_RSS_KB
 avg_rss_mb=$AVG_RSS_MB
@@ -369,7 +369,7 @@ cat > "$SUMMARY_JSON" <<JSON
     "vm_flags": "$FLAGS_FILE",
     "thread_print": "$THREAD_FILE",
     "class_histogram": "$CLASS_HISTO_FILE",
-    "conch_log": "$RUN_LOG"
+    "termlab_log": "$RUN_LOG"
   }
 }
 JSON

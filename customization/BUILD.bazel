@@ -8,7 +8,7 @@ resourcegroup(
 
 jvm_library(
     name = "customization",
-    module_name = "intellij.conch.customization",
+    module_name = "intellij.termlab.customization",
     visibility = ["//visibility:public"],
     srcs = glob(["src/**/*.java"], allow_empty = True),
     resources = [":customization_resources"],
@@ -18,4 +18,4 @@ jvm_library(
     ],
 )
 
-exports_files(["intellij.conch.customization.iml"], visibility = ["//visibility:public"])
+exports_files(["intellij.termlab.customization.iml"], visibility = ["//visibility:public"])

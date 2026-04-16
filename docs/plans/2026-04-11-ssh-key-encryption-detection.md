@@ -15,16 +15,16 @@
 ## File Structure
 
 **New files:**
-- `plugins/ssh/src/com/conch/ssh/client/KeyFileInspector.java` — static utility with a single `inspect(Path) → Encryption` method. Lives next to `ConchSshClient` because it shares MINA-parser concerns with the rest of the `client/` package.
-- `plugins/ssh/test/com/conch/ssh/client/KeyFileInspectorTest.java` — four test cases covering unencrypted / encrypted / missing / garbage. Fixture key content is embedded as text-block constants inside the test file.
+- `plugins/ssh/src/com/termlab/ssh/client/KeyFileInspector.java` — static utility with a single `inspect(Path) → Encryption` method. Lives next to `TermLabSshClient` because it shares MINA-parser concerns with the rest of the `client/` package.
+- `plugins/ssh/test/com/termlab/ssh/client/KeyFileInspectorTest.java` — four test cases covering unencrypted / encrypted / missing / garbage. Fixture key content is embedded as text-block constants inside the test file.
 
 **Modified files:**
-- `plugins/ssh/src/com/conch/ssh/provider/SshSessionProvider.java` — `keyFileSource` method rewritten to call the inspector and branch on the outcome.
-- `plugins/ssh/src/com/conch/ssh/ui/InlineCredentialPromptDialog.java` — drop the "Leave blank if the key is unencrypted" hint string from `promptPassphrase` (pass `null` instead).
+- `plugins/ssh/src/com/termlab/ssh/provider/SshSessionProvider.java` — `keyFileSource` method rewritten to call the inspector and branch on the outcome.
+- `plugins/ssh/src/com/termlab/ssh/ui/InlineCredentialPromptDialog.java` — drop the "Leave blank if the key is unencrypted" hint string from `promptPassphrase` (pass `null` instead).
 
 **Unchanged (confirmed by reading the spec scope section):**
 - `SshCredentialResolver`, `SshCredentialPicker` — vault-resolved key flows are untouched.
-- `ConchSshClient` — the real MINA load path is unchanged.
+- `TermLabSshClient` — the real MINA load path is unchanged.
 - `HostEditDialog` — still writes `KeyFileAuth(path)` on save.
 - `SshHost`, `SshAuth`, all model types — no data-model changes.
 
@@ -32,17 +32,17 @@
 
 ## Build & test commands
 
-From `/Users/dustin/projects/conch_workbench`:
+From `/Users/dustin/projects/termlab_workbench`:
 
 ```bash
-# Compile the whole conch product:
-make conch-build
+# Compile the whole termlab product:
+make termlab-build
 
 # Run the SSH plugin test suite:
-cd /Users/dustin/projects/intellij-community && bash bazel.cmd run //conch/plugins/ssh:ssh_test_runner
+cd /Users/dustin/projects/intellij-community && bash bazel.cmd run //termlab/plugins/ssh:ssh_test_runner
 
 # Compile just the ssh test lib (faster feedback):
-cd /Users/dustin/projects/intellij-community && bash bazel.cmd build //conch/plugins/ssh:ssh_test_lib
+cd /Users/dustin/projects/intellij-community && bash bazel.cmd build //termlab/plugins/ssh:ssh_test_lib
 ```
 
 Baseline before this plan starts: 83 tests passing (from the preceding inline-auth plan).
@@ -54,15 +54,15 @@ Baseline before this plan starts: 83 tests passing (from the preceding inline-au
 TDD — write the failing tests first, then the implementation. The tests own the fixture key content.
 
 **Files:**
-- Create: `plugins/ssh/src/com/conch/ssh/client/KeyFileInspector.java`
-- Create: `plugins/ssh/test/com/conch/ssh/client/KeyFileInspectorTest.java`
+- Create: `plugins/ssh/src/com/termlab/ssh/client/KeyFileInspector.java`
+- Create: `plugins/ssh/test/com/termlab/ssh/client/KeyFileInspectorTest.java`
 
 - [ ] **Step 1: Write the failing test file**
 
-Create `plugins/ssh/test/com/conch/ssh/client/KeyFileInspectorTest.java` with this exact content. The two text-block constants at the bottom are real Ed25519 private keys produced by `ssh-keygen -t ed25519` — the encrypted one uses passphrase `test-passphrase`. They're throwaway keys, never used as real credentials, so committing them is harmless.
+Create `plugins/ssh/test/com/termlab/ssh/client/KeyFileInspectorTest.java` with this exact content. The two text-block constants at the bottom are real Ed25519 private keys produced by `ssh-keygen -t ed25519` — the encrypted one uses passphrase `test-passphrase`. They're throwaway keys, never used as real credentials, so committing them is harmless.
 
 ```java
-package com.conch.ssh.client;
+package com.termlab.ssh.client;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -140,7 +140,7 @@ class KeyFileInspectorTest {
 - [ ] **Step 2: Run to confirm failure**
 
 ```bash
-cd /Users/dustin/projects/intellij-community && bash bazel.cmd build //conch/plugins/ssh:ssh_test_lib 2>&1 | tail -15
+cd /Users/dustin/projects/intellij-community && bash bazel.cmd build //termlab/plugins/ssh:ssh_test_lib 2>&1 | tail -15
 ```
 
 Expected: compilation error `cannot find symbol: class KeyFileInspector`. This proves the test is wired up and that the class doesn't exist yet.
@@ -148,7 +148,7 @@ Expected: compilation error `cannot find symbol: class KeyFileInspector`. This p
 - [ ] **Step 3: Create `KeyFileInspector.java`**
 
 ```java
-package com.conch.ssh.client;
+package com.termlab.ssh.client;
 
 import org.apache.sshd.common.NamedResource;
 import org.apache.sshd.common.config.keys.FilePasswordProvider;
@@ -181,7 +181,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
  *       caller decides how to handle an unreadable or malformed file.</li>
  * </ol>
  *
- * <p>This is the same parser {@code ConchSshClient.connect} uses for the
+ * <p>This is the same parser {@code TermLabSshClient.connect} uses for the
  * real load, so by construction the detection can't disagree with what
  * the subsequent load will do.
  */
@@ -236,7 +236,7 @@ public final class KeyFileInspector {
 - [ ] **Step 4: Run the tests to verify they pass**
 
 ```bash
-cd /Users/dustin/projects/intellij-community && bash bazel.cmd run //conch/plugins/ssh:ssh_test_runner 2>&1 | tail -20
+cd /Users/dustin/projects/intellij-community && bash bazel.cmd run //termlab/plugins/ssh:ssh_test_runner 2>&1 | tail -20
 ```
 
 Expected: 87/87 passing (83 pre-existing + 4 new `KeyFileInspectorTest` tests).
@@ -250,9 +250,9 @@ If any of the four new tests fail:
 - [ ] **Step 5: Commit**
 
 ```bash
-cd /Users/dustin/projects/conch_workbench
-git add plugins/ssh/src/com/conch/ssh/client/KeyFileInspector.java \
-        plugins/ssh/test/com/conch/ssh/client/KeyFileInspectorTest.java
+cd /Users/dustin/projects/termlab_workbench
+git add plugins/ssh/src/com/termlab/ssh/client/KeyFileInspector.java \
+        plugins/ssh/test/com/termlab/ssh/client/KeyFileInspectorTest.java
 git commit -m "$(cat <<'EOF'
 feat(ssh): add KeyFileInspector to detect encrypted key files
 
@@ -275,11 +275,11 @@ EOF
 Replace the current "always prompt" behavior with a branch on the inspector result.
 
 **Files:**
-- Modify: `plugins/ssh/src/com/conch/ssh/provider/SshSessionProvider.java`
+- Modify: `plugins/ssh/src/com/termlab/ssh/provider/SshSessionProvider.java`
 
 - [ ] **Step 1: Read the current `keyFileSource` method**
 
-Open `plugins/ssh/src/com/conch/ssh/provider/SshSessionProvider.java` and locate the `keyFileSource` method. It currently looks like this:
+Open `plugins/ssh/src/com/termlab/ssh/provider/SshSessionProvider.java` and locate the `keyFileSource` method. It currently looks like this:
 
 ```java
 private static @Nullable SshResolvedCredential keyFileSource(
@@ -335,15 +335,15 @@ private static @Nullable SshResolvedCredential keyFileSource(
 
 - [ ] **Step 3: Add the missing import**
 
-At the top of `SshSessionProvider.java`, add `import com.conch.ssh.client.KeyFileInspector;` to the existing `com.conch.ssh.client.*` import block. It should land between `ConchSshClient` and the other client imports alphabetically:
+At the top of `SshSessionProvider.java`, add `import com.termlab.ssh.client.KeyFileInspector;` to the existing `com.termlab.ssh.client.*` import block. It should land between `TermLabSshClient` and the other client imports alphabetically:
 
 ```java
-import com.conch.ssh.client.ConchServerKeyVerifier;
-import com.conch.ssh.client.ConchSshClient;
-import com.conch.ssh.client.KeyFileInspector;
-import com.conch.ssh.client.SshConnectException;
-import com.conch.ssh.client.SshConnection;
-import com.conch.ssh.client.SshResolvedCredential;
+import com.termlab.ssh.client.TermLabServerKeyVerifier;
+import com.termlab.ssh.client.TermLabSshClient;
+import com.termlab.ssh.client.KeyFileInspector;
+import com.termlab.ssh.client.SshConnectException;
+import com.termlab.ssh.client.SshConnection;
+import com.termlab.ssh.client.SshResolvedCredential;
 ```
 
 Also add `import java.io.IOException;` to the `java.*` imports block if it isn't already present.
@@ -351,7 +351,7 @@ Also add `import java.io.IOException;` to the `java.*` imports block if it isn't
 - [ ] **Step 4: Build**
 
 ```bash
-cd /Users/dustin/projects/conch_workbench && make conch-build 2>&1 | tail -15
+cd /Users/dustin/projects/termlab_workbench && make termlab-build 2>&1 | tail -15
 ```
 
 Expected: `Build completed successfully`. If the build fails with `cannot find symbol: IOException`, it's because the import is missing — add it to the `java.io` imports block.
@@ -359,7 +359,7 @@ Expected: `Build completed successfully`. If the build fails with `cannot find s
 - [ ] **Step 5: Run the test suite (regression check)**
 
 ```bash
-cd /Users/dustin/projects/intellij-community && bash bazel.cmd run //conch/plugins/ssh:ssh_test_runner 2>&1 | tail -20
+cd /Users/dustin/projects/intellij-community && bash bazel.cmd run //termlab/plugins/ssh:ssh_test_runner 2>&1 | tail -20
 ```
 
 Expected: 87/87 passing — same count as after Task 1. No new unit tests here; the dispatch logic is exercised by the existing `KeyFileInspectorTest` plus the manual smoke test in Task 4.
@@ -367,8 +367,8 @@ Expected: 87/87 passing — same count as after Task 1. No new unit tests here; 
 - [ ] **Step 6: Commit**
 
 ```bash
-cd /Users/dustin/projects/conch_workbench
-git add plugins/ssh/src/com/conch/ssh/provider/SshSessionProvider.java
+cd /Users/dustin/projects/termlab_workbench
+git add plugins/ssh/src/com/termlab/ssh/provider/SshSessionProvider.java
 git commit -m "$(cat <<'EOF'
 feat(ssh): skip passphrase prompt for unencrypted key files
 
@@ -391,11 +391,11 @@ EOF
 The passphrase dialog no longer gets shown for unencrypted keys, so the hint is stale.
 
 **Files:**
-- Modify: `plugins/ssh/src/com/conch/ssh/ui/InlineCredentialPromptDialog.java`
+- Modify: `plugins/ssh/src/com/termlab/ssh/ui/InlineCredentialPromptDialog.java`
 
 - [ ] **Step 1: Read the current `promptPassphrase` method**
 
-Open `plugins/ssh/src/com/conch/ssh/ui/InlineCredentialPromptDialog.java` and find the `promptPassphrase` factory. It currently reads:
+Open `plugins/ssh/src/com/termlab/ssh/ui/InlineCredentialPromptDialog.java` and find the `promptPassphrase` factory. It currently reads:
 
 ```java
 public static char @Nullable [] promptPassphrase(
@@ -438,8 +438,8 @@ No other changes to the file — the constructor and `createCenterPanel` already
 - [ ] **Step 3: Build and run tests**
 
 ```bash
-cd /Users/dustin/projects/conch_workbench && make conch-build 2>&1 | tail -10
-cd /Users/dustin/projects/intellij-community && bash bazel.cmd run //conch/plugins/ssh:ssh_test_runner 2>&1 | tail -10
+cd /Users/dustin/projects/termlab_workbench && make termlab-build 2>&1 | tail -10
+cd /Users/dustin/projects/intellij-community && bash bazel.cmd run //termlab/plugins/ssh:ssh_test_runner 2>&1 | tail -10
 ```
 
 Expected: build succeeds, 87/87 passing.
@@ -447,8 +447,8 @@ Expected: build succeeds, 87/87 passing.
 - [ ] **Step 4: Commit**
 
 ```bash
-cd /Users/dustin/projects/conch_workbench
-git add plugins/ssh/src/com/conch/ssh/ui/InlineCredentialPromptDialog.java
+cd /Users/dustin/projects/termlab_workbench
+git add plugins/ssh/src/com/termlab/ssh/ui/InlineCredentialPromptDialog.java
 git commit -m "$(cat <<'EOF'
 feat(ssh): drop stale 'leave blank if unencrypted' hint from passphrase prompt
 
@@ -469,7 +469,7 @@ Not code — checklist. Block merging until every item passes.
 - [ ] **Step 1: Run the full test suite**
 
 ```bash
-cd /Users/dustin/projects/intellij-community && bash bazel.cmd run //conch/plugins/ssh:ssh_test_runner 2>&1 | tail -20
+cd /Users/dustin/projects/intellij-community && bash bazel.cmd run //termlab/plugins/ssh:ssh_test_runner 2>&1 | tail -20
 ```
 
 Expected: 87/87 passing.
@@ -477,7 +477,7 @@ Expected: 87/87 passing.
 - [ ] **Step 2: Build the full product**
 
 ```bash
-cd /Users/dustin/projects/conch_workbench && make conch-build 2>&1 | tail -15
+cd /Users/dustin/projects/termlab_workbench && make termlab-build 2>&1 | tail -15
 ```
 
 Expected: `Build completed successfully`.
@@ -485,7 +485,7 @@ Expected: `Build completed successfully`.
 - [ ] **Step 3: Manual smoke test — unencrypted key skips the prompt**
 
 ```bash
-cd /Users/dustin/projects/conch_workbench && make conch
+cd /Users/dustin/projects/termlab_workbench && make termlab
 ```
 
 Generate an unencrypted throwaway key:
@@ -500,7 +500,7 @@ Add it to your own machine's `~/.ssh/authorized_keys` so the key actually author
 cat /tmp/smoke_unenc.pub >> ~/.ssh/authorized_keys
 ```
 
-1. In the running Conch, open the Hosts tool window.
+1. In the running TermLab, open the Hosts tool window.
 2. Add a host: label "localhost unencrypted", host `127.0.0.1`, port `22`, username `$USER`, auth method "SSH key file", path `/tmp/smoke_unenc`.
 3. Double-click the host.
 4. **Expected:** no passphrase dialog appears. The "Connecting to …" progress indicator pops, then a local shell via SSH.
@@ -516,7 +516,7 @@ ssh-keygen -t ed25519 -f /tmp/smoke_enc -N 'smoke-passphrase' -q -C smoke-test
 cat /tmp/smoke_enc.pub >> ~/.ssh/authorized_keys
 ```
 
-1. In Conch, add another host: label "localhost encrypted", path `/tmp/smoke_enc`, other fields the same.
+1. In TermLab, add another host: label "localhost encrypted", path `/tmp/smoke_enc`, other fields the same.
 2. Double-click.
 3. **Expected:** passphrase prompt appears with title "SSH Key Passphrase" and body "Passphrase for /tmp/smoke_enc (user@127.0.0.1)". No "leave blank" hint. Enter `smoke-passphrase`. Connect succeeds.
 4. Close the tab.

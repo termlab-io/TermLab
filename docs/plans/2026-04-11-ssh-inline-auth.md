@@ -15,51 +15,51 @@
 ## File Structure
 
 **New files:**
-- `plugins/ssh/src/com/conch/ssh/model/SshAuth.java` — sealed interface with `permits VaultAuth, PromptPasswordAuth, KeyFileAuth`.
-- `plugins/ssh/src/com/conch/ssh/model/VaultAuth.java` — record variant pointing at a saved vault credential id (nullable).
-- `plugins/ssh/src/com/conch/ssh/model/PromptPasswordAuth.java` — empty record marker for "prompt every connect".
-- `plugins/ssh/src/com/conch/ssh/model/KeyFileAuth.java` — record carrying a non-null `keyFilePath`.
-- `plugins/ssh/src/com/conch/ssh/ui/InlineCredentialPromptDialog.java` — thin `DialogWrapper` with `promptPassword` and `promptPassphrase` static factories, both returning a `char[]` on OK.
-- `plugins/ssh/test/com/conch/ssh/persistence/SshAuthJsonTest.java` — round-trip every `SshAuth` variant + legacy-shape assertion.
-- `plugins/ssh/test/com/conch/ssh/persistence/HostsFileLegacyMigrationTest.java` — asserts a hand-written legacy JSON file loads as `VaultAuth`, and that re-saving produces the new shape with no legacy field.
+- `plugins/ssh/src/com/termlab/ssh/model/SshAuth.java` — sealed interface with `permits VaultAuth, PromptPasswordAuth, KeyFileAuth`.
+- `plugins/ssh/src/com/termlab/ssh/model/VaultAuth.java` — record variant pointing at a saved vault credential id (nullable).
+- `plugins/ssh/src/com/termlab/ssh/model/PromptPasswordAuth.java` — empty record marker for "prompt every connect".
+- `plugins/ssh/src/com/termlab/ssh/model/KeyFileAuth.java` — record carrying a non-null `keyFilePath`.
+- `plugins/ssh/src/com/termlab/ssh/ui/InlineCredentialPromptDialog.java` — thin `DialogWrapper` with `promptPassword` and `promptPassphrase` static factories, both returning a `char[]` on OK.
+- `plugins/ssh/test/com/termlab/ssh/persistence/SshAuthJsonTest.java` — round-trip every `SshAuth` variant + legacy-shape assertion.
+- `plugins/ssh/test/com/termlab/ssh/persistence/HostsFileLegacyMigrationTest.java` — asserts a hand-written legacy JSON file loads as `VaultAuth`, and that re-saving produces the new shape with no legacy field.
 
 **Modified files:**
-- `plugins/ssh/src/com/conch/ssh/model/SshHost.java` — record loses `credentialId`, gains `SshAuth auth`. `create` / `withEdited` / `withAuth` updated. `withCredentialId` deleted.
-- `plugins/ssh/src/com/conch/ssh/persistence/SshGson.java` — registers `SshAuthSerializer` + `SshAuthDeserializer`.
-- `plugins/ssh/src/com/conch/ssh/persistence/HostsFile.java` — pre-deserialize legacy migration on each host entry.
-- `plugins/ssh/src/com/conch/ssh/credentials/SshCredentialResolver.java` — `resolve(SshHost)` becomes `resolve(UUID credentialId, String fallbackUsername)`. Standalone-key username fallback moves to the new signature.
-- `plugins/ssh/src/com/conch/ssh/provider/SshSessionProvider.java` — `createSession` dispatches on `host.auth()`, `connectWithRetry` takes a `Retrier` instead of the raw picker.
-- `plugins/ssh/src/com/conch/ssh/ui/HostEditDialog.java` — replaces the single credential combo with a radio group (Vault / Password / SSH key file) and contextual fields per radio.
-- `plugins/ssh/src/com/conch/ssh/toolwindow/HostsToolWindow.java` — `duplicateSelected` uses `selected.auth()` in place of `selected.credentialId()`.
-- `plugins/ssh/test/com/conch/ssh/model/SshHostTest.java` — asserts against `auth()` and the new `withAuth` / `withEdited` signatures.
-- `plugins/ssh/test/com/conch/ssh/persistence/HostsFileTest.java` — asserts against `auth()` instead of `credentialId()`.
-- `plugins/ssh/test/com/conch/ssh/credentials/SshCredentialResolverTest.java` — rewritten against the new `resolve(UUID, String)` signature.
+- `plugins/ssh/src/com/termlab/ssh/model/SshHost.java` — record loses `credentialId`, gains `SshAuth auth`. `create` / `withEdited` / `withAuth` updated. `withCredentialId` deleted.
+- `plugins/ssh/src/com/termlab/ssh/persistence/SshGson.java` — registers `SshAuthSerializer` + `SshAuthDeserializer`.
+- `plugins/ssh/src/com/termlab/ssh/persistence/HostsFile.java` — pre-deserialize legacy migration on each host entry.
+- `plugins/ssh/src/com/termlab/ssh/credentials/SshCredentialResolver.java` — `resolve(SshHost)` becomes `resolve(UUID credentialId, String fallbackUsername)`. Standalone-key username fallback moves to the new signature.
+- `plugins/ssh/src/com/termlab/ssh/provider/SshSessionProvider.java` — `createSession` dispatches on `host.auth()`, `connectWithRetry` takes a `Retrier` instead of the raw picker.
+- `plugins/ssh/src/com/termlab/ssh/ui/HostEditDialog.java` — replaces the single credential combo with a radio group (Vault / Password / SSH key file) and contextual fields per radio.
+- `plugins/ssh/src/com/termlab/ssh/toolwindow/HostsToolWindow.java` — `duplicateSelected` uses `selected.auth()` in place of `selected.credentialId()`.
+- `plugins/ssh/test/com/termlab/ssh/model/SshHostTest.java` — asserts against `auth()` and the new `withAuth` / `withEdited` signatures.
+- `plugins/ssh/test/com/termlab/ssh/persistence/HostsFileTest.java` — asserts against `auth()` instead of `credentialId()`.
+- `plugins/ssh/test/com/termlab/ssh/credentials/SshCredentialResolverTest.java` — rewritten against the new `resolve(UUID, String)` signature.
 
 **Unchanged files (confirmed by reading the spec scope line):**
-- `plugins/ssh/src/com/conch/ssh/client/*` (except the resolver above): no changes
-- `plugins/ssh/src/com/conch/ssh/credentials/SshCredentialPicker.java`: no changes
-- `plugins/ssh/src/com/conch/ssh/palette/HostsPaletteContributor.java`: reads only label/host/port/username, doesn't touch credentials
-- `plugins/ssh/src/com/conch/ssh/actions/*`: route on label/host, no credential fields read
+- `plugins/ssh/src/com/termlab/ssh/client/*` (except the resolver above): no changes
+- `plugins/ssh/src/com/termlab/ssh/credentials/SshCredentialPicker.java`: no changes
+- `plugins/ssh/src/com/termlab/ssh/palette/HostsPaletteContributor.java`: reads only label/host/port/username, doesn't touch credentials
+- `plugins/ssh/src/com/termlab/ssh/actions/*`: route on label/host, no credential fields read
 - `plugins/ssh/resources/META-INF/plugin.xml`: no registration changes
 
 ---
 
 ## Build & test commands
 
-Project uses Bazel via a Makefile wrapper. From `/Users/dustin/projects/conch_workbench`:
+Project uses Bazel via a Makefile wrapper. From `/Users/dustin/projects/termlab_workbench`:
 
 ```bash
-# Compile the whole conch product (catches cross-plugin breakage fast):
-make conch-build
+# Compile the whole termlab product (catches cross-plugin breakage fast):
+make termlab-build
 
 # Run the SSH plugin's JUnit 5 suite (74 tests as of plan authoring):
-cd /Users/dustin/projects/intellij-community && bash bazel.cmd run //conch/plugins/ssh:ssh_test_runner
+cd /Users/dustin/projects/intellij-community && bash bazel.cmd run //termlab/plugins/ssh:ssh_test_runner
 
 # Run the ssh lib build in isolation (faster feedback than the full product):
-cd /Users/dustin/projects/intellij-community && bash bazel.cmd build //conch/plugins/ssh:ssh
+cd /Users/dustin/projects/intellij-community && bash bazel.cmd build //termlab/plugins/ssh:ssh
 ```
 
-Cited throughout the plan as `make conch-build` and `ssh_test_runner`.
+Cited throughout the plan as `make termlab-build` and `ssh_test_runner`.
 
 ---
 
@@ -68,21 +68,21 @@ Cited throughout the plan as `make conch-build` and `ssh_test_runner`.
 This task is purely additive — no existing file changes, no API breakage. The adapter is exercised by unit tests directly; production code starts using `SshAuth` in Task 2.
 
 **Files:**
-- Create: `plugins/ssh/src/com/conch/ssh/model/SshAuth.java`
-- Modify: `plugins/ssh/src/com/conch/ssh/persistence/SshGson.java`
-- Create: `plugins/ssh/test/com/conch/ssh/persistence/SshAuthJsonTest.java`
+- Create: `plugins/ssh/src/com/termlab/ssh/model/SshAuth.java`
+- Modify: `plugins/ssh/src/com/termlab/ssh/persistence/SshGson.java`
+- Create: `plugins/ssh/test/com/termlab/ssh/persistence/SshAuthJsonTest.java`
 
 - [ ] **Step 1: Write the failing test**
 
-Create `plugins/ssh/test/com/conch/ssh/persistence/SshAuthJsonTest.java`:
+Create `plugins/ssh/test/com/termlab/ssh/persistence/SshAuthJsonTest.java`:
 
 ```java
-package com.conch.ssh.persistence;
+package com.termlab.ssh.persistence;
 
-import com.conch.ssh.model.KeyFileAuth;
-import com.conch.ssh.model.PromptPasswordAuth;
-import com.conch.ssh.model.SshAuth;
-import com.conch.ssh.model.VaultAuth;
+import com.termlab.ssh.model.KeyFileAuth;
+import com.termlab.ssh.model.PromptPasswordAuth;
+import com.termlab.ssh.model.SshAuth;
+import com.termlab.ssh.model.VaultAuth;
 import com.google.gson.JsonParseException;
 import org.junit.jupiter.api.Test;
 
@@ -147,7 +147,7 @@ class SshAuthJsonTest {
 - [ ] **Step 2: Run it to confirm it fails with "cannot find symbol" for the SshAuth types**
 
 ```bash
-cd /Users/dustin/projects/intellij-community && bash bazel.cmd build //conch/plugins/ssh:ssh_test_lib
+cd /Users/dustin/projects/intellij-community && bash bazel.cmd build //termlab/plugins/ssh:ssh_test_lib
 ```
 
 Expected: compilation error `cannot find symbol: class SshAuth` / `class VaultAuth` — proves we haven't defined them yet.
@@ -155,7 +155,7 @@ Expected: compilation error `cannot find symbol: class SshAuth` / `class VaultAu
 - [ ] **Step 3: Create `SshAuth.java`**
 
 ```java
-package com.conch.ssh.model;
+package com.termlab.ssh.model;
 
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -194,7 +194,7 @@ public sealed interface SshAuth permits VaultAuth, PromptPasswordAuth, KeyFileAu
 Now create `VaultAuth.java` in the same package:
 
 ```java
-package com.conch.ssh.model;
+package com.termlab.ssh.model;
 
 import org.jetbrains.annotations.Nullable;
 
@@ -218,7 +218,7 @@ public record VaultAuth(@Nullable UUID credentialId) implements SshAuth {
 Create `PromptPasswordAuth.java`:
 
 ```java
-package com.conch.ssh.model;
+package com.termlab.ssh.model;
 
 /**
  * Prompt the user for a password at every connect. The host carries no
@@ -233,7 +233,7 @@ public record PromptPasswordAuth() implements SshAuth {
 Create `KeyFileAuth.java`:
 
 ```java
-package com.conch.ssh.model;
+package com.termlab.ssh.model;
 
 import org.jetbrains.annotations.NotNull;
 
@@ -252,15 +252,15 @@ public record KeyFileAuth(@NotNull String keyFilePath) implements SshAuth {
 
 - [ ] **Step 4: Register the adapter in `SshGson.java`**
 
-Open `plugins/ssh/src/com/conch/ssh/persistence/SshGson.java` and replace its contents with:
+Open `plugins/ssh/src/com/termlab/ssh/persistence/SshGson.java` and replace its contents with:
 
 ```java
-package com.conch.ssh.persistence;
+package com.termlab.ssh.persistence;
 
-import com.conch.ssh.model.KeyFileAuth;
-import com.conch.ssh.model.PromptPasswordAuth;
-import com.conch.ssh.model.SshAuth;
-import com.conch.ssh.model.VaultAuth;
+import com.termlab.ssh.model.KeyFileAuth;
+import com.termlab.ssh.model.PromptPasswordAuth;
+import com.termlab.ssh.model.SshAuth;
+import com.termlab.ssh.model.VaultAuth;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonDeserializer;
@@ -370,7 +370,7 @@ final class SshGson {
 - [ ] **Step 5: Run the test to verify it passes**
 
 ```bash
-cd /Users/dustin/projects/intellij-community && bash bazel.cmd run //conch/plugins/ssh:ssh_test_runner
+cd /Users/dustin/projects/intellij-community && bash bazel.cmd run //termlab/plugins/ssh:ssh_test_runner
 ```
 
 Expected: all tests pass (the existing 74 + the 5 new `SshAuthJsonTest` tests = 79 total). If the legacy `SshHost`-dependent tests still use `credentialId`, they should still pass — we haven't changed `SshHost` yet.
@@ -378,13 +378,13 @@ Expected: all tests pass (the existing 74 + the 5 new `SshAuthJsonTest` tests = 
 - [ ] **Step 6: Commit**
 
 ```bash
-cd /Users/dustin/projects/conch_workbench
-git add plugins/ssh/src/com/conch/ssh/model/SshAuth.java \
-        plugins/ssh/src/com/conch/ssh/model/VaultAuth.java \
-        plugins/ssh/src/com/conch/ssh/model/PromptPasswordAuth.java \
-        plugins/ssh/src/com/conch/ssh/model/KeyFileAuth.java \
-        plugins/ssh/src/com/conch/ssh/persistence/SshGson.java \
-        plugins/ssh/test/com/conch/ssh/persistence/SshAuthJsonTest.java
+cd /Users/dustin/projects/termlab_workbench
+git add plugins/ssh/src/com/termlab/ssh/model/SshAuth.java \
+        plugins/ssh/src/com/termlab/ssh/model/VaultAuth.java \
+        plugins/ssh/src/com/termlab/ssh/model/PromptPasswordAuth.java \
+        plugins/ssh/src/com/termlab/ssh/model/KeyFileAuth.java \
+        plugins/ssh/src/com/termlab/ssh/persistence/SshGson.java \
+        plugins/ssh/test/com/termlab/ssh/persistence/SshAuthJsonTest.java
 git commit -m "$(cat <<'EOF'
 feat(ssh): introduce SshAuth sealed type + Gson adapter
 
@@ -403,26 +403,26 @@ EOF
 This is the load-bearing refactor. `SshHost` changes shape, and every direct consumer of `credentialId` has to move to `auth()` in the same commit (Java won't compile otherwise). The scope is bounded — I've read every caller; the list below is exhaustive.
 
 **Files:**
-- Modify: `plugins/ssh/src/com/conch/ssh/model/SshHost.java`
-- Modify: `plugins/ssh/src/com/conch/ssh/persistence/HostsFile.java`
-- Modify: `plugins/ssh/src/com/conch/ssh/credentials/SshCredentialResolver.java`
-- Modify: `plugins/ssh/src/com/conch/ssh/provider/SshSessionProvider.java`
-- Modify: `plugins/ssh/src/com/conch/ssh/ui/HostEditDialog.java`
-- Modify: `plugins/ssh/src/com/conch/ssh/toolwindow/HostsToolWindow.java`
-- Modify: `plugins/ssh/test/com/conch/ssh/model/SshHostTest.java`
-- Modify: `plugins/ssh/test/com/conch/ssh/persistence/HostsFileTest.java`
-- Modify: `plugins/ssh/test/com/conch/ssh/credentials/SshCredentialResolverTest.java`
-- Create: `plugins/ssh/test/com/conch/ssh/persistence/HostsFileLegacyMigrationTest.java`
+- Modify: `plugins/ssh/src/com/termlab/ssh/model/SshHost.java`
+- Modify: `plugins/ssh/src/com/termlab/ssh/persistence/HostsFile.java`
+- Modify: `plugins/ssh/src/com/termlab/ssh/credentials/SshCredentialResolver.java`
+- Modify: `plugins/ssh/src/com/termlab/ssh/provider/SshSessionProvider.java`
+- Modify: `plugins/ssh/src/com/termlab/ssh/ui/HostEditDialog.java`
+- Modify: `plugins/ssh/src/com/termlab/ssh/toolwindow/HostsToolWindow.java`
+- Modify: `plugins/ssh/test/com/termlab/ssh/model/SshHostTest.java`
+- Modify: `plugins/ssh/test/com/termlab/ssh/persistence/HostsFileTest.java`
+- Modify: `plugins/ssh/test/com/termlab/ssh/credentials/SshCredentialResolverTest.java`
+- Create: `plugins/ssh/test/com/termlab/ssh/persistence/HostsFileLegacyMigrationTest.java`
 
 - [ ] **Step 1: Write the failing legacy-migration test**
 
-Create `plugins/ssh/test/com/conch/ssh/persistence/HostsFileLegacyMigrationTest.java`:
+Create `plugins/ssh/test/com/termlab/ssh/persistence/HostsFileLegacyMigrationTest.java`:
 
 ```java
-package com.conch.ssh.persistence;
+package com.termlab.ssh.persistence;
 
-import com.conch.ssh.model.SshHost;
-import com.conch.ssh.model.VaultAuth;
+import com.termlab.ssh.model.SshHost;
+import com.termlab.ssh.model.VaultAuth;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import org.junit.jupiter.api.Test;
@@ -543,7 +543,7 @@ class HostsFileLegacyMigrationTest {
 - [ ] **Step 2: Run it to confirm the failure**
 
 ```bash
-cd /Users/dustin/projects/intellij-community && bash bazel.cmd build //conch/plugins/ssh:ssh_test_lib
+cd /Users/dustin/projects/intellij-community && bash bazel.cmd build //termlab/plugins/ssh:ssh_test_lib
 ```
 
 Expected: compilation error on `host.auth()` — proves we haven't swapped the `SshHost` field yet.
@@ -553,7 +553,7 @@ Expected: compilation error on `host.auth()` — proves we haven't swapped the `
 Replace the file contents with:
 
 ```java
-package com.conch.ssh.model;
+package com.termlab.ssh.model;
 
 import org.jetbrains.annotations.NotNull;
 
@@ -564,7 +564,7 @@ import java.util.UUID;
  * A saved SSH host.
  *
  * <p>Hostnames and ports aren't secrets — they live in plaintext under
- * {@code ~/.config/conch/ssh-hosts.json}, the same treatment
+ * {@code ~/.config/termlab/ssh-hosts.json}, the same treatment
  * {@code ~/.ssh/config} already gets. The {@link #auth} field carries
  * one of three variants:
  * <ul>
@@ -644,7 +644,7 @@ public record SshHost(
 Replace its contents with:
 
 ```java
-package com.conch.ssh.model;
+package com.termlab.ssh.model;
 
 import org.junit.jupiter.api.Test;
 
@@ -732,9 +732,9 @@ class SshHostTest {
 Replace its contents with:
 
 ```java
-package com.conch.ssh.persistence;
+package com.termlab.ssh.persistence;
 
-import com.conch.ssh.model.SshHost;
+import com.termlab.ssh.model.SshHost;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
@@ -764,7 +764,7 @@ import java.util.List;
  * <p>Atomic write: serialize → write to temp → rename. A crash mid-write
  * can never corrupt the existing file.
  *
- * <p><b>Legacy migration.</b> Before {@link com.conch.ssh.model.SshAuth}
+ * <p><b>Legacy migration.</b> Before {@link com.termlab.ssh.model.SshAuth}
  * existed, host entries carried a bare top-level {@code credentialId}
  * field. On load, {@link #load(Path)} rewrites any such entry into the
  * new {@code "auth": {"type": "vault", ...}} shape before handing the
@@ -847,7 +847,7 @@ public final class HostsFile {
     /**
      * Gson-friendly envelope type. Public fields so Gson can read/write
      * directly without reflection into private members — same pattern as
-     * ConchTerminalConfig.State and the vault settings.
+     * TermLabTerminalConfig.State and the vault settings.
      */
     static final class Envelope {
         int version;
@@ -874,18 +874,18 @@ Replace the test cases that reference `credentialId` (and the `SshHost.create` c
 - In `save_nullCredentialIdRoundTrips`:
   - Rename to `save_vaultAuthWithNullId_roundTrips`
   - Replace `assertNull(loaded.get(0).credentialId());` with `assertNull(((VaultAuth) loaded.get(0).auth()).credentialId());`
-- Add an import: `import com.conch.ssh.model.VaultAuth;`
+- Add an import: `import com.termlab.ssh.model.VaultAuth;`
 
 - [ ] **Step 7: Update `SshCredentialResolver.java` signature**
 
 Replace the file contents with:
 
 ```java
-package com.conch.ssh.credentials;
+package com.termlab.ssh.credentials;
 
-import com.conch.sdk.CredentialProvider;
-import com.conch.sdk.CredentialProvider.Credential;
-import com.conch.ssh.client.SshResolvedCredential;
+import com.termlab.sdk.CredentialProvider;
+import com.termlab.sdk.CredentialProvider.Credential;
+import com.termlab.ssh.client.SshResolvedCredential;
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.extensions.ExtensionPointName;
 import org.jetbrains.annotations.NotNull;
@@ -911,7 +911,7 @@ import java.util.UUID;
 public final class SshCredentialResolver {
 
     private static final ExtensionPointName<CredentialProvider> EP_NAME =
-        ExtensionPointName.create("com.conch.core.credentialProvider");
+        ExtensionPointName.create("com.termlab.core.credentialProvider");
 
     private final ProviderLookup providerLookup;
 
@@ -1021,10 +1021,10 @@ public final class SshCredentialResolver {
 The tests still cover the same behavior (vault lookup + username fallback), they just call the new signature. Replace the file contents with:
 
 ```java
-package com.conch.ssh.credentials;
+package com.termlab.ssh.credentials;
 
-import com.conch.sdk.CredentialProvider;
-import com.conch.ssh.client.SshResolvedCredential;
+import com.termlab.sdk.CredentialProvider;
+import com.termlab.ssh.client.SshResolvedCredential;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
@@ -1274,7 +1274,7 @@ SshCredentialPicker picker = new SshCredentialPicker();
 // still gets prompted, just via the full vault picker instead of the
 // inline dialog).
 SshResolvedCredential credential = null;
-if (host.auth() instanceof com.conch.ssh.model.VaultAuth vaultAuth
+if (host.auth() instanceof com.termlab.ssh.model.VaultAuth vaultAuth
     && vaultAuth.credentialId() != null) {
     credential = resolver.resolve(vaultAuth.credentialId(), host.username());
 }
@@ -1332,11 +1332,11 @@ protected void doOKAction() {
 }
 ```
 
-Add these imports at the top of the file (next to the existing `com.conch.ssh.model.SshHost` import):
+Add these imports at the top of the file (next to the existing `com.termlab.ssh.model.SshHost` import):
 
 ```java
-import com.conch.ssh.model.SshAuth;
-import com.conch.ssh.model.VaultAuth;
+import com.termlab.ssh.model.SshAuth;
+import com.termlab.ssh.model.VaultAuth;
 ```
 
 Also update `populateFromExisting` — find the block:
@@ -1402,7 +1402,7 @@ private void duplicateSelected() {
 - [ ] **Step 12: Run the full build to verify every caller compiles**
 
 ```bash
-cd /Users/dustin/projects/conch_workbench && make conch-build
+cd /Users/dustin/projects/termlab_workbench && make termlab-build
 ```
 
 Expected: `Build completed successfully`. If any other file still references `credentialId`, the compiler will name it — fix by replacing that read with `auth()` / `instanceof VaultAuth` as appropriate.
@@ -1410,7 +1410,7 @@ Expected: `Build completed successfully`. If any other file still references `cr
 - [ ] **Step 13: Run the test suite**
 
 ```bash
-cd /Users/dustin/projects/intellij-community && bash bazel.cmd run //conch/plugins/ssh:ssh_test_runner
+cd /Users/dustin/projects/intellij-community && bash bazel.cmd run //termlab/plugins/ssh:ssh_test_runner
 ```
 
 Expected: all tests pass. The three new migration tests now exercise the legacy path.
@@ -1418,17 +1418,17 @@ Expected: all tests pass. The three new migration tests now exercise the legacy 
 - [ ] **Step 14: Commit**
 
 ```bash
-cd /Users/dustin/projects/conch_workbench
-git add plugins/ssh/src/com/conch/ssh/model/SshHost.java \
-        plugins/ssh/src/com/conch/ssh/persistence/HostsFile.java \
-        plugins/ssh/src/com/conch/ssh/credentials/SshCredentialResolver.java \
-        plugins/ssh/src/com/conch/ssh/provider/SshSessionProvider.java \
-        plugins/ssh/src/com/conch/ssh/ui/HostEditDialog.java \
-        plugins/ssh/src/com/conch/ssh/toolwindow/HostsToolWindow.java \
-        plugins/ssh/test/com/conch/ssh/model/SshHostTest.java \
-        plugins/ssh/test/com/conch/ssh/persistence/HostsFileTest.java \
-        plugins/ssh/test/com/conch/ssh/persistence/HostsFileLegacyMigrationTest.java \
-        plugins/ssh/test/com/conch/ssh/credentials/SshCredentialResolverTest.java
+cd /Users/dustin/projects/termlab_workbench
+git add plugins/ssh/src/com/termlab/ssh/model/SshHost.java \
+        plugins/ssh/src/com/termlab/ssh/persistence/HostsFile.java \
+        plugins/ssh/src/com/termlab/ssh/credentials/SshCredentialResolver.java \
+        plugins/ssh/src/com/termlab/ssh/provider/SshSessionProvider.java \
+        plugins/ssh/src/com/termlab/ssh/ui/HostEditDialog.java \
+        plugins/ssh/src/com/termlab/ssh/toolwindow/HostsToolWindow.java \
+        plugins/ssh/test/com/termlab/ssh/model/SshHostTest.java \
+        plugins/ssh/test/com/termlab/ssh/persistence/HostsFileTest.java \
+        plugins/ssh/test/com/termlab/ssh/persistence/HostsFileLegacyMigrationTest.java \
+        plugins/ssh/test/com/termlab/ssh/credentials/SshCredentialResolverTest.java
 git commit -m "$(cat <<'EOF'
 refactor(ssh): SshHost.credentialId → SshHost.auth (SshAuth variant)
 
@@ -1449,14 +1449,14 @@ EOF
 Self-contained new file. No consumer yet — Task 4 wires it into the session provider.
 
 **Files:**
-- Create: `plugins/ssh/src/com/conch/ssh/ui/InlineCredentialPromptDialog.java`
+- Create: `plugins/ssh/src/com/termlab/ssh/ui/InlineCredentialPromptDialog.java`
 
 - [ ] **Step 1: Create the dialog**
 
 ```java
-package com.conch.ssh.ui;
+package com.termlab.ssh.ui;
 
-import com.conch.ssh.model.SshHost;
+import com.termlab.ssh.model.SshHost;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.ui.DialogWrapper;
 import com.intellij.openapi.ui.ValidationInfo;
@@ -1590,7 +1590,7 @@ public final class InlineCredentialPromptDialog extends DialogWrapper {
 - [ ] **Step 2: Verify the file compiles**
 
 ```bash
-cd /Users/dustin/projects/intellij-community && bash bazel.cmd build //conch/plugins/ssh:ssh
+cd /Users/dustin/projects/intellij-community && bash bazel.cmd build //termlab/plugins/ssh:ssh
 ```
 
 Expected: build succeeds.
@@ -1598,8 +1598,8 @@ Expected: build succeeds.
 - [ ] **Step 3: Commit**
 
 ```bash
-cd /Users/dustin/projects/conch_workbench
-git add plugins/ssh/src/com/conch/ssh/ui/InlineCredentialPromptDialog.java
+cd /Users/dustin/projects/termlab_workbench
+git add plugins/ssh/src/com/termlab/ssh/ui/InlineCredentialPromptDialog.java
 git commit -m "$(cat <<'EOF'
 feat(ssh): add InlineCredentialPromptDialog for prompt-at-connect auth
 
@@ -1619,30 +1619,30 @@ EOF
 Wires the new dialog into the connect flow. Vault path still goes through the existing resolver/picker; new variants go through the inline dialog.
 
 **Files:**
-- Modify: `plugins/ssh/src/com/conch/ssh/provider/SshSessionProvider.java`
+- Modify: `plugins/ssh/src/com/termlab/ssh/provider/SshSessionProvider.java`
 
 - [ ] **Step 1: Rewrite `SshSessionProvider.java`**
 
 Replace the file's contents with:
 
 ```java
-package com.conch.ssh.provider;
+package com.termlab.ssh.provider;
 
-import com.conch.sdk.TerminalSessionProvider;
-import com.conch.ssh.client.ConchServerKeyVerifier;
-import com.conch.ssh.client.ConchSshClient;
-import com.conch.ssh.client.SshConnectException;
-import com.conch.ssh.client.SshConnection;
-import com.conch.ssh.client.SshResolvedCredential;
-import com.conch.ssh.credentials.SshCredentialPicker;
-import com.conch.ssh.credentials.SshCredentialResolver;
-import com.conch.ssh.model.KeyFileAuth;
-import com.conch.ssh.model.PromptPasswordAuth;
-import com.conch.ssh.model.SshAuth;
-import com.conch.ssh.model.SshHost;
-import com.conch.ssh.model.VaultAuth;
-import com.conch.ssh.persistence.KnownHostsFile;
-import com.conch.ssh.ui.InlineCredentialPromptDialog;
+import com.termlab.sdk.TerminalSessionProvider;
+import com.termlab.ssh.client.TermLabServerKeyVerifier;
+import com.termlab.ssh.client.TermLabSshClient;
+import com.termlab.ssh.client.SshConnectException;
+import com.termlab.ssh.client.SshConnection;
+import com.termlab.ssh.client.SshResolvedCredential;
+import com.termlab.ssh.credentials.SshCredentialPicker;
+import com.termlab.ssh.credentials.SshCredentialResolver;
+import com.termlab.ssh.model.KeyFileAuth;
+import com.termlab.ssh.model.PromptPasswordAuth;
+import com.termlab.ssh.model.SshAuth;
+import com.termlab.ssh.model.SshHost;
+import com.termlab.ssh.model.VaultAuth;
+import com.termlab.ssh.persistence.KnownHostsFile;
+import com.termlab.ssh.ui.InlineCredentialPromptDialog;
 import com.intellij.icons.AllIcons;
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.progress.ProgressIndicator;
@@ -1658,8 +1658,8 @@ import java.nio.file.Path;
 
 /**
  * {@link TerminalSessionProvider} that opens SSH sessions via
- * {@link ConchSshClient}, renders them through the existing
- * {@code ConchTerminalEditor}, and dispatches on {@link SshAuth} to
+ * {@link TermLabSshClient}, renders them through the existing
+ * {@code TermLabTerminalEditor}, and dispatches on {@link SshAuth} to
  * choose how the credential for this host is sourced.
  *
  * <p>Flow on {@link #createSession(SessionContext)}:
@@ -1689,13 +1689,13 @@ import java.nio.file.Path;
  *       MITM-warning dialog fires and there is no "accept anyway" path.</li>
  * </ol>
  *
- * <p>Host-key verification is handled by {@link ConchServerKeyVerifier}
+ * <p>Host-key verification is handled by {@link TermLabServerKeyVerifier}
  * which consults {@link KnownHostsFile} and prompts the user on first
  * contact.
  */
 public final class SshSessionProvider implements TerminalSessionProvider {
 
-    public static final String ID = "com.conch.ssh";
+    public static final String ID = "com.termlab.ssh";
 
     @Override
     public @NotNull String getId() {
@@ -1803,7 +1803,7 @@ public final class SshSessionProvider implements TerminalSessionProvider {
         @NotNull SshResolvedCredential initialCredential,
         @NotNull AuthSource source
     ) {
-        ConchSshClient client = getClient();
+        TermLabSshClient client = getClient();
         SshResolvedCredential current = initialCredential;
         int attemptsLeft = 2;  // initial + one retry after AUTH_FAILED
 
@@ -1831,11 +1831,11 @@ public final class SshSessionProvider implements TerminalSessionProvider {
             if (kind == SshConnectException.Kind.HOST_KEY_REJECTED) {
                 Messages.showErrorDialog(
                     "Host key mismatch for " + host.host() + ":" + host.port() + ".\n\n"
-                        + "The remote host presented a different key than the one Conch "
+                        + "The remote host presented a different key than the one TermLab "
                         + "has on file. This may mean someone is intercepting your "
                         + "connection (man-in-the-middle attack).\n\n"
                         + "If the key legitimately changed, remove the entry from "
-                        + "~/.config/conch/known_hosts manually and try again.",
+                        + "~/.config/termlab/known_hosts manually and try again.",
                     "Host Key Rejected");
                 return null;
             }
@@ -1858,7 +1858,7 @@ public final class SshSessionProvider implements TerminalSessionProvider {
     }
 
     private @NotNull ConnectOutcome runConnect(
-        @NotNull ConchSshClient client,
+        @NotNull TermLabSshClient client,
         @NotNull SshHost host,
         @NotNull SshResolvedCredential credential
     ) {
@@ -1874,7 +1874,7 @@ public final class SshSessionProvider implements TerminalSessionProvider {
                 indicator.setIndeterminate(true);
                 try {
                     outcome.connection = client.connect(
-                        host, credential, new ConchServerKeyVerifier());
+                        host, credential, new TermLabServerKeyVerifier());
                 } catch (SshConnectException e) {
                     outcome.failure = e;
                 } catch (Exception e) {
@@ -1889,13 +1889,13 @@ public final class SshSessionProvider implements TerminalSessionProvider {
         return outcome;
     }
 
-    private @NotNull ConchSshClient getClient() {
+    private @NotNull TermLabSshClient getClient() {
         if (ApplicationManager.getApplication() != null) {
-            ConchSshClient service =
-                ApplicationManager.getApplication().getService(ConchSshClient.class);
+            TermLabSshClient service =
+                ApplicationManager.getApplication().getService(TermLabSshClient.class);
             if (service != null) return service;
         }
-        return new ConchSshClient();
+        return new TermLabSshClient();
     }
 
     /** Mutable holder the Task.Modal populates with either success or failure. */
@@ -1909,8 +1909,8 @@ public final class SshSessionProvider implements TerminalSessionProvider {
 - [ ] **Step 2: Build and run the test suite**
 
 ```bash
-cd /Users/dustin/projects/conch_workbench && make conch-build
-cd /Users/dustin/projects/intellij-community && bash bazel.cmd run //conch/plugins/ssh:ssh_test_runner
+cd /Users/dustin/projects/termlab_workbench && make termlab-build
+cd /Users/dustin/projects/intellij-community && bash bazel.cmd run //termlab/plugins/ssh:ssh_test_runner
 ```
 
 Expected: build succeeds, all tests pass. No new unit tests — the dispatch is wiring and the dialog paths are covered by the manual smoke test in Task 6.
@@ -1918,8 +1918,8 @@ Expected: build succeeds, all tests pass. No new unit tests — the dispatch is 
 - [ ] **Step 3: Commit**
 
 ```bash
-cd /Users/dustin/projects/conch_workbench
-git add plugins/ssh/src/com/conch/ssh/provider/SshSessionProvider.java
+cd /Users/dustin/projects/termlab_workbench
+git add plugins/ssh/src/com/termlab/ssh/provider/SshSessionProvider.java
 git commit -m "$(cat <<'EOF'
 feat(ssh): dispatch on SshAuth in SshSessionProvider
 
@@ -1940,22 +1940,22 @@ EOF
 Final piece — the dialog grows two new auth modes in the UI.
 
 **Files:**
-- Modify: `plugins/ssh/src/com/conch/ssh/ui/HostEditDialog.java`
+- Modify: `plugins/ssh/src/com/termlab/ssh/ui/HostEditDialog.java`
 
 - [ ] **Step 1: Rewrite `HostEditDialog.java`**
 
 Replace the entire file with:
 
 ```java
-package com.conch.ssh.ui;
+package com.termlab.ssh.ui;
 
-import com.conch.sdk.CredentialProvider;
-import com.conch.sdk.CredentialProvider.CredentialDescriptor;
-import com.conch.ssh.model.KeyFileAuth;
-import com.conch.ssh.model.PromptPasswordAuth;
-import com.conch.ssh.model.SshAuth;
-import com.conch.ssh.model.SshHost;
-import com.conch.ssh.model.VaultAuth;
+import com.termlab.sdk.CredentialProvider;
+import com.termlab.sdk.CredentialProvider.CredentialDescriptor;
+import com.termlab.ssh.model.KeyFileAuth;
+import com.termlab.ssh.model.PromptPasswordAuth;
+import com.termlab.ssh.model.SshAuth;
+import com.termlab.ssh.model.SshHost;
+import com.termlab.ssh.model.VaultAuth;
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.extensions.ExtensionPointName;
 import com.intellij.openapi.fileChooser.FileChooserDescriptorFactory;
@@ -2003,7 +2003,7 @@ import java.util.UUID;
 public final class HostEditDialog extends DialogWrapper {
 
     private static final ExtensionPointName<CredentialProvider> EP_NAME =
-        ExtensionPointName.create("com.conch.core.credentialProvider");
+        ExtensionPointName.create("com.termlab.core.credentialProvider");
 
     private static final Set<CredentialProvider.Kind> SUPPORTED_KINDS = EnumSet.of(
         CredentialProvider.Kind.ACCOUNT_PASSWORD,
@@ -2271,7 +2271,7 @@ public final class HostEditDialog extends DialogWrapper {
 - [ ] **Step 2: Build**
 
 ```bash
-cd /Users/dustin/projects/conch_workbench && make conch-build
+cd /Users/dustin/projects/termlab_workbench && make termlab-build
 ```
 
 Expected: build succeeds.
@@ -2279,8 +2279,8 @@ Expected: build succeeds.
 - [ ] **Step 3: Commit**
 
 ```bash
-cd /Users/dustin/projects/conch_workbench
-git add plugins/ssh/src/com/conch/ssh/ui/HostEditDialog.java
+cd /Users/dustin/projects/termlab_workbench
+git add plugins/ssh/src/com/termlab/ssh/ui/HostEditDialog.java
 git commit -m "$(cat <<'EOF'
 feat(ssh): HostEditDialog radio-button rewrite for three auth modes
 
@@ -2303,7 +2303,7 @@ Not code — the gate is a checklist. Block merging until every item passes.
 - [ ] **Step 1: Run the full test suite**
 
 ```bash
-cd /Users/dustin/projects/intellij-community && bash bazel.cmd run //conch/plugins/ssh:ssh_test_runner
+cd /Users/dustin/projects/intellij-community && bash bazel.cmd run //termlab/plugins/ssh:ssh_test_runner
 ```
 
 Expected: all tests pass (the pre-existing 74 + 5 `SshAuthJsonTest` + 3 `HostsFileLegacyMigrationTest` + 2 new `SshHostTest` cases + rewritten resolver tests ≈ 85 total).
@@ -2311,7 +2311,7 @@ Expected: all tests pass (the pre-existing 74 + 5 `SshAuthJsonTest` + 3 `HostsFi
 - [ ] **Step 2: Run the full product build**
 
 ```bash
-cd /Users/dustin/projects/conch_workbench && make conch-build
+cd /Users/dustin/projects/termlab_workbench && make termlab-build
 ```
 
 Expected: `Build completed successfully`.
@@ -2319,7 +2319,7 @@ Expected: `Build completed successfully`.
 - [ ] **Step 3: Manual smoke test — vault auth unchanged**
 
 ```bash
-cd /Users/dustin/projects/conch_workbench && make conch
+cd /Users/dustin/projects/termlab_workbench && make termlab
 ```
 
 1. Open the Hosts tool window (right sidebar).
@@ -2327,7 +2327,7 @@ cd /Users/dustin/projects/conch_workbench && make conch
 3. Double-click the host → `Connecting to …` progress dialog → remote shell appears.
 4. Close the tab.
 
-Regression check: existing hosts loaded from `~/.config/conch/ssh-hosts.json` still connect (the legacy migration converted them silently on load).
+Regression check: existing hosts loaded from `~/.config/termlab/ssh-hosts.json` still connect (the legacy migration converted them silently on load).
 
 - [ ] **Step 4: Manual smoke test — prompt-password mode**
 

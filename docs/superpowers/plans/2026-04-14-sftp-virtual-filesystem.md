@@ -20,22 +20,22 @@ Read these reference files before touching code:
 - `/Users/dustin/projects/intellij-community/platform/core-api/src/com/intellij/openapi/vfs/DeprecatedVirtualFileSystem.java` — our base class. Provides `addVirtualFileListener`/`removeVirtualFileListener`, the `EventDispatcher`, `fire*` helpers, and default `UnsupportedOperationException` stubs for the mutation methods. **Despite the name, this class is NOT marked `@Deprecated`** and is the supported base for non-`ManagingFS` VFS implementations.
 - `/Users/dustin/projects/intellij-community/platform/core-api/src/com/intellij/openapi/vfs/VirtualFile.java` — abstract base for our `SftpVirtualFile`. The platform expects implementations of `getName`, `getPath`, `getFileSystem`, `getParent`, `isDirectory`, `isWritable`, `isValid`, `getChildren`, `contentsToByteArray`, `getInputStream`, `getOutputStream`, `getLength`, `getTimeStamp`, `getModificationStamp`, `refresh`. Read each method's javadoc for contract details.
 - `/Users/dustin/projects/intellij-community/platform/core-impl/src/com/intellij/testFramework/LightVirtualFile.java` (or wherever it lives in your tree) — concrete reference implementation for a non-`NewVirtualFile` `VirtualFile`. Mirror its structure for things like `getModificationStamp` semantics.
-- `plugins/sftp/src/com/conch/sftp/client/SshSftpSession.java` — `SshSftpSession.client()` returns `org.apache.sshd.sftp.client.SftpClient`. The relevant `SftpClient` methods are `read(String) → InputStream`, `write(String) → OutputStream`, `readDir(String) → Iterable<DirEntry>`, `stat(String) → Attributes`, `rename(String, String)`, `remove(String)`, `canonicalPath(String)`.
-- `plugins/sftp/src/com/conch/sftp/client/ConchSftpConnector.java` — static `open(SshHost, SshResolvedCredential, ConchSshClient.BastionAuth) → SshSftpSession`. The `SftpSessionManager` will call this.
-- `plugins/sftp/src/com/conch/sftp/toolwindow/RemoteFilePane.java:234-284` — current `connect(SshHost)` method. Lines 234–284 hold the modal-progress connect flow that we'll lift into `SftpSessionManager`. `disconnect()` is at line 327.
-- `plugins/ssh/src/com/conch/ssh/credentials/HostCredentialBundle.java` — `resolveForHost(SshHost)` returns a `HostCredentialBundle` (or null). `bundle.target()` returns `SshResolvedCredential`, `bundle.bastion()` returns `ConchSshClient.BastionAuth`.
-- `plugins/vault/test/com/conch/vault/TestRunner.java` — copy-paste template for the `SftpTestRunner`.
-- `plugins/editor/test/com/conch/editor/TestRunner.java` — same template, for editor tests.
+- `plugins/sftp/src/com/termlab/sftp/client/SshSftpSession.java` — `SshSftpSession.client()` returns `org.apache.sshd.sftp.client.SftpClient`. The relevant `SftpClient` methods are `read(String) → InputStream`, `write(String) → OutputStream`, `readDir(String) → Iterable<DirEntry>`, `stat(String) → Attributes`, `rename(String, String)`, `remove(String)`, `canonicalPath(String)`.
+- `plugins/sftp/src/com/termlab/sftp/client/TermLabSftpConnector.java` — static `open(SshHost, SshResolvedCredential, TermLabSshClient.BastionAuth) → SshSftpSession`. The `SftpSessionManager` will call this.
+- `plugins/sftp/src/com/termlab/sftp/toolwindow/RemoteFilePane.java:234-284` — current `connect(SshHost)` method. Lines 234–284 hold the modal-progress connect flow that we'll lift into `SftpSessionManager`. `disconnect()` is at line 327.
+- `plugins/ssh/src/com/termlab/ssh/credentials/HostCredentialBundle.java` — `resolveForHost(SshHost)` returns a `HostCredentialBundle` (or null). `bundle.target()` returns `SshResolvedCredential`, `bundle.bastion()` returns `TermLabSshClient.BastionAuth`.
+- `plugins/vault/test/com/termlab/vault/TestRunner.java` — copy-paste template for the `SftpTestRunner`.
+- `plugins/editor/test/com/termlab/editor/TestRunner.java` — same template, for editor tests.
 - `docs/superpowers/specs/2026-04-14-sftp-virtual-filesystem-design.md` — the design document. Re-read sections "SftpVirtualFileSystem" / "SftpVirtualFile" / "SftpSessionManager" / "Migration" before each phase.
 
 **Build commands** (from intellij-community workspace root):
 
-- Build SFTP: `bash bazel.cmd build //conch/plugins/sftp:sftp`
-- Build editor: `bash bazel.cmd build //conch/plugins/editor:editor`
-- Build product: `bash bazel.cmd build //conch:conch_run`
-- Run SFTP unit tests: `bash bazel.cmd run //conch/plugins/sftp:sftp_test_runner` (the runner target is added in Task 1).
-- Run editor unit tests: `bash bazel.cmd run //conch/plugins/editor:editor_test_runner`
-- Run Conch from source: `bash bazel.cmd run //conch:conch_run`
+- Build SFTP: `bash bazel.cmd build //termlab/plugins/sftp:sftp`
+- Build editor: `bash bazel.cmd build //termlab/plugins/editor:editor`
+- Build product: `bash bazel.cmd build //termlab:termlab_run`
+- Run SFTP unit tests: `bash bazel.cmd run //termlab/plugins/sftp:sftp_test_runner` (the runner target is added in Task 1).
+- Run editor unit tests: `bash bazel.cmd run //termlab/plugins/editor:editor_test_runner`
+- Run TermLab from source: `bash bazel.cmd run //termlab:termlab_run`
 
 **Commit convention:** lowercase conventional-commit prefixes (`feat(sftp):`, `feat(editor):`, `refactor(sftp):`, `chore(editor):`, etc.). Each task ends with a commit step with the exact message.
 
@@ -49,7 +49,7 @@ The SFTP plugin currently has no test runner. We need one for the unit tests in 
 
 **Files:**
 - Modify: `plugins/sftp/BUILD.bazel`
-- Create: `plugins/sftp/test/com/conch/sftp/TestRunner.java`
+- Create: `plugins/sftp/test/com/termlab/sftp/TestRunner.java`
 
 - [ ] **Step 1: Add test targets to `plugins/sftp/BUILD.bazel`**
 
@@ -58,14 +58,14 @@ The current `BUILD.bazel` has only the `sftp_resources` resourcegroup, the `sftp
 ```bazel
 jvm_library(
     name = "sftp_test_lib",
-    module_name = "intellij.conch.sftp.tests",
+    module_name = "intellij.termlab.sftp.tests",
     visibility = ["//visibility:public"],
     srcs = glob(["test/**/*.java"], allow_empty = True),
     deps = [
         ":sftp",
-        "//conch/sdk",
-        "//conch/plugins/ssh",
-        "//conch/plugins/sftp/libs:sshd_sftp",
+        "//termlab/sdk",
+        "//termlab/plugins/ssh",
+        "//termlab/plugins/sftp/libs:sshd_sftp",
         "//libraries/sshd-osgi",
         "//libraries/junit5",
         "//libraries/junit5-jupiter",
@@ -77,7 +77,7 @@ jvm_library(
 
 java_binary(
     name = "sftp_test_runner",
-    main_class = "com.conch.sftp.TestRunner",
+    main_class = "com.termlab.sftp.TestRunner",
     runtime_deps = [
         ":sftp_test_lib",
         "//libraries/junit5-jupiter",
@@ -86,12 +86,12 @@ java_binary(
 )
 ```
 
-- [ ] **Step 2: Create `plugins/sftp/test/com/conch/sftp/TestRunner.java`**
+- [ ] **Step 2: Create `plugins/sftp/test/com/termlab/sftp/TestRunner.java`**
 
-Modeled on `plugins/vault/test/com/conch/vault/TestRunner.java`:
+Modeled on `plugins/vault/test/com/termlab/vault/TestRunner.java`:
 
 ```java
-package com.conch.sftp;
+package com.termlab.sftp;
 
 import org.junit.platform.engine.discovery.DiscoverySelectors;
 import org.junit.platform.launcher.Launcher;
@@ -105,19 +105,19 @@ import java.io.PrintWriter;
 
 /**
  * Standalone test runner for the SFTP plugin's unit tests. Runs
- * the full {@code com.conch.sftp} test tree via the JUnit 5
+ * the full {@code com.termlab.sftp} test tree via the JUnit 5
  * platform launcher.
  *
  * <p>Usage:
  * <pre>
- *   bash bazel.cmd run //conch/plugins/sftp:sftp_test_runner
+ *   bash bazel.cmd run //termlab/plugins/sftp:sftp_test_runner
  * </pre>
  */
 public final class TestRunner {
 
     public static void main(String[] args) {
         LauncherDiscoveryRequest request = LauncherDiscoveryRequestBuilder.request()
-            .selectors(DiscoverySelectors.selectPackage("com.conch.sftp"))
+            .selectors(DiscoverySelectors.selectPackage("com.termlab.sftp"))
             .build();
 
         SummaryGeneratingListener listener = new SummaryGeneratingListener();
@@ -140,18 +140,18 @@ public final class TestRunner {
 
 - [ ] **Step 3: Build the test target**
 
-Run: `bash bazel.cmd build //conch/plugins/sftp:sftp_test_lib`
+Run: `bash bazel.cmd build //termlab/plugins/sftp:sftp_test_lib`
 Expected: `Build completed successfully`. The library may compile zero source files at this point — that's fine because of `allow_empty = True`.
 
 - [ ] **Step 4: Run the (empty) test runner to confirm it works**
 
-Run: `bash bazel.cmd run //conch/plugins/sftp:sftp_test_runner`
-Expected: a summary printout showing `0 tests found` and exit code 0. If the runner errors with `ClassNotFoundException com.conch.sftp.TestRunner`, the file isn't being picked up — check the path is exactly `plugins/sftp/test/com/conch/sftp/TestRunner.java`.
+Run: `bash bazel.cmd run //termlab/plugins/sftp:sftp_test_runner`
+Expected: a summary printout showing `0 tests found` and exit code 0. If the runner errors with `ClassNotFoundException com.termlab.sftp.TestRunner`, the file isn't being picked up — check the path is exactly `plugins/sftp/test/com/termlab/sftp/TestRunner.java`.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add plugins/sftp/BUILD.bazel plugins/sftp/test/com/conch/sftp/TestRunner.java
+git add plugins/sftp/BUILD.bazel plugins/sftp/test/com/termlab/sftp/TestRunner.java
 git commit -m "feat(sftp): add JUnit 5 test runner target for SFTP plugin"
 ```
 
@@ -162,15 +162,15 @@ git commit -m "feat(sftp): add JUnit 5 test runner target for SFTP plugin"
 URL format: `sftp://<hostId>//<absolute-remote-path>`. Note the double slash — `<absolute-remote-path>` itself begins with `/`. A small record + parse/compose helpers.
 
 **Files:**
-- Create: `plugins/sftp/src/com/conch/sftp/vfs/SftpUrl.java`
-- Create: `plugins/sftp/test/com/conch/sftp/vfs/SftpUrlTest.java`
+- Create: `plugins/sftp/src/com/termlab/sftp/vfs/SftpUrl.java`
+- Create: `plugins/sftp/test/com/termlab/sftp/vfs/SftpUrlTest.java`
 
 - [ ] **Step 1: Write the failing test**
 
-`plugins/sftp/test/com/conch/sftp/vfs/SftpUrlTest.java`:
+`plugins/sftp/test/com/termlab/sftp/vfs/SftpUrlTest.java`:
 
 ```java
-package com.conch.sftp.vfs;
+package com.termlab.sftp.vfs;
 
 import org.junit.jupiter.api.Test;
 
@@ -259,13 +259,13 @@ class SftpUrlTest {
 
 - [ ] **Step 2: Run test, confirm red**
 
-Run: `bash bazel.cmd run //conch/plugins/sftp:sftp_test_runner`
+Run: `bash bazel.cmd run //termlab/plugins/sftp:sftp_test_runner`
 Expected: compile failure ("cannot find symbol: class SftpUrl"). That's the red state.
 
-- [ ] **Step 3: Implement `plugins/sftp/src/com/conch/sftp/vfs/SftpUrl.java`**
+- [ ] **Step 3: Implement `plugins/sftp/src/com/termlab/sftp/vfs/SftpUrl.java`**
 
 ```java
-package com.conch.sftp.vfs;
+package com.termlab.sftp.vfs;
 
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -317,13 +317,13 @@ public record SftpUrl(@NotNull UUID hostId, @NotNull String remotePath) {
 
 - [ ] **Step 4: Run tests, confirm green**
 
-Run: `bash bazel.cmd run //conch/plugins/sftp:sftp_test_runner`
+Run: `bash bazel.cmd run //termlab/plugins/sftp:sftp_test_runner`
 Expected: `11 tests successful, 0 failed`.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add plugins/sftp/src/com/conch/sftp/vfs/SftpUrl.java plugins/sftp/test/com/conch/sftp/vfs/SftpUrlTest.java
+git add plugins/sftp/src/com/termlab/sftp/vfs/SftpUrl.java plugins/sftp/test/com/termlab/sftp/vfs/SftpUrlTest.java
 git commit -m "feat(sftp): SftpUrl parse/compose for the new VFS"
 ```
 
@@ -334,27 +334,27 @@ git commit -m "feat(sftp): SftpUrl parse/compose for the new VFS"
 Application service that owns SFTP sessions per host UUID. Reference-counted lifecycle. Connector is injected so we can mock it in tests.
 
 **Files:**
-- Create: `plugins/sftp/src/com/conch/sftp/session/SftpConnector.java` — small interface (lets us inject a fake in tests without depending on `ConchSftpConnector`'s static method).
-- Create: `plugins/sftp/src/com/conch/sftp/session/DefaultSftpConnector.java` — production impl that delegates to `ConchSftpConnector.open`.
-- Create: `plugins/sftp/src/com/conch/sftp/session/SftpSessionManager.java`
-- Create: `plugins/sftp/test/com/conch/sftp/session/SftpSessionManagerTest.java`
+- Create: `plugins/sftp/src/com/termlab/sftp/session/SftpConnector.java` — small interface (lets us inject a fake in tests without depending on `TermLabSftpConnector`'s static method).
+- Create: `plugins/sftp/src/com/termlab/sftp/session/DefaultSftpConnector.java` — production impl that delegates to `TermLabSftpConnector.open`.
+- Create: `plugins/sftp/src/com/termlab/sftp/session/SftpSessionManager.java`
+- Create: `plugins/sftp/test/com/termlab/sftp/session/SftpSessionManagerTest.java`
 
 - [ ] **Step 1: Create the connector interface and the default implementation**
 
-`plugins/sftp/src/com/conch/sftp/session/SftpConnector.java`:
+`plugins/sftp/src/com/termlab/sftp/session/SftpConnector.java`:
 
 ```java
-package com.conch.sftp.session;
+package com.termlab.sftp.session;
 
-import com.conch.sftp.client.SshSftpSession;
-import com.conch.ssh.client.SshConnectException;
-import com.conch.ssh.credentials.HostCredentialBundle;
-import com.conch.ssh.model.SshHost;
+import com.termlab.sftp.client.SshSftpSession;
+import com.termlab.ssh.client.SshConnectException;
+import com.termlab.ssh.credentials.HostCredentialBundle;
+import com.termlab.ssh.model.SshHost;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Indirection over {@link com.conch.sftp.client.ConchSftpConnector#open}
+ * Indirection over {@link com.termlab.sftp.client.TermLabSftpConnector#open}
  * so that {@link SftpSessionManager} can be unit-tested with a fake.
  */
 public interface SftpConnector {
@@ -377,16 +377,16 @@ public interface SftpConnector {
 }
 ```
 
-`plugins/sftp/src/com/conch/sftp/session/DefaultSftpConnector.java`:
+`plugins/sftp/src/com/termlab/sftp/session/DefaultSftpConnector.java`:
 
 ```java
-package com.conch.sftp.session;
+package com.termlab.sftp.session;
 
-import com.conch.sftp.client.ConchSftpConnector;
-import com.conch.sftp.client.SshSftpSession;
-import com.conch.ssh.client.SshConnectException;
-import com.conch.ssh.credentials.HostCredentialBundle;
-import com.conch.ssh.model.SshHost;
+import com.termlab.sftp.client.TermLabSftpConnector;
+import com.termlab.sftp.client.SshSftpSession;
+import com.termlab.ssh.client.SshConnectException;
+import com.termlab.ssh.credentials.HostCredentialBundle;
+import com.termlab.ssh.model.SshHost;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -401,7 +401,7 @@ public final class DefaultSftpConnector implements SftpConnector {
                 "Could not resolve credentials for " + host.label(),
                 null);
         }
-        return ConchSftpConnector.open(host, bundle.target(), bundle.bastion());
+        return TermLabSftpConnector.open(host, bundle.target(), bundle.bastion());
     }
 
     @Override
@@ -413,15 +413,15 @@ public final class DefaultSftpConnector implements SftpConnector {
 
 - [ ] **Step 2: Write the failing test**
 
-`plugins/sftp/test/com/conch/sftp/session/SftpSessionManagerTest.java`:
+`plugins/sftp/test/com/termlab/sftp/session/SftpSessionManagerTest.java`:
 
 ```java
-package com.conch.sftp.session;
+package com.termlab.sftp.session;
 
-import com.conch.sftp.client.SshSftpSession;
-import com.conch.ssh.client.SshConnectException;
-import com.conch.ssh.credentials.HostCredentialBundle;
-import com.conch.ssh.model.SshHost;
+import com.termlab.sftp.client.SshSftpSession;
+import com.termlab.ssh.client.SshConnectException;
+import com.termlab.ssh.credentials.HostCredentialBundle;
+import com.termlab.ssh.model.SshHost;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
@@ -587,17 +587,17 @@ class SftpSessionManagerTest {
 
 - [ ] **Step 3: Run the test, confirm red**
 
-Run: `bash bazel.cmd run //conch/plugins/sftp:sftp_test_runner`
+Run: `bash bazel.cmd run //termlab/plugins/sftp:sftp_test_runner`
 Expected: compile failure (`SftpSessionManager` undefined).
 
-- [ ] **Step 4: Implement `plugins/sftp/src/com/conch/sftp/session/SftpSessionManager.java`**
+- [ ] **Step 4: Implement `plugins/sftp/src/com/termlab/sftp/session/SftpSessionManager.java`**
 
 ```java
-package com.conch.sftp.session;
+package com.termlab.sftp.session;
 
-import com.conch.sftp.client.SshSftpSession;
-import com.conch.ssh.client.SshConnectException;
-import com.conch.ssh.model.SshHost;
+import com.termlab.sftp.client.SshSftpSession;
+import com.termlab.ssh.client.SshConnectException;
+import com.termlab.ssh.model.SshHost;
 import com.intellij.openapi.Disposable;
 import com.intellij.openapi.components.Service;
 import com.intellij.openapi.diagnostic.Logger;
@@ -779,29 +779,29 @@ public final class SftpSessionManager implements Disposable {
 
 - [ ] **Step 5: Run the tests, confirm green**
 
-Run: `bash bazel.cmd run //conch/plugins/sftp:sftp_test_runner`
+Run: `bash bazel.cmd run //termlab/plugins/sftp:sftp_test_runner`
 Expected: `18 tests successful` (11 from `SftpUrlTest` + 7 from `SftpSessionManagerTest`).
 
 If `SshSftpSession` rejects null arguments in its constructor (it currently has `@NotNull` on both params), the test will fail with NPE during construction. In that case, replace `TestSshSftpSession extends SshSftpSession` with a tiny throwaway subclass that bypasses the parent constructor — or temporarily relax `SshSftpSession`'s constructor annotations. Document the choice in the test file's javadoc.
 
 - [ ] **Step 6: Register the service in `plugins/sftp/resources/META-INF/plugin.xml`**
 
-Add inside the existing `<extensions defaultExtensionNs="com.intellij">` block (alongside the existing `applicationService` for `ConchSftpConfig`):
+Add inside the existing `<extensions defaultExtensionNs="com.intellij">` block (alongside the existing `applicationService` for `TermLabSftpConfig`):
 
 ```xml
         <applicationService
-            serviceImplementation="com.conch.sftp.session.SftpSessionManager"/>
+            serviceImplementation="com.termlab.sftp.session.SftpSessionManager"/>
 ```
 
 - [ ] **Step 7: Build the SFTP plugin to verify the registration is well-formed**
 
-Run: `bash bazel.cmd build //conch/plugins/sftp:sftp`
+Run: `bash bazel.cmd build //termlab/plugins/sftp:sftp`
 Expected: `Build completed successfully`.
 
 - [ ] **Step 8: Commit**
 
 ```bash
-git add plugins/sftp/src/com/conch/sftp/session/ plugins/sftp/test/com/conch/sftp/session/ plugins/sftp/resources/META-INF/plugin.xml
+git add plugins/sftp/src/com/termlab/sftp/session/ plugins/sftp/test/com/termlab/sftp/session/ plugins/sftp/resources/META-INF/plugin.xml
 git commit -m "feat(sftp): SftpSessionManager with reference-counted sessions"
 ```
 
@@ -812,11 +812,11 @@ git commit -m "feat(sftp): SftpSessionManager with reference-counted sessions"
 Replace the inline `connect(...)` and `disconnect()` flow in `RemoteFilePane` with delegation to the manager. The pane registers itself as the owner.
 
 **Files:**
-- Modify: `plugins/sftp/src/com/conch/sftp/toolwindow/RemoteFilePane.java`
+- Modify: `plugins/sftp/src/com/termlab/sftp/toolwindow/RemoteFilePane.java`
 
 - [ ] **Step 1: Replace the `connect` method body**
 
-Find the existing `private void connect(@NotNull SshHost host) { ... }` (around line 234 — the implementation that calls `HostCredentialBundle.resolveForHost(host)` and then `ProgressManager.getInstance().run(new Task.Modal(...))` containing `ConchSftpConnector.open(...)`).
+Find the existing `private void connect(@NotNull SshHost host) { ... }` (around line 234 — the implementation that calls `HostCredentialBundle.resolveForHost(host)` and then `ProgressManager.getInstance().run(new Task.Modal(...))` containing `TermLabSftpConnector.open(...)`).
 
 Replace its entire body with:
 
@@ -838,7 +838,7 @@ Replace its entire body with:
                     ApplicationManager.getApplication().invokeLater(() -> {
                         activeSession = session;
                         currentHost = host;
-                        ConchSftpConfig.getInstance().setLastRemoteHostId(host.id().toString());
+                        TermLabSftpConfig.getInstance().setLastRemoteHostId(host.id().toString());
                         statusLabel.setText("Connected to " + host.host() + ":" + host.port());
                         setUiEnabled(true);
                         updateButtons();
@@ -860,17 +860,17 @@ Replace its entire body with:
     }
 ```
 
-The differences from the original: no `HostCredentialBundle.resolveForHost(host)` call (the manager handles it via `DefaultSftpConnector`), and `SftpSessionManager.getInstance().acquire(host, RemoteFilePane.this)` replaces the inline `ConchSftpConnector.open(host, bundle.target(), bundle.bastion())`.
+The differences from the original: no `HostCredentialBundle.resolveForHost(host)` call (the manager handles it via `DefaultSftpConnector`), and `SftpSessionManager.getInstance().acquire(host, RemoteFilePane.this)` replaces the inline `TermLabSftpConnector.open(host, bundle.target(), bundle.bastion())`.
 
 - [ ] **Step 2: Add the import**
 
-Add to `RemoteFilePane.java`'s imports (alphabetical order with other `com.conch.sftp.*` imports):
+Add to `RemoteFilePane.java`'s imports (alphabetical order with other `com.termlab.sftp.*` imports):
 
 ```java
-import com.conch.sftp.session.SftpSessionManager;
+import com.termlab.sftp.session.SftpSessionManager;
 ```
 
-Also delete the now-unused `import com.conch.ssh.credentials.HostCredentialBundle;` if no other code in the file uses it. The original `connect` was the only user — verify with a grep before deleting.
+Also delete the now-unused `import com.termlab.ssh.credentials.HostCredentialBundle;` if no other code in the file uses it. The original `connect` was the only user — verify with a grep before deleting.
 
 - [ ] **Step 3: Replace the `disconnect` method body**
 
@@ -897,18 +897,18 @@ Differences from the original: instead of `session.close()`, we call `SftpSessio
 
 - [ ] **Step 4: Build**
 
-Run: `bash bazel.cmd build //conch/plugins/sftp:sftp`
+Run: `bash bazel.cmd build //termlab/plugins/sftp:sftp`
 Expected: `Build completed successfully`.
 
 - [ ] **Step 5: Manual smoke test**
 
-Run: `bash bazel.cmd run //conch:conch_run`
-Open the SFTP tool window, connect to a host, browse a directory, disconnect. Should behave identically to before this task. Close Conch.
+Run: `bash bazel.cmd run //termlab:termlab_run`
+Open the SFTP tool window, connect to a host, browse a directory, disconnect. Should behave identically to before this task. Close TermLab.
 
 - [ ] **Step 6: Commit**
 
 ```bash
-git add plugins/sftp/src/com/conch/sftp/toolwindow/RemoteFilePane.java
+git add plugins/sftp/src/com/termlab/sftp/toolwindow/RemoteFilePane.java
 git commit -m "refactor(sftp): route RemoteFilePane connect/disconnect through SftpSessionManager"
 ```
 
@@ -919,7 +919,7 @@ git commit -m "refactor(sftp): route RemoteFilePane connect/disconnect through S
 The `SaveScratchToRemoteAction` needs an accessor that returns the SFTP tool window's currently-connected session for a given project. This requires reaching into the tool window state — a small layering inversion documented as acceptable for MVP.
 
 **Files:**
-- Modify: `plugins/sftp/src/com/conch/sftp/session/SftpSessionManager.java`
+- Modify: `plugins/sftp/src/com/termlab/sftp/session/SftpSessionManager.java`
 
 - [ ] **Step 1: Add a small data record for the result**
 
@@ -927,8 +927,8 @@ We want to return both the session AND the host so callers don't have to do a se
 
 ```java
     public record ActiveSession(
-        @NotNull com.conch.ssh.model.SshHost host,
-        @NotNull com.conch.sftp.client.SshSftpSession session,
+        @NotNull com.termlab.ssh.model.SshHost host,
+        @NotNull com.termlab.sftp.client.SshSftpSession session,
         @NotNull String currentRemotePath
     ) {}
 ```
@@ -954,15 +954,15 @@ Append to `SftpSessionManager`:
     ) {
         com.intellij.openapi.wm.ToolWindow tw =
             com.intellij.openapi.wm.ToolWindowManager.getInstance(project)
-                .getToolWindow("Conch SFTP");
+                .getToolWindow("TermLab SFTP");
         if (tw == null) return null;
         var contents = tw.getContentManager().getContents();
         for (var content : contents) {
             var component = content.getComponent();
-            if (component instanceof com.conch.sftp.toolwindow.SftpToolWindow toolWindow) {
-                com.conch.sftp.toolwindow.RemoteFilePane pane = toolWindow.remotePane();
-                com.conch.sftp.client.SshSftpSession session = pane.activeSession();
-                com.conch.ssh.model.SshHost host = pane.currentHost();
+            if (component instanceof com.termlab.sftp.toolwindow.SftpToolWindow toolWindow) {
+                com.termlab.sftp.toolwindow.RemoteFilePane pane = toolWindow.remotePane();
+                com.termlab.sftp.client.SshSftpSession session = pane.activeSession();
+                com.termlab.ssh.model.SshHost host = pane.currentHost();
                 String path = pane.currentRemotePath();
                 if (session != null && host != null && path != null) {
                     return new ActiveSession(host, session, path);
@@ -982,14 +982,14 @@ Confirm these accessors are present and public on `RemoteFilePane`:
 
 ```java
     /** Currently-connected host, or {@code null} when disconnected. */
-    public @org.jetbrains.annotations.Nullable com.conch.ssh.model.SshHost currentHost() {
+    public @org.jetbrains.annotations.Nullable com.termlab.ssh.model.SshHost currentHost() {
         return currentHost;
     }
 ```
 
 Place it near the existing `activeSession()` and `currentRemotePath()` accessors at the bottom of the class.
 
-Also verify `SftpToolWindow` (the tool window component class — typically `plugins/sftp/src/com/conch/sftp/toolwindow/SftpToolWindow.java`) exposes a `remotePane()` accessor that returns the `RemoteFilePane` instance. If it doesn't, add it:
+Also verify `SftpToolWindow` (the tool window component class — typically `plugins/sftp/src/com/termlab/sftp/toolwindow/SftpToolWindow.java`) exposes a `remotePane()` accessor that returns the `RemoteFilePane` instance. If it doesn't, add it:
 
 ```java
     public @org.jetbrains.annotations.NotNull RemoteFilePane remotePane() {
@@ -1001,15 +1001,15 @@ The exact field name in `SftpToolWindow` may differ — read the class first and
 
 - [ ] **Step 4: Build**
 
-Run: `bash bazel.cmd build //conch/plugins/sftp:sftp`
+Run: `bash bazel.cmd build //termlab/plugins/sftp:sftp`
 Expected: `Build completed successfully`.
 
-If the build fails because `SftpToolWindow` is not the actual class held in the tool window content (it might be a JPanel that has the dual panes embedded), open `plugins/sftp/src/com/conch/sftp/toolwindow/SftpToolWindowFactory.java` and follow what it actually puts into the tool window — adjust the `instanceof` check accordingly.
+If the build fails because `SftpToolWindow` is not the actual class held in the tool window content (it might be a JPanel that has the dual panes embedded), open `plugins/sftp/src/com/termlab/sftp/toolwindow/SftpToolWindowFactory.java` and follow what it actually puts into the tool window — adjust the `instanceof` check accordingly.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add plugins/sftp/src/com/conch/sftp/session/SftpSessionManager.java plugins/sftp/src/com/conch/sftp/toolwindow/RemoteFilePane.java plugins/sftp/src/com/conch/sftp/toolwindow/SftpToolWindow.java
+git add plugins/sftp/src/com/termlab/sftp/session/SftpSessionManager.java plugins/sftp/src/com/termlab/sftp/toolwindow/RemoteFilePane.java plugins/sftp/src/com/termlab/sftp/toolwindow/SftpToolWindow.java
 git commit -m "feat(sftp): SftpSessionManager.getActiveSessionForCurrentProject accessor"
 ```
 
@@ -1020,19 +1020,19 @@ git commit -m "feat(sftp): SftpSessionManager.getActiveSessionForCurrentProject 
 Just enough to register and pass `findFileByPath` calls through to the (yet-to-be-built) `SftpVirtualFile`. We'll fill in the file class in Task 7.
 
 **Files:**
-- Create: `plugins/sftp/src/com/conch/sftp/vfs/SftpVirtualFileSystem.java`
+- Create: `plugins/sftp/src/com/termlab/sftp/vfs/SftpVirtualFileSystem.java`
 - Modify: `plugins/sftp/resources/META-INF/plugin.xml`
 
 - [ ] **Step 1: Create `SftpVirtualFileSystem.java`**
 
 ```java
-package com.conch.sftp.vfs;
+package com.termlab.sftp.vfs;
 
-import com.conch.sftp.client.SshSftpSession;
-import com.conch.sftp.session.SftpSessionManager;
-import com.conch.ssh.client.SshConnectException;
-import com.conch.ssh.model.HostStore;
-import com.conch.ssh.model.SshHost;
+import com.termlab.sftp.client.SshSftpSession;
+import com.termlab.sftp.session.SftpSessionManager;
+import com.termlab.ssh.client.SshConnectException;
+import com.termlab.ssh.model.HostStore;
+import com.termlab.ssh.model.SshHost;
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.vfs.DeprecatedVirtualFileSystem;
@@ -1187,7 +1187,7 @@ Add inside the existing `<extensions defaultExtensionNs="com.intellij">` block:
 
 ```xml
         <virtualFileSystem
-            implementationClass="com.conch.sftp.vfs.SftpVirtualFileSystem"
+            implementationClass="com.termlab.sftp.vfs.SftpVirtualFileSystem"
             key="sftp"
             physical="true"/>
 ```
@@ -1199,7 +1199,7 @@ The build will fail until Task 7 lands `SftpVirtualFile`. Skip the build verific
 - [ ] **Step 4: Commit (intermediate, build is broken)**
 
 ```bash
-git add plugins/sftp/src/com/conch/sftp/vfs/SftpVirtualFileSystem.java plugins/sftp/resources/META-INF/plugin.xml
+git add plugins/sftp/src/com/termlab/sftp/vfs/SftpVirtualFileSystem.java plugins/sftp/resources/META-INF/plugin.xml
 git commit -m "feat(sftp): SftpVirtualFileSystem skeleton (build broken, fixed in next task)"
 ```
 
@@ -1210,14 +1210,14 @@ git commit -m "feat(sftp): SftpVirtualFileSystem skeleton (build broken, fixed i
 The bulk of the VFS implementation. This is a long file — the code is verbatim below.
 
 **Files:**
-- Create: `plugins/sftp/src/com/conch/sftp/vfs/SftpVirtualFile.java`
+- Create: `plugins/sftp/src/com/termlab/sftp/vfs/SftpVirtualFile.java`
 
 - [ ] **Step 1: Create `SftpVirtualFile.java`**
 
 ```java
-package com.conch.sftp.vfs;
+package com.termlab.sftp.vfs;
 
-import com.conch.sftp.client.SshSftpSession;
+import com.termlab.sftp.client.SshSftpSession;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.fileTypes.FileType;
 import com.intellij.openapi.fileTypes.FileTypeRegistry;
@@ -1571,7 +1571,7 @@ public final class SftpVirtualFile extends VirtualFile {
 
 - [ ] **Step 3: Build**
 
-Run: `bash bazel.cmd build //conch/plugins/sftp:sftp`
+Run: `bash bazel.cmd build //termlab/plugins/sftp:sftp`
 Expected: `Build completed successfully`. The previous task's intermediate broken state should now be fixed.
 
 If the build fails because `VirtualFile.getOutputStream` has a different abstract signature in your platform version, read `/Users/dustin/projects/intellij-community/platform/core-api/src/com/intellij/openapi/vfs/VirtualFile.java` and adapt the override to match.
@@ -1579,7 +1579,7 @@ If the build fails because `VirtualFile.getOutputStream` has a different abstrac
 - [ ] **Step 4: Commit**
 
 ```bash
-git add plugins/sftp/src/com/conch/sftp/vfs/SftpVirtualFile.java plugins/sftp/src/com/conch/sftp/vfs/SftpVirtualFileSystem.java
+git add plugins/sftp/src/com/termlab/sftp/vfs/SftpVirtualFile.java plugins/sftp/src/com/termlab/sftp/vfs/SftpVirtualFileSystem.java
 git commit -m "feat(sftp): SftpVirtualFile with atomic write semantics"
 ```
 
@@ -1590,14 +1590,14 @@ git commit -m "feat(sftp): SftpVirtualFile with atomic write semantics"
 Move the size cap + extension blocklist guards from the old `RemoteEditService` into a shared utility. Add a VFS-aware binary sniff that the migrated openers will use.
 
 **Files:**
-- Create: `plugins/editor/src/com/conch/editor/guard/OpenGuards.java`
-- Modify: `plugins/editor/src/com/conch/editor/guard/BinarySniffer.java`
-- Create: `plugins/editor/test/com/conch/editor/guard/BinarySnifferVfsTest.java`
+- Create: `plugins/editor/src/com/termlab/editor/guard/OpenGuards.java`
+- Modify: `plugins/editor/src/com/termlab/editor/guard/BinarySniffer.java`
+- Create: `plugins/editor/test/com/termlab/editor/guard/BinarySnifferVfsTest.java`
 
 - [ ] **Step 1: Create `OpenGuards.java`**
 
 ```java
-package com.conch.editor.guard;
+package com.termlab.editor.guard;
 
 import com.intellij.notification.Notification;
 import com.intellij.notification.NotificationType;
@@ -1612,7 +1612,7 @@ import org.jetbrains.annotations.NotNull;
 public final class OpenGuards {
 
     public static final long SIZE_CAP_BYTES = 5L * 1024 * 1024;
-    private static final String NOTIFICATION_GROUP = "Conch SFTP";
+    private static final String NOTIFICATION_GROUP = "TermLab SFTP";
 
     private OpenGuards() {}
 
@@ -1634,7 +1634,7 @@ public final class OpenGuards {
 
     private static void notify(@NotNull Project project, @NotNull String message) {
         Notifications.Bus.notify(
-            new Notification(NOTIFICATION_GROUP, "Conch Editor", message, NotificationType.ERROR),
+            new Notification(NOTIFICATION_GROUP, "TermLab Editor", message, NotificationType.ERROR),
             project);
     }
 }
@@ -1663,10 +1663,10 @@ Use fully-qualified names (or add imports) — match the existing file's import 
 
 - [ ] **Step 3: Write a test for `isBinaryByContent`**
 
-`plugins/editor/test/com/conch/editor/guard/BinarySnifferVfsTest.java`:
+`plugins/editor/test/com/termlab/editor/guard/BinarySnifferVfsTest.java`:
 
 ```java
-package com.conch.editor.guard;
+package com.termlab.editor.guard;
 
 import com.intellij.testFramework.LightVirtualFile;
 import org.junit.jupiter.api.Test;
@@ -1698,13 +1698,13 @@ class BinarySnifferVfsTest {
 
 - [ ] **Step 4: Run tests**
 
-Run: `bash bazel.cmd run //conch/plugins/editor:editor_test_runner`
+Run: `bash bazel.cmd run //termlab/plugins/editor:editor_test_runner`
 Expected: all existing tests still pass plus the 3 new ones.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add plugins/editor/src/com/conch/editor/guard/OpenGuards.java plugins/editor/src/com/conch/editor/guard/BinarySniffer.java plugins/editor/test/com/conch/editor/guard/BinarySnifferVfsTest.java
+git add plugins/editor/src/com/termlab/editor/guard/OpenGuards.java plugins/editor/src/com/termlab/editor/guard/BinarySniffer.java plugins/editor/test/com/termlab/editor/guard/BinarySnifferVfsTest.java
 git commit -m "feat(editor): OpenGuards utility and BinarySniffer.isBinaryByContent(VirtualFile)"
 ```
 
@@ -1715,27 +1715,27 @@ git commit -m "feat(editor): OpenGuards utility and BinarySniffer.isBinaryByCont
 Rewrite the implementation to resolve the file via `VirtualFileManager.findFileByUrl` and open it directly. The session reference is held by the editor tab via the listener added in Task 11.
 
 **Files:**
-- Modify: `plugins/editor/src/com/conch/editor/sftp/EditorRemoteFileOpener.java`
+- Modify: `plugins/editor/src/com/termlab/editor/sftp/EditorRemoteFileOpener.java`
 - Modify: `plugins/editor/BUILD.bazel`
 
-- [ ] **Step 1: Add `//conch/plugins/sftp` to editor deps if not already present**
+- [ ] **Step 1: Add `//termlab/plugins/sftp` to editor deps if not already present**
 
-Read `plugins/editor/BUILD.bazel`. Confirm `//conch/plugins/sftp` is already in the `editor` jvm_library's `deps` list. (It should be — the editor plugin already depends on the SFTP plugin for the extension point types.) If missing, add it.
+Read `plugins/editor/BUILD.bazel`. Confirm `//termlab/plugins/sftp` is already in the `editor` jvm_library's `deps` list. (It should be — the editor plugin already depends on the SFTP plugin for the extension point types.) If missing, add it.
 
 - [ ] **Step 2: Rewrite `EditorRemoteFileOpener.java`**
 
 Replace the full file contents with:
 
 ```java
-package com.conch.editor.sftp;
+package com.termlab.editor.sftp;
 
-import com.conch.editor.guard.BinarySniffer;
-import com.conch.editor.guard.OpenGuards;
-import com.conch.sftp.client.SshSftpSession;
-import com.conch.sftp.model.RemoteFileEntry;
-import com.conch.sftp.spi.RemoteFileOpener;
-import com.conch.sftp.vfs.SftpUrl;
-import com.conch.ssh.model.SshHost;
+import com.termlab.editor.guard.BinarySniffer;
+import com.termlab.editor.guard.OpenGuards;
+import com.termlab.sftp.client.SshSftpSession;
+import com.termlab.sftp.model.RemoteFileEntry;
+import com.termlab.sftp.spi.RemoteFileOpener;
+import com.termlab.sftp.vfs.SftpUrl;
+import com.termlab.ssh.model.SshHost;
 import com.intellij.notification.Notification;
 import com.intellij.notification.NotificationType;
 import com.intellij.notification.Notifications;
@@ -1747,7 +1747,7 @@ import org.jetbrains.annotations.NotNull;
 
 public final class EditorRemoteFileOpener implements RemoteFileOpener {
 
-    private static final String NOTIFICATION_GROUP = "Conch SFTP";
+    private static final String NOTIFICATION_GROUP = "TermLab SFTP";
 
     @Override
     public void open(
@@ -1776,7 +1776,7 @@ public final class EditorRemoteFileOpener implements RemoteFileOpener {
 
     private static void notifyError(@NotNull Project project, @NotNull String message) {
         Notifications.Bus.notify(
-            new Notification(NOTIFICATION_GROUP, "Conch SFTP", message, NotificationType.ERROR),
+            new Notification(NOTIFICATION_GROUP, "TermLab SFTP", message, NotificationType.ERROR),
             project);
     }
 }
@@ -1786,13 +1786,13 @@ Note: this no longer calls `RemoteEditService` — `RemoteEditService` is being 
 
 - [ ] **Step 3: Build**
 
-Run: `bash bazel.cmd build //conch/plugins/editor:editor`
+Run: `bash bazel.cmd build //termlab/plugins/editor:editor`
 Expected: `Build completed successfully`.
 
 - [ ] **Step 4: Commit**
 
 ```bash
-git add plugins/editor/src/com/conch/editor/sftp/EditorRemoteFileOpener.java
+git add plugins/editor/src/com/termlab/editor/sftp/EditorRemoteFileOpener.java
 git commit -m "refactor(editor): EditorRemoteFileOpener resolves via SftpVirtualFileSystem"
 ```
 
@@ -1803,18 +1803,18 @@ git commit -m "refactor(editor): EditorRemoteFileOpener resolves via SftpVirtual
 Drop the trip through `RemoteEditService` for local files. Just resolve via `LocalFileSystem` and open directly.
 
 **Files:**
-- Modify: `plugins/editor/src/com/conch/editor/sftp/EditorLocalFileOpener.java`
+- Modify: `plugins/editor/src/com/termlab/editor/sftp/EditorLocalFileOpener.java`
 
 - [ ] **Step 1: Rewrite `EditorLocalFileOpener.java`**
 
 Replace the full file contents with:
 
 ```java
-package com.conch.editor.sftp;
+package com.termlab.editor.sftp;
 
-import com.conch.editor.guard.OpenGuards;
-import com.conch.sftp.model.LocalFileEntry;
-import com.conch.sftp.spi.LocalFileOpener;
+import com.termlab.editor.guard.OpenGuards;
+import com.termlab.sftp.model.LocalFileEntry;
+import com.termlab.sftp.spi.LocalFileOpener;
 import com.intellij.notification.Notification;
 import com.intellij.notification.NotificationType;
 import com.intellij.notification.Notifications;
@@ -1826,7 +1826,7 @@ import org.jetbrains.annotations.NotNull;
 
 public final class EditorLocalFileOpener implements LocalFileOpener {
 
-    private static final String NOTIFICATION_GROUP = "Conch SFTP";
+    private static final String NOTIFICATION_GROUP = "TermLab SFTP";
 
     @Override
     public void open(@NotNull Project project, @NotNull LocalFileEntry entry) {
@@ -1834,7 +1834,7 @@ public final class EditorLocalFileOpener implements LocalFileOpener {
         VirtualFile vf = LocalFileSystem.getInstance().refreshAndFindFileByNioFile(entry.path());
         if (vf == null) {
             Notifications.Bus.notify(
-                new Notification(NOTIFICATION_GROUP, "Conch SFTP",
+                new Notification(NOTIFICATION_GROUP, "TermLab SFTP",
                     "Could not open " + entry.path(), NotificationType.ERROR),
                 project);
             return;
@@ -1846,13 +1846,13 @@ public final class EditorLocalFileOpener implements LocalFileOpener {
 
 - [ ] **Step 2: Build**
 
-Run: `bash bazel.cmd build //conch/plugins/editor:editor`
+Run: `bash bazel.cmd build //termlab/plugins/editor:editor`
 Expected: `Build completed successfully`.
 
 - [ ] **Step 3: Commit**
 
 ```bash
-git add plugins/editor/src/com/conch/editor/sftp/EditorLocalFileOpener.java
+git add plugins/editor/src/com/termlab/editor/sftp/EditorLocalFileOpener.java
 git commit -m "refactor(editor): EditorLocalFileOpener opens directly via LocalFileSystem"
 ```
 
@@ -1865,10 +1865,10 @@ Project-scoped `FileEditorManagerListener` in the SFTP plugin that releases the 
 Re-read the spec section "SftpEditorTabListener" — the cleanest model is: `SftpVirtualFileSystem.findFileByPath` does NOT hold a long-lived reference (it releases as soon as the call finishes), and instead each editor that opens an `SftpVirtualFile` acquires its own reference. The listener releases on tab close.
 
 **Files:**
-- Modify: `plugins/sftp/src/com/conch/sftp/vfs/SftpVirtualFileSystem.java` — change `findFileByPath` to use a try-with-resources / scoped acquire pattern. Actually: simpler — acquire and immediately release inside `findFileByPath`, leaving the session held only by other consumers (the SFTP tool window pane, or the editor tab via the listener below).
-- Create: `plugins/sftp/src/com/conch/sftp/session/SftpEditorTabListener.java`
+- Modify: `plugins/sftp/src/com/termlab/sftp/vfs/SftpVirtualFileSystem.java` — change `findFileByPath` to use a try-with-resources / scoped acquire pattern. Actually: simpler — acquire and immediately release inside `findFileByPath`, leaving the session held only by other consumers (the SFTP tool window pane, or the editor tab via the listener below).
+- Create: `plugins/sftp/src/com/termlab/sftp/session/SftpEditorTabListener.java`
 - Modify: `plugins/sftp/resources/META-INF/plugin.xml`
-- Modify: `plugins/editor/src/com/conch/editor/sftp/EditorRemoteFileOpener.java` — explicitly acquire before opening.
+- Modify: `plugins/editor/src/com/termlab/editor/sftp/EditorRemoteFileOpener.java` — explicitly acquire before opening.
 
 - [ ] **Step 1: Adjust `SftpVirtualFileSystem.findFileByPath` to scope its session reference**
 
@@ -1930,9 +1930,9 @@ This means the session is acquired, used for the stat, then released. If no othe
 - [ ] **Step 2: Create `SftpEditorTabListener.java`**
 
 ```java
-package com.conch.sftp.session;
+package com.termlab.sftp.session;
 
-import com.conch.sftp.vfs.SftpVirtualFile;
+import com.termlab.sftp.vfs.SftpVirtualFile;
 import com.intellij.openapi.fileEditor.FileEditorManager;
 import com.intellij.openapi.fileEditor.FileEditorManagerListener;
 import com.intellij.openapi.vfs.VirtualFile;
@@ -1967,7 +1967,7 @@ Add a `<projectListeners>` block (or extend the existing one) with:
 
 ```xml
     <projectListeners>
-        <listener class="com.conch.sftp.session.SftpEditorTabListener"
+        <listener class="com.termlab.sftp.session.SftpEditorTabListener"
                   topic="com.intellij.openapi.fileEditor.FileEditorManagerListener"/>
     </projectListeners>
 ```
@@ -2000,8 +2000,8 @@ Replace with:
         // Acquire a tab-scoped session reference; SftpEditorTabListener
         // releases it when the editor tab closes.
         try {
-            com.conch.sftp.session.SftpSessionManager.getInstance().acquire(host, vf);
-        } catch (com.conch.ssh.client.SshConnectException e) {
+            com.termlab.sftp.session.SftpSessionManager.getInstance().acquire(host, vf);
+        } catch (com.termlab.ssh.client.SshConnectException e) {
             notifyError(project, "Session lost for " + host.label() + ": " + e.getMessage());
             return;
         }
@@ -2011,13 +2011,13 @@ Replace with:
 
 - [ ] **Step 5: Build**
 
-Run: `bash bazel.cmd build //conch/plugins/sftp:sftp //conch/plugins/editor:editor`
+Run: `bash bazel.cmd build //termlab/plugins/sftp:sftp //termlab/plugins/editor:editor`
 Expected: both targets build successfully.
 
 - [ ] **Step 6: Commit**
 
 ```bash
-git add plugins/sftp/src/com/conch/sftp/vfs/SftpVirtualFileSystem.java plugins/sftp/src/com/conch/sftp/session/SftpEditorTabListener.java plugins/sftp/resources/META-INF/plugin.xml plugins/editor/src/com/conch/editor/sftp/EditorRemoteFileOpener.java
+git add plugins/sftp/src/com/termlab/sftp/vfs/SftpVirtualFileSystem.java plugins/sftp/src/com/termlab/sftp/session/SftpEditorTabListener.java plugins/sftp/resources/META-INF/plugin.xml plugins/editor/src/com/termlab/editor/sftp/EditorRemoteFileOpener.java
 git commit -m "feat(sftp): tab-scoped session refcount via SftpEditorTabListener"
 ```
 
@@ -2028,26 +2028,26 @@ git commit -m "feat(sftp): tab-scoped session refcount via SftpEditorTabListener
 The new `Cmd+Shift+S` action. Host picker, modal connect progress, FileSaverDialog rooted at the remote, atomic write, scratch-to-real-tab transition.
 
 **Files:**
-- Create: `plugins/editor/src/com/conch/editor/scratch/SaveScratchToRemoteAction.java`
+- Create: `plugins/editor/src/com/termlab/editor/scratch/SaveScratchToRemoteAction.java`
 - Modify: `plugins/editor/resources/META-INF/plugin.xml`
 
-- [ ] **Step 1: Verify `Cmd+Shift+S` is unbound in Conch**
+- [ ] **Step 1: Verify `Cmd+Shift+S` is unbound in TermLab**
 
-Read `core/src/com/conch/core/ConchToolbarStripper.java`. Confirm `SaveAll` is in its strip list — grep for `SaveAll`. If present, `Cmd+Shift+S` is free to use. If not, fall back to `Cmd+Alt+S` in step 4.
+Read `core/src/com/termlab/core/TermLabToolbarStripper.java`. Confirm `SaveAll` is in its strip list — grep for `SaveAll`. If present, `Cmd+Shift+S` is free to use. If not, fall back to `Cmd+Alt+S` in step 4.
 
 - [ ] **Step 2: Create `SaveScratchToRemoteAction.java`**
 
 ```java
-package com.conch.editor.scratch;
+package com.termlab.editor.scratch;
 
-import com.conch.sftp.client.SshSftpSession;
-import com.conch.sftp.session.SftpSessionManager;
-import com.conch.sftp.vfs.SftpUrl;
-import com.conch.sftp.vfs.SftpVirtualFile;
-import com.conch.sftp.vfs.SftpVirtualFileSystem;
-import com.conch.ssh.client.SshConnectException;
-import com.conch.ssh.model.HostStore;
-import com.conch.ssh.model.SshHost;
+import com.termlab.sftp.client.SshSftpSession;
+import com.termlab.sftp.session.SftpSessionManager;
+import com.termlab.sftp.vfs.SftpUrl;
+import com.termlab.sftp.vfs.SftpVirtualFile;
+import com.termlab.sftp.vfs.SftpVirtualFileSystem;
+import com.termlab.ssh.client.SshConnectException;
+import com.termlab.ssh.model.HostStore;
+import com.termlab.ssh.model.SshHost;
 import com.intellij.notification.Notification;
 import com.intellij.notification.NotificationType;
 import com.intellij.notification.Notifications;
@@ -2086,7 +2086,7 @@ import java.util.UUID;
  */
 public final class SaveScratchToRemoteAction extends AnAction {
 
-    private static final String NOTIFICATION_GROUP = "Conch SFTP";
+    private static final String NOTIFICATION_GROUP = "TermLab SFTP";
 
     @Override
     public void update(@NotNull AnActionEvent e) {
@@ -2291,14 +2291,14 @@ public final class SaveScratchToRemoteAction extends AnAction {
 
 - [ ] **Step 3: Register the action in `plugins/editor/resources/META-INF/plugin.xml`**
 
-Inside the existing `<actions>` block (after the `Conch.Editor.NewScratch` action), add:
+Inside the existing `<actions>` block (after the `TermLab.Editor.NewScratch` action), add:
 
 ```xml
-        <action id="Conch.Editor.SaveScratchToRemote"
-                class="com.conch.editor.scratch.SaveScratchToRemoteAction"
+        <action id="TermLab.Editor.SaveScratchToRemote"
+                class="com.termlab.editor.scratch.SaveScratchToRemoteAction"
                 text="Save Scratch to Remote…"
                 description="Save the current scratch file to a connected SFTP host">
-            <add-to-group group-id="FileMenu" anchor="after" relative-to-action="Conch.Editor.NewScratch"/>
+            <add-to-group group-id="FileMenu" anchor="after" relative-to-action="TermLab.Editor.NewScratch"/>
             <keyboard-shortcut keymap="$default" first-keystroke="control shift S"/>
             <keyboard-shortcut keymap="Mac OS X 10.5+" first-keystroke="meta shift S" replace-all="true"/>
             <keyboard-shortcut keymap="Mac OS X" first-keystroke="meta shift S" replace-all="true"/>
@@ -2307,13 +2307,13 @@ Inside the existing `<actions>` block (after the `Conch.Editor.NewScratch` actio
 
 - [ ] **Step 4: Build**
 
-Run: `bash bazel.cmd build //conch/plugins/editor:editor`
+Run: `bash bazel.cmd build //termlab/plugins/editor:editor`
 Expected: `Build completed successfully`. If `FileSaverDialog.save(VirtualFile, String)` does not exist in your platform version, check the actual signature in the platform source — older versions take a `(File, String)` pair.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add plugins/editor/src/com/conch/editor/scratch/SaveScratchToRemoteAction.java plugins/editor/resources/META-INF/plugin.xml
+git add plugins/editor/src/com/termlab/editor/scratch/SaveScratchToRemoteAction.java plugins/editor/resources/META-INF/plugin.xml
 git commit -m "feat(editor): SaveScratchToRemoteAction bound to Cmd/Ctrl+Shift+S"
 ```
 
@@ -2324,42 +2324,42 @@ git commit -m "feat(editor): SaveScratchToRemoteAction bound to Cmd/Ctrl+Shift+S
 Delete the now-unused `RemoteFileBinding`, `RemoteFileBindingRegistry`, `RemoteEditService`, `RemoteSaveListener`, `RemoteEditorCleanup`, `RemoteEditorShutdownListener`, `RemoteEditorStartupSweep`, `RemoteEditorProjectListener`, `TempPathResolver` (and its test), and `SftpSingleFileTransfer`. Remove their plugin.xml registrations.
 
 **Files:**
-- Delete: `plugins/editor/src/com/conch/editor/remote/RemoteFileBinding.java`
-- Delete: `plugins/editor/src/com/conch/editor/remote/RemoteFileBindingRegistry.java`
-- Delete: `plugins/editor/src/com/conch/editor/remote/RemoteEditService.java`
-- Delete: `plugins/editor/src/com/conch/editor/remote/RemoteSaveListener.java`
-- Delete: `plugins/editor/src/com/conch/editor/remote/RemoteEditorCleanup.java`
-- Delete: `plugins/editor/src/com/conch/editor/remote/RemoteEditorShutdownListener.java`
-- Delete: `plugins/editor/src/com/conch/editor/remote/RemoteEditorStartupSweep.java`
-- Delete: `plugins/editor/src/com/conch/editor/remote/RemoteEditorProjectListener.java`
-- Delete: `plugins/editor/src/com/conch/editor/remote/TempPathResolver.java`
-- Delete: `plugins/editor/test/com/conch/editor/remote/TempPathResolverTest.java`
-- Delete: `plugins/sftp/src/com/conch/sftp/transfer/SftpSingleFileTransfer.java`
+- Delete: `plugins/editor/src/com/termlab/editor/remote/RemoteFileBinding.java`
+- Delete: `plugins/editor/src/com/termlab/editor/remote/RemoteFileBindingRegistry.java`
+- Delete: `plugins/editor/src/com/termlab/editor/remote/RemoteEditService.java`
+- Delete: `plugins/editor/src/com/termlab/editor/remote/RemoteSaveListener.java`
+- Delete: `plugins/editor/src/com/termlab/editor/remote/RemoteEditorCleanup.java`
+- Delete: `plugins/editor/src/com/termlab/editor/remote/RemoteEditorShutdownListener.java`
+- Delete: `plugins/editor/src/com/termlab/editor/remote/RemoteEditorStartupSweep.java`
+- Delete: `plugins/editor/src/com/termlab/editor/remote/RemoteEditorProjectListener.java`
+- Delete: `plugins/editor/src/com/termlab/editor/remote/TempPathResolver.java`
+- Delete: `plugins/editor/test/com/termlab/editor/remote/TempPathResolverTest.java`
+- Delete: `plugins/sftp/src/com/termlab/sftp/transfer/SftpSingleFileTransfer.java`
 - Modify: `plugins/editor/resources/META-INF/plugin.xml`
-- Create: `plugins/editor/src/com/conch/editor/sftp/LegacyTempDirCleanup.java` (one-shot orphan dir cleanup)
+- Create: `plugins/editor/src/com/termlab/editor/sftp/LegacyTempDirCleanup.java` (one-shot orphan dir cleanup)
 
 - [ ] **Step 1: Delete the old files**
 
 ```bash
-rm plugins/editor/src/com/conch/editor/remote/RemoteFileBinding.java
-rm plugins/editor/src/com/conch/editor/remote/RemoteFileBindingRegistry.java
-rm plugins/editor/src/com/conch/editor/remote/RemoteEditService.java
-rm plugins/editor/src/com/conch/editor/remote/RemoteSaveListener.java
-rm plugins/editor/src/com/conch/editor/remote/RemoteEditorCleanup.java
-rm plugins/editor/src/com/conch/editor/remote/RemoteEditorShutdownListener.java
-rm plugins/editor/src/com/conch/editor/remote/RemoteEditorStartupSweep.java
-rm plugins/editor/src/com/conch/editor/remote/RemoteEditorProjectListener.java
-rm plugins/editor/src/com/conch/editor/remote/TempPathResolver.java
-rm plugins/editor/test/com/conch/editor/remote/TempPathResolverTest.java
-rm plugins/sftp/src/com/conch/sftp/transfer/SftpSingleFileTransfer.java
+rm plugins/editor/src/com/termlab/editor/remote/RemoteFileBinding.java
+rm plugins/editor/src/com/termlab/editor/remote/RemoteFileBindingRegistry.java
+rm plugins/editor/src/com/termlab/editor/remote/RemoteEditService.java
+rm plugins/editor/src/com/termlab/editor/remote/RemoteSaveListener.java
+rm plugins/editor/src/com/termlab/editor/remote/RemoteEditorCleanup.java
+rm plugins/editor/src/com/termlab/editor/remote/RemoteEditorShutdownListener.java
+rm plugins/editor/src/com/termlab/editor/remote/RemoteEditorStartupSweep.java
+rm plugins/editor/src/com/termlab/editor/remote/RemoteEditorProjectListener.java
+rm plugins/editor/src/com/termlab/editor/remote/TempPathResolver.java
+rm plugins/editor/test/com/termlab/editor/remote/TempPathResolverTest.java
+rm plugins/sftp/src/com/termlab/sftp/transfer/SftpSingleFileTransfer.java
 ```
 
 - [ ] **Step 2: Create the legacy temp-dir cleanup**
 
-`plugins/editor/src/com/conch/editor/sftp/LegacyTempDirCleanup.java`:
+`plugins/editor/src/com/termlab/editor/sftp/LegacyTempDirCleanup.java`:
 
 ```java
-package com.conch.editor.sftp;
+package com.termlab.editor.sftp;
 
 import com.intellij.openapi.application.PathManager;
 import com.intellij.openapi.diagnostic.Logger;
@@ -2379,9 +2379,9 @@ import java.util.Comparator;
 import java.util.stream.Stream;
 
 /**
- * One-shot cleanup of the legacy {@code conch-sftp-edits/} directory
+ * One-shot cleanup of the legacy {@code termlab-sftp-edits/} directory
  * left behind by the old temp-file SFTP edit flow. The directory is no
- * longer used after migration to {@link com.conch.sftp.vfs.SftpVirtualFileSystem}.
+ * longer used after migration to {@link com.termlab.sftp.vfs.SftpVirtualFileSystem}.
  *
  * <p>Remove this class after a few releases when no users have stale dirs.
  */
@@ -2395,16 +2395,16 @@ public final class LegacyTempDirCleanup implements ProjectActivity {
         if (swept) return Unit.INSTANCE;
         swept = true;
         AppExecutorUtil.getAppExecutorService().submit(() -> {
-            Path root = Paths.get(PathManager.getSystemPath(), "conch-sftp-edits");
+            Path root = Paths.get(PathManager.getSystemPath(), "termlab-sftp-edits");
             if (!Files.exists(root)) return;
             try (Stream<Path> walk = Files.walk(root)) {
                 walk.sorted(Comparator.reverseOrder()).forEach(p -> {
                     try { Files.deleteIfExists(p); }
                     catch (IOException e) { LOG.warn("Failed to delete legacy temp file: " + p, e); }
                 });
-                LOG.info("Cleaned up legacy conch-sftp-edits directory");
+                LOG.info("Cleaned up legacy termlab-sftp-edits directory");
             } catch (IOException e) {
-                LOG.warn("Failed to clean up legacy conch-sftp-edits", e);
+                LOG.warn("Failed to clean up legacy termlab-sftp-edits", e);
             }
         });
         return Unit.INSTANCE;
@@ -2418,10 +2418,10 @@ The current file has many registrations for the deleted classes. Read the file f
 
 ```xml
 <idea-plugin>
-    <id>com.conch.editor</id>
-    <name>Conch Light Editor</name>
+    <id>com.termlab.editor</id>
+    <name>TermLab Light Editor</name>
     <version>0.1.0</version>
-    <vendor>Conch</vendor>
+    <vendor>TermLab</vendor>
     <description>
         Light editor for scratches and SFTP-triggered file editing.
         Bundled and enabled by default. Disable via Settings → Plugins
@@ -2429,23 +2429,23 @@ The current file has many registrations for the deleted classes. Read the file f
     </description>
 
     <depends>com.intellij.modules.platform</depends>
-    <depends>com.conch.core</depends>
-    <depends>com.conch.sftp</depends>
+    <depends>com.termlab.core</depends>
+    <depends>com.termlab.sftp</depends>
     <depends>org.jetbrains.plugins.textmate</depends>
 
     <extensions defaultExtensionNs="com.intellij">
-        <postStartupActivity implementation="com.conch.editor.debug.TextMateBuiltinBundleEnabler"/>
-        <postStartupActivity implementation="com.conch.editor.sftp.LegacyTempDirCleanup"/>
+        <postStartupActivity implementation="com.termlab.editor.debug.TextMateBuiltinBundleEnabler"/>
+        <postStartupActivity implementation="com.termlab.editor.sftp.LegacyTempDirCleanup"/>
     </extensions>
 
-    <extensions defaultExtensionNs="com.conch.sftp">
-        <localFileOpener implementation="com.conch.editor.sftp.EditorLocalFileOpener"/>
-        <remoteFileOpener implementation="com.conch.editor.sftp.EditorRemoteFileOpener"/>
+    <extensions defaultExtensionNs="com.termlab.sftp">
+        <localFileOpener implementation="com.termlab.editor.sftp.EditorLocalFileOpener"/>
+        <remoteFileOpener implementation="com.termlab.editor.sftp.EditorRemoteFileOpener"/>
     </extensions>
 
     <actions>
-        <action id="Conch.Editor.NewScratch"
-                class="com.conch.editor.scratch.NewScratchAction"
+        <action id="TermLab.Editor.NewScratch"
+                class="com.termlab.editor.scratch.NewScratchAction"
                 text="New Scratch File"
                 description="Create a new scratch text file with a chosen file type">
             <add-to-group group-id="FileMenu" anchor="first"/>
@@ -2453,11 +2453,11 @@ The current file has many registrations for the deleted classes. Read the file f
             <keyboard-shortcut keymap="Mac OS X 10.5+" first-keystroke="meta N" replace-all="true"/>
             <keyboard-shortcut keymap="Mac OS X" first-keystroke="meta N" replace-all="true"/>
         </action>
-        <action id="Conch.Editor.SaveScratchToRemote"
-                class="com.conch.editor.scratch.SaveScratchToRemoteAction"
+        <action id="TermLab.Editor.SaveScratchToRemote"
+                class="com.termlab.editor.scratch.SaveScratchToRemoteAction"
                 text="Save Scratch to Remote…"
                 description="Save the current scratch file to a connected SFTP host">
-            <add-to-group group-id="FileMenu" anchor="after" relative-to-action="Conch.Editor.NewScratch"/>
+            <add-to-group group-id="FileMenu" anchor="after" relative-to-action="TermLab.Editor.NewScratch"/>
             <keyboard-shortcut keymap="$default" first-keystroke="control shift S"/>
             <keyboard-shortcut keymap="Mac OS X 10.5+" first-keystroke="meta shift S" replace-all="true"/>
             <keyboard-shortcut keymap="Mac OS X" first-keystroke="meta shift S" replace-all="true"/>
@@ -2476,20 +2476,20 @@ To preserve it, edit the `plugin.xml` from Step 3 above and add the listener blo
 
 ```xml
     <applicationListeners>
-        <listener class="com.conch.editor.scratch.ScratchSaveListener"
+        <listener class="com.termlab.editor.scratch.ScratchSaveListener"
                   topic="com.intellij.openapi.fileEditor.FileDocumentManagerListener"/>
     </applicationListeners>
 ```
 
 - [ ] **Step 5: Build editor and SFTP**
 
-Run: `bash bazel.cmd build //conch/plugins/editor:editor //conch/plugins/sftp:sftp`
+Run: `bash bazel.cmd build //termlab/plugins/editor:editor //termlab/plugins/sftp:sftp`
 Expected: both build successfully. If there are dangling references to deleted classes, the compiler will report them — fix and retry.
 
 - [ ] **Step 6: Run all unit tests**
 
-Run: `bash bazel.cmd run //conch/plugins/editor:editor_test_runner`
-Run: `bash bazel.cmd run //conch/plugins/sftp:sftp_test_runner`
+Run: `bash bazel.cmd run //termlab/plugins/editor:editor_test_runner`
+Run: `bash bazel.cmd run //termlab/plugins/sftp:sftp_test_runner`
 Expected: all tests still pass. The deleted `TempPathResolverTest` is gone; the remaining editor tests should still run.
 
 - [ ] **Step 7: Commit**
@@ -2503,18 +2503,18 @@ git commit -m "refactor(editor): delete temp-file SFTP machinery, route everythi
 
 ## Task 14: End-to-end manual verification
 
-The platform-bound parts of this feature can't be unit-tested without a heavy fixture. Walk through this checklist with a running Conch and record any deviations as follow-up tasks.
+The platform-bound parts of this feature can't be unit-tested without a heavy fixture. Walk through this checklist with a running TermLab and record any deviations as follow-up tasks.
 
 **Files:** none (validation only)
 
 - [ ] **Step 1: Build the product**
 
-Run: `bash bazel.cmd build //conch:conch_run`
+Run: `bash bazel.cmd build //termlab:termlab_run`
 Expected: `Build completed successfully`.
 
-- [ ] **Step 2: Launch Conch**
+- [ ] **Step 2: Launch TermLab**
 
-Run: `bash bazel.cmd run //conch:conch_run`
+Run: `bash bazel.cmd run //termlab:termlab_run`
 
 - [ ] **Step 3: Verify SFTP tool window still works**
 
@@ -2560,9 +2560,9 @@ Run: `bash bazel.cmd run //conch:conch_run`
 
 - [ ] **Step 8: Verify legacy temp dir cleanup**
 
-- Quit Conch.
-- Manually create a stale `~/Library/Caches/JetBrains/Conch.../conch-sftp-edits/` directory with a dummy file inside. (Path: `PathManager.getSystemPath()/conch-sftp-edits`.)
-- Re-launch Conch.
+- Quit TermLab.
+- Manually create a stale `~/Library/Caches/JetBrains/TermLab.../termlab-sftp-edits/` directory with a dummy file inside. (Path: `PathManager.getSystemPath()/termlab-sftp-edits`.)
+- Re-launch TermLab.
 - After a few seconds, check the directory: it should be empty/gone.
 
 - [ ] **Step 9: Verify Cmd+Shift+S is disabled when not on a scratch**
@@ -2590,4 +2590,4 @@ These were flagged in the spec and should NOT be done in this plan:
 3. External change detection / file watching on remote files.
 4. Implementing the full set of mutation operations (`deleteFile`, `moveFile`, `renameFile`, `copyFile`, `createChildFile`, `createChildDirectory`).
 5. Removing the `LegacyTempDirCleanup` startup activity after a few releases when nobody has stale directories.
-6. Migrating other file-picker call sites in Conch to use `SftpVirtualFileSystem` as a root option.
+6. Migrating other file-picker call sites in TermLab to use `SftpVirtualFileSystem` as a root option.

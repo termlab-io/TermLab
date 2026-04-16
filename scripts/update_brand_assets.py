@@ -128,13 +128,13 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     parser.add_argument(
         "--mac-icns-out",
         type=Path,
-        default=Path("customization/resources/conch.icns"),
+        default=Path("customization/resources/termlab.icns"),
         help="Output macOS ICNS path.",
     )
     parser.add_argument(
         "--mac-dock-out",
         type=Path,
-        default=Path("core/resources/conch_dock_icon.png"),
+        default=Path("core/resources/termlab_dock_icon.png"),
         help="Output macOS dock PNG path.",
     )
     parser.add_argument(
@@ -147,20 +147,20 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     parser.add_argument(
         "--win-ico-out",
         type=Path,
-        default=Path("customization/resources/conch.ico"),
+        default=Path("customization/resources/termlab.ico"),
         help="Output Windows ICO path.",
     )
 
     parser.add_argument(
         "--splash-out",
         type=Path,
-        default=Path("customization/resources/conch_logo.png"),
+        default=Path("customization/resources/termlab_logo.png"),
         help="Output splash 1x (640x400).",
     )
     parser.add_argument(
         "--splash-2x-out",
         type=Path,
-        default=Path("customization/resources/conch_logo@2x.png"),
+        default=Path("customization/resources/termlab_logo@2x.png"),
         help="Output splash 2x (1280x800).",
     )
 

@@ -6,14 +6,14 @@
 /bazel-*
 /out/
 
-# IntelliJ project state. Conch lives inside the intellij-community project;
+# IntelliJ project state. TermLab lives inside the intellij-community project;
 # this repo is never opened as its own IntelliJ project, so any .idea/ that
 # appears here is stale junk from accidental opens.
 .idea/
 
 # Auto-generated short-named .iml files from IntelliJ when it indexes the
-# conch modules from the symlinked path. The canonical .iml files we ship
-# are named intellij.conch.{main,core,sdk,customization}.iml; anything else
+# termlab modules from the symlinked path. The canonical .iml files we ship
+# are named intellij.termlab.{main,core,sdk,customization}.iml; anything else
 # is regenerated noise.
 core/core.iml
 sdk/sdk.iml
@@ -34,3 +34,6 @@ perf-results/
 # Scratch log files shared back from Windows/Linux VMs for debugging
 /idea.log
 /exceptions
+
+# Icon source assets, mock-ups, and third-party DMG tooling — not shipped.
+/icons/

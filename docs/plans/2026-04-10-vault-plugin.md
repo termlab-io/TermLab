@@ -2,31 +2,31 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Implement the credential vault plugin for Conch — an encrypted, device-bound store of SSH credentials and generated keys, accessed by other plugins via the `CredentialProvider` extension point. v1 covers the on-disk format, lock manager, in-memory protections, vault management dialog, status bar widget, and SSH key generation. SSH consumption (the SSH plugin's use of the vault) is a separate plan.
+**Goal:** Implement the credential vault plugin for TermLab — an encrypted, device-bound store of SSH credentials and generated keys, accessed by other plugins via the `CredentialProvider` extension point. v1 covers the on-disk format, lock manager, in-memory protections, vault management dialog, status bar widget, and SSH key generation. SSH consumption (the SSH plugin's use of the vault) is a separate plan.
 
-**Architecture:** A Conch plugin module living at `conch_workbench/plugins/vault/`, packaged as part of the Conch product via `BUILD.bazel`. Implements `com.conch.sdk.CredentialProvider` so other plugins query it. The vault file (`~/.config/conch/vault.enc`) is always encrypted on disk; "unlocked" means a derived key + decrypted account list are held in memory inside `byte[]` / `char[]` structures that get zeroed on lock or shutdown. A `LockManager` runs an inactivity timer and triggers auto-lock. Device binding uses the macOS Keychain (Linux/Windows fallback to libsecret/Credential Manager) via JNA — IntelliJ already bundles JNA, so no extra deps. The vault management dialog is a modal `DialogWrapper`, not a tool window (vault management is infrequent).
+**Architecture:** A TermLab plugin module living at `termlab_workbench/plugins/vault/`, packaged as part of the TermLab product via `BUILD.bazel`. Implements `com.termlab.sdk.CredentialProvider` so other plugins query it. The vault file (`~/.config/termlab/vault.enc`) is always encrypted on disk; "unlocked" means a derived key + decrypted account list are held in memory inside `byte[]` / `char[]` structures that get zeroed on lock or shutdown. A `LockManager` runs an inactivity timer and triggers auto-lock. Device binding uses the macOS Keychain (Linux/Windows fallback to libsecret/Credential Manager) via JNA — IntelliJ already bundles JNA, so no extra deps. The vault management dialog is a modal `DialogWrapper`, not a tool window (vault management is infrequent).
 
-**Tech Stack:** Java 21 · IntelliJ Platform (Conch core APIs from `intellij.conch.sdk`) · `javax.crypto` for AES-GCM (built into JDK 21) · BouncyCastle for Argon2id and Ed25519/ECDSA key generation (already a transitive dep of intellij-community) · JNA for macOS Keychain calls (already on classpath via intellij.libraries.jna) · Bazel `jvm_library` for the build target.
+**Tech Stack:** Java 21 · IntelliJ Platform (TermLab core APIs from `intellij.termlab.sdk`) · `javax.crypto` for AES-GCM (built into JDK 21) · BouncyCastle for Argon2id and Ed25519/ECDSA key generation (already a transitive dep of intellij-community) · JNA for macOS Keychain calls (already on classpath via intellij.libraries.jna) · Bazel `jvm_library` for the build target.
 
-**Reference spec:** `docs/specs/2026-04-08-conch-workstation-design.md` — sections 5.3 (Vault), 7.1-7.4 (Security Model), 8.1 (Configuration Files).
+**Reference spec:** `docs/specs/2026-04-08-termlab-workstation-design.md` — sections 5.3 (Vault), 7.1-7.4 (Security Model), 8.1 (Configuration Files).
 
-**Reference implementation:** `~/projects/rusty_conch_2/crates/conch_vault/` — same data model and crypto format, in Rust. The Java port reuses the data model and the AES-GCM/Argon2id parameters; it uses **JSON** instead of bincode for the inner serialization (vault files are NOT byte-compatible between Rust and Java versions — migration is a separate concern, out of scope for v1).
+**Reference implementation:** `~/projects/rusty_termlab_2/crates/termlab_vault/` — same data model and crypto format, in Rust. The Java port reuses the data model and the AES-GCM/Argon2id parameters; it uses **JSON** instead of bincode for the inner serialization (vault files are NOT byte-compatible between Rust and Java versions — migration is a separate concern, out of scope for v1).
 
 ---
 
 ## File Structure
 
-All paths relative to `conch_workbench/`. Files live at the repo root because the symlink at `intellij-community/conch/` makes them visible to Bazel without further wiring.
+All paths relative to `termlab_workbench/`. Files live at the repo root because the symlink at `intellij-community/termlab/` makes them visible to Bazel without further wiring.
 
 ```
 plugins/vault/
 ├── BUILD.bazel                                          # Bazel jvm_library target
-├── intellij.conch.vault.iml                             # IntelliJ module
+├── intellij.termlab.vault.iml                             # IntelliJ module
 ├── resources/
 │   └── META-INF/
 │       └── plugin.xml                                   # Plugin descriptor
-└── src/com/conch/vault/
-    ├── ConchVaultPlugin.java                            # Plugin entry point (registers extensions)
+└── src/com/termlab/vault/
+    ├── TermLabVaultPlugin.java                            # Plugin entry point (registers extensions)
     ├── model/
     │   ├── Vault.java                                   # Top-level vault state
     │   ├── VaultAccount.java                            # Single credential entry
@@ -41,7 +41,7 @@ plugins/vault/
     │   └── SecureBytes.java                             # zeroable byte[] / char[] holders
     ├── persistence/
     │   ├── VaultFile.java                               # atomic save / load
-    │   └── VaultPaths.java                              # ~/.config/conch/vault.enc resolution
+    │   └── VaultPaths.java                              # ~/.config/termlab/vault.enc resolution
     ├── keychain/
     │   ├── DeviceSecret.java                            # API: getOrCreate, delete
     │   ├── MacKeychain.java                             # JNA binding to Security.framework
@@ -53,7 +53,7 @@ plugins/vault/
     │   ├── InactivityTimer.java                         # resets on user interaction
     │   └── VaultStateListener.java                      # observer interface
     ├── credentials/
-    │   └── VaultCredentialProvider.java                 # implements com.conch.sdk.CredentialProvider
+    │   └── VaultCredentialProvider.java                 # implements com.termlab.sdk.CredentialProvider
     ├── keygen/
     │   ├── SshKeyGenerator.java                         # public API: generate(algorithm, comment) -> GeneratedKeyEntry
     │   ├── algorithms/
@@ -78,7 +78,7 @@ plugins/vault/
     └── hardening/
         └── VaultShutdownHook.java                       # zeroes secrets on JVM exit
 
-plugins/vault/test/com/conch/vault/                     # JUnit 5 tests, mirror of src/
+plugins/vault/test/com/termlab/vault/                     # JUnit 5 tests, mirror of src/
     ├── crypto/VaultCryptoTest.java
     ├── crypto/KeyDerivationTest.java
     ├── crypto/VaultFileFormatTest.java
@@ -88,7 +88,7 @@ plugins/vault/test/com/conch/vault/                     # JUnit 5 tests, mirror 
     └── keygen/SshKeyGeneratorTest.java
 ```
 
-The plugin is wired into the Conch product by adding `//plugins/vault` to the `runtime_deps` list in `conch_workbench/BUILD.bazel`'s `conch_run` target.
+The plugin is wired into the TermLab product by adding `//plugins/vault` to the `runtime_deps` list in `termlab_workbench/BUILD.bazel`'s `termlab_run` target.
 
 ---
 
@@ -100,8 +100,8 @@ This phase has zero IntelliJ Platform dependencies. Everything in `crypto/`, `mo
 
 **Files:**
 - Create: `plugins/vault/BUILD.bazel`
-- Create: `plugins/vault/intellij.conch.vault.iml`
-- Modify: `BUILD.bazel` (add `//plugins/vault` to `conch_run` `runtime_deps`)
+- Create: `plugins/vault/intellij.termlab.vault.iml`
+- Modify: `BUILD.bazel` (add `//plugins/vault` to `termlab_run` `runtime_deps`)
 
 - [ ] **Step 1: Create BUILD.bazel for the vault module.**
 
@@ -116,12 +116,12 @@ resourcegroup(
 
 jvm_library(
     name = "vault",
-    module_name = "intellij.conch.vault",
+    module_name = "intellij.termlab.vault",
     visibility = ["//visibility:public"],
     srcs = glob(["src/**/*.java"]),
     resources = [":vault_resources"],
     deps = [
-        "//conch/sdk",
+        "//termlab/sdk",
         "//platform/core-api:core",
         "//platform/platform-api:ide",
         "//platform/platform-impl:ide-impl",
@@ -134,7 +134,7 @@ jvm_library(
 )
 ```
 
-- [ ] **Step 2: Create intellij.conch.vault.iml.**
+- [ ] **Step 2: Create intellij.termlab.vault.iml.**
 
 ```xml
 <?xml version="1.0" encoding="UTF-8"?>
@@ -148,7 +148,7 @@ jvm_library(
     </content>
     <orderEntry type="inheritedJdk" />
     <orderEntry type="sourceFolder" forTests="false" />
-    <orderEntry type="module" module-name="intellij.conch.sdk" />
+    <orderEntry type="module" module-name="intellij.termlab.sdk" />
     <orderEntry type="module" module-name="intellij.platform.core" />
     <orderEntry type="module" module-name="intellij.platform.ide.core" />
     <orderEntry type="module" module-name="intellij.platform.ide.impl" />
@@ -159,13 +159,13 @@ jvm_library(
 </module>
 ```
 
-- [ ] **Step 3: Wire vault into the Conch product.**
+- [ ] **Step 3: Wire vault into the TermLab product.**
 
-In `conch_workbench/BUILD.bazel`, find the `runtime_deps` list of `conch_run` and add `"//plugins/vault",` next to the other plugin entries. No other changes.
+In `termlab_workbench/BUILD.bazel`, find the `runtime_deps` list of `termlab_run` and add `"//plugins/vault",` next to the other plugin entries. No other changes.
 
 - [ ] **Step 4: Verify the module builds (no source files yet).**
 
-Run: `make conch-build`
+Run: `make termlab-build`
 Expected: Build succeeds. The new vault target compiles to an empty jar (no `.java` sources yet).
 
 - [ ] **Step 5: Commit.**
@@ -178,18 +178,18 @@ git commit -m "feat(vault): plugin module scaffolding"
 ### Task 1.2 — Data model classes
 
 **Files:**
-- Create: `plugins/vault/src/com/conch/vault/model/Vault.java`
-- Create: `plugins/vault/src/com/conch/vault/model/VaultAccount.java`
-- Create: `plugins/vault/src/com/conch/vault/model/AuthMethod.java`
-- Create: `plugins/vault/src/com/conch/vault/model/GeneratedKeyEntry.java`
-- Create: `plugins/vault/src/com/conch/vault/model/VaultSettings.java`
+- Create: `plugins/vault/src/com/termlab/vault/model/Vault.java`
+- Create: `plugins/vault/src/com/termlab/vault/model/VaultAccount.java`
+- Create: `plugins/vault/src/com/termlab/vault/model/AuthMethod.java`
+- Create: `plugins/vault/src/com/termlab/vault/model/GeneratedKeyEntry.java`
+- Create: `plugins/vault/src/com/termlab/vault/model/VaultSettings.java`
 
-These mirror the Rust types in `~/projects/rusty_conch_2/crates/conch_vault/src/model.rs`. Use Java records for immutable data, sealed interfaces for `AuthMethod`. Gson serializes records natively.
+These mirror the Rust types in `~/projects/rusty_termlab_2/crates/termlab_vault/src/model.rs`. Use Java records for immutable data, sealed interfaces for `AuthMethod`. Gson serializes records natively.
 
 - [ ] **Step 1: Define `AuthMethod` as a sealed interface.**
 
 ```java
-package com.conch.vault.model;
+package com.termlab.vault.model;
 
 import org.jetbrains.annotations.Nullable;
 
@@ -218,7 +218,7 @@ public sealed interface AuthMethod
 - [ ] **Step 2: Define `VaultAccount` as a record.**
 
 ```java
-package com.conch.vault.model;
+package com.termlab.vault.model;
 
 import java.time.Instant;
 import java.util.UUID;
@@ -236,7 +236,7 @@ public record VaultAccount(
 - [ ] **Step 3: Define `GeneratedKeyEntry`.**
 
 ```java
-package com.conch.vault.model;
+package com.termlab.vault.model;
 
 import java.time.Instant;
 import java.util.UUID;
@@ -255,7 +255,7 @@ public record GeneratedKeyEntry(
 - [ ] **Step 4: Define `VaultSettings`.**
 
 ```java
-package com.conch.vault.model;
+package com.termlab.vault.model;
 
 public record VaultSettings(
     int autoLockMinutes,
@@ -273,7 +273,7 @@ public record VaultSettings(
 - [ ] **Step 5: Define `Vault` (top level).**
 
 ```java
-package com.conch.vault.model;
+package com.termlab.vault.model;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -304,28 +304,28 @@ public final class Vault {
 
 - [ ] **Step 6: Build to check.**
 
-Run: `make conch-build`
+Run: `make termlab-build`
 Expected: Build succeeds.
 
 - [ ] **Step 7: Commit.**
 
 ```bash
-git add plugins/vault/src/com/conch/vault/model/
+git add plugins/vault/src/com/termlab/vault/model/
 git commit -m "feat(vault): data model — Vault, VaultAccount, AuthMethod, GeneratedKeyEntry, VaultSettings"
 ```
 
 ### Task 1.3 — Argon2id key derivation
 
 **Files:**
-- Create: `plugins/vault/src/com/conch/vault/crypto/KeyDerivation.java`
-- Create: `plugins/vault/test/com/conch/vault/crypto/KeyDerivationTest.java`
+- Create: `plugins/vault/src/com/termlab/vault/crypto/KeyDerivation.java`
+- Create: `plugins/vault/test/com/termlab/vault/crypto/KeyDerivationTest.java`
 
 Match the Rust parameters exactly: m=65536, t=3, p=4, output=32 bytes, Argon2id v0x13. BouncyCastle ships `Argon2BytesGenerator`.
 
 - [ ] **Step 1: Write the failing test first.**
 
 ```java
-package com.conch.vault.crypto;
+package com.termlab.vault.crypto;
 
 import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
@@ -374,7 +374,7 @@ Expected: FAIL (KeyDerivation class doesn't exist).
 - [ ] **Step 3: Implement KeyDerivation.**
 
 ```java
-package com.conch.vault.crypto;
+package com.termlab.vault.crypto;
 
 import org.bouncycastle.crypto.generators.Argon2BytesGenerator;
 import org.bouncycastle.crypto.params.Argon2Parameters;
@@ -416,22 +416,22 @@ Expected: 3/3 PASS. Argon2 takes ~250ms per call with these parameters; the thre
 - [ ] **Step 5: Commit.**
 
 ```bash
-git add plugins/vault/src/com/conch/vault/crypto/KeyDerivation.java plugins/vault/test/com/conch/vault/crypto/KeyDerivationTest.java
+git add plugins/vault/src/com/termlab/vault/crypto/KeyDerivation.java plugins/vault/test/com/termlab/vault/crypto/KeyDerivationTest.java
 git commit -m "feat(vault): Argon2id key derivation matching rust reference parameters"
 ```
 
 ### Task 1.4 — File format constants and header parsing
 
 **Files:**
-- Create: `plugins/vault/src/com/conch/vault/crypto/VaultFileFormat.java`
-- Create: `plugins/vault/test/com/conch/vault/crypto/VaultFileFormatTest.java`
+- Create: `plugins/vault/src/com/termlab/vault/crypto/VaultFileFormat.java`
+- Create: `plugins/vault/test/com/termlab/vault/crypto/VaultFileFormatTest.java`
 
-The on-disk layout is `[MAGIC(8) | VERSION(4 LE) | SALT(16) | NONCE(12) | CIPHERTEXT(...)]`. Same as Rust. Magic is the ASCII bytes `CONCHVLT`.
+The on-disk layout is `[MAGIC(8) | VERSION(4 LE) | SALT(16) | NONCE(12) | CIPHERTEXT(...)]`. Same as Rust. Magic is the ASCII bytes `TERMLABVLT`.
 
 - [ ] **Step 1: Failing test for header writing/parsing.**
 
 ```java
-package com.conch.vault.crypto;
+package com.termlab.vault.crypto;
 
 import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
@@ -486,13 +486,13 @@ Expected: FAIL.
 - [ ] **Step 3: Implement.**
 
 ```java
-package com.conch.vault.crypto;
+package com.termlab.vault.crypto;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 
 public final class VaultFileFormat {
-    public static final byte[] MAGIC = "CONCHVLT".getBytes();
+    public static final byte[] MAGIC = "TERMLABVLT".getBytes();
     public static final int VERSION = 1;
     public static final int SALT_LEN = 16;
     public static final int NONCE_LEN = 12;
@@ -540,10 +540,10 @@ public final class VaultFileFormat {
 
 - [ ] **Step 4: Create the exception class.**
 
-Create `plugins/vault/src/com/conch/vault/crypto/VaultCorruptedException.java`:
+Create `plugins/vault/src/com/termlab/vault/crypto/VaultCorruptedException.java`:
 
 ```java
-package com.conch.vault.crypto;
+package com.termlab.vault.crypto;
 
 public class VaultCorruptedException extends Exception {
     public VaultCorruptedException(String message) { super(message); }
@@ -558,27 +558,27 @@ Expected: 4/4 PASS.
 - [ ] **Step 6: Commit.**
 
 ```bash
-git add plugins/vault/src/com/conch/vault/crypto/VaultFileFormat.java plugins/vault/src/com/conch/vault/crypto/VaultCorruptedException.java plugins/vault/test/com/conch/vault/crypto/VaultFileFormatTest.java
+git add plugins/vault/src/com/termlab/vault/crypto/VaultFileFormat.java plugins/vault/src/com/termlab/vault/crypto/VaultCorruptedException.java plugins/vault/test/com/termlab/vault/crypto/VaultFileFormatTest.java
 git commit -m "feat(vault): on-disk file format header — magic + version + salt + nonce"
 ```
 
 ### Task 1.5 — AES-256-GCM encrypt / decrypt
 
 **Files:**
-- Create: `plugins/vault/src/com/conch/vault/crypto/VaultCrypto.java`
-- Create: `plugins/vault/src/com/conch/vault/crypto/WrongPasswordException.java`
-- Create: `plugins/vault/test/com/conch/vault/crypto/VaultCryptoTest.java`
+- Create: `plugins/vault/src/com/termlab/vault/crypto/VaultCrypto.java`
+- Create: `plugins/vault/src/com/termlab/vault/crypto/WrongPasswordException.java`
+- Create: `plugins/vault/test/com/termlab/vault/crypto/VaultCryptoTest.java`
 
 `javax.crypto.Cipher` with `AES/GCM/NoPadding` is built into the JDK. We pair it with the file format and key derivation from previous tasks.
 
 - [ ] **Step 1: Failing test — round-trip a Vault.**
 
 ```java
-package com.conch.vault.crypto;
+package com.termlab.vault.crypto;
 
-import com.conch.vault.model.AuthMethod;
-import com.conch.vault.model.Vault;
-import com.conch.vault.model.VaultAccount;
+import com.termlab.vault.model.AuthMethod;
+import com.termlab.vault.model.Vault;
+import com.termlab.vault.model.VaultAccount;
 import org.junit.jupiter.api.Test;
 
 import java.time.Instant;
@@ -646,9 +646,9 @@ Expected: FAIL.
 - [ ] **Step 3: Implement VaultCrypto.**
 
 ```java
-package com.conch.vault.crypto;
+package com.termlab.vault.crypto;
 
-import com.conch.vault.model.Vault;
+import com.termlab.vault.model.Vault;
 import com.google.gson.Gson;
 
 import javax.crypto.Cipher;
@@ -722,7 +722,7 @@ public final class VaultCrypto {
 - [ ] **Step 4: Create WrongPasswordException.**
 
 ```java
-package com.conch.vault.crypto;
+package com.termlab.vault.crypto;
 
 public class WrongPasswordException extends Exception {
     public WrongPasswordException() { super("wrong password"); }
@@ -737,22 +737,22 @@ Expected: 3/3 PASS.
 - [ ] **Step 6: Commit.**
 
 ```bash
-git add plugins/vault/src/com/conch/vault/crypto/VaultCrypto.java plugins/vault/src/com/conch/vault/crypto/WrongPasswordException.java plugins/vault/test/com/conch/vault/crypto/VaultCryptoTest.java
+git add plugins/vault/src/com/termlab/vault/crypto/VaultCrypto.java plugins/vault/src/com/termlab/vault/crypto/WrongPasswordException.java plugins/vault/test/com/termlab/vault/crypto/VaultCryptoTest.java
 git commit -m "feat(vault): AES-256-GCM encrypt/decrypt with JSON serialization"
 ```
 
 ### Task 1.6 — SecureBytes wrapper for in-memory secrets
 
 **Files:**
-- Create: `plugins/vault/src/com/conch/vault/crypto/SecureBytes.java`
-- Create: `plugins/vault/test/com/conch/vault/crypto/SecureBytesTest.java`
+- Create: `plugins/vault/src/com/termlab/vault/crypto/SecureBytes.java`
+- Create: `plugins/vault/test/com/termlab/vault/crypto/SecureBytesTest.java`
 
 A small AutoCloseable wrapper around `byte[]` that zeroes itself on `close()`. Used to hold the master password and derived key while the vault is unlocked.
 
 - [ ] **Step 1: Failing test.**
 
 ```java
-package com.conch.vault.crypto;
+package com.termlab.vault.crypto;
 
 import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
@@ -788,7 +788,7 @@ class SecureBytesTest {
 - [ ] **Step 2: Implement.**
 
 ```java
-package com.conch.vault.crypto;
+package com.termlab.vault.crypto;
 
 import java.util.Arrays;
 
@@ -830,23 +830,23 @@ public final class SecureBytes implements AutoCloseable {
 - [ ] **Step 3: Run tests, expect pass.** Commit.
 
 ```bash
-git add plugins/vault/src/com/conch/vault/crypto/SecureBytes.java plugins/vault/test/com/conch/vault/crypto/SecureBytesTest.java
+git add plugins/vault/src/com/termlab/vault/crypto/SecureBytes.java plugins/vault/test/com/termlab/vault/crypto/SecureBytesTest.java
 git commit -m "feat(vault): SecureBytes — auto-zeroing byte array wrapper"
 ```
 
 ### Task 1.7 — Atomic vault file persistence
 
 **Files:**
-- Create: `plugins/vault/src/com/conch/vault/persistence/VaultPaths.java`
-- Create: `plugins/vault/src/com/conch/vault/persistence/VaultFile.java`
-- Create: `plugins/vault/test/com/conch/vault/persistence/VaultFileTest.java`
+- Create: `plugins/vault/src/com/termlab/vault/persistence/VaultPaths.java`
+- Create: `plugins/vault/src/com/termlab/vault/persistence/VaultFile.java`
+- Create: `plugins/vault/test/com/termlab/vault/persistence/VaultFileTest.java`
 
-Atomic write = write to `.tmp`, fsync, rename. Resolves to `~/.config/conch/vault.enc`.
+Atomic write = write to `.tmp`, fsync, rename. Resolves to `~/.config/termlab/vault.enc`.
 
 - [ ] **Step 1: VaultPaths is trivial — no test needed.**
 
 ```java
-package com.conch.vault.persistence;
+package com.termlab.vault.persistence;
 
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -855,7 +855,7 @@ public final class VaultPaths {
     private VaultPaths() {}
 
     public static Path vaultFile() {
-        return Paths.get(System.getProperty("user.home"), ".config", "conch", "vault.enc");
+        return Paths.get(System.getProperty("user.home"), ".config", "termlab", "vault.enc");
     }
 }
 ```
@@ -863,10 +863,10 @@ public final class VaultPaths {
 - [ ] **Step 2: Failing test for VaultFile.save / load round-trip.**
 
 ```java
-package com.conch.vault.persistence;
+package com.termlab.vault.persistence;
 
-import com.conch.vault.crypto.WrongPasswordException;
-import com.conch.vault.model.Vault;
+import com.termlab.vault.crypto.WrongPasswordException;
+import com.termlab.vault.model.Vault;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -907,12 +907,12 @@ class VaultFileTest {
 - [ ] **Step 3: Implement.**
 
 ```java
-package com.conch.vault.persistence;
+package com.termlab.vault.persistence;
 
-import com.conch.vault.crypto.VaultCorruptedException;
-import com.conch.vault.crypto.VaultCrypto;
-import com.conch.vault.crypto.WrongPasswordException;
-import com.conch.vault.model.Vault;
+import com.termlab.vault.crypto.VaultCorruptedException;
+import com.termlab.vault.crypto.VaultCrypto;
+import com.termlab.vault.crypto.WrongPasswordException;
+import com.termlab.vault.model.Vault;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -946,7 +946,7 @@ public final class VaultFile {
 - [ ] **Step 4: Run tests, expect pass.** Commit.
 
 ```bash
-git add plugins/vault/src/com/conch/vault/persistence/ plugins/vault/test/com/conch/vault/persistence/
+git add plugins/vault/src/com/termlab/vault/persistence/ plugins/vault/test/com/termlab/vault/persistence/
 git commit -m "feat(vault): atomic vault file persistence"
 ```
 
@@ -959,10 +959,10 @@ git commit -m "feat(vault): atomic vault file persistence"
 ### Task 2.1 — VaultStateListener interface and LockManager skeleton
 
 **Files:**
-- Create: `plugins/vault/src/com/conch/vault/lock/VaultState.java`
-- Create: `plugins/vault/src/com/conch/vault/lock/VaultStateListener.java`
-- Create: `plugins/vault/src/com/conch/vault/lock/LockManager.java`
-- Create: `plugins/vault/test/com/conch/vault/lock/LockManagerTest.java`
+- Create: `plugins/vault/src/com/termlab/vault/lock/VaultState.java`
+- Create: `plugins/vault/src/com/termlab/vault/lock/VaultStateListener.java`
+- Create: `plugins/vault/src/com/termlab/vault/lock/LockManager.java`
+- Create: `plugins/vault/test/com/termlab/vault/lock/LockManagerTest.java`
 
 The lock manager is the in-process owner of the unlocked vault. It exposes:
 - `unlock(byte[] password)` — load + decrypt + start inactivity timer
@@ -974,13 +974,13 @@ The lock manager is the in-process owner of the unlocked vault. It exposes:
 - [ ] **Step 1: Define VaultState enum and listener.**
 
 ```java
-package com.conch.vault.lock;
+package com.termlab.vault.lock;
 
 public enum VaultState { LOCKED, UNLOCKING, UNLOCKED, SEALING }
 ```
 
 ```java
-package com.conch.vault.lock;
+package com.termlab.vault.lock;
 
 public interface VaultStateListener {
     void onStateChanged(VaultState newState);
@@ -990,11 +990,11 @@ public interface VaultStateListener {
 - [ ] **Step 2: Failing test for unlock/lock cycle.**
 
 ```java
-package com.conch.vault.lock;
+package com.termlab.vault.lock;
 
-import com.conch.vault.crypto.WrongPasswordException;
-import com.conch.vault.model.Vault;
-import com.conch.vault.persistence.VaultFile;
+import com.termlab.vault.crypto.WrongPasswordException;
+import com.termlab.vault.model.Vault;
+import com.termlab.vault.persistence.VaultFile;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -1043,12 +1043,12 @@ class LockManagerTest {
 - [ ] **Step 3: Implement LockManager.**
 
 ```java
-package com.conch.vault.lock;
+package com.termlab.vault.lock;
 
-import com.conch.vault.crypto.VaultCorruptedException;
-import com.conch.vault.crypto.WrongPasswordException;
-import com.conch.vault.model.Vault;
-import com.conch.vault.persistence.VaultFile;
+import com.termlab.vault.crypto.VaultCorruptedException;
+import com.termlab.vault.crypto.WrongPasswordException;
+import com.termlab.vault.model.Vault;
+import com.termlab.vault.persistence.VaultFile;
 import org.jetbrains.annotations.Nullable;
 
 import java.io.IOException;
@@ -1114,21 +1114,21 @@ public final class LockManager {
 - [ ] **Step 4: Run tests, expect pass.** Commit.
 
 ```bash
-git add plugins/vault/src/com/conch/vault/lock/ plugins/vault/test/com/conch/vault/lock/
+git add plugins/vault/src/com/termlab/vault/lock/ plugins/vault/test/com/termlab/vault/lock/
 git commit -m "feat(vault): LockManager with state observers"
 ```
 
 ### Task 2.2 — InactivityTimer for auto-lock
 
 **Files:**
-- Create: `plugins/vault/src/com/conch/vault/lock/InactivityTimer.java`
+- Create: `plugins/vault/src/com/termlab/vault/lock/InactivityTimer.java`
 
 A scheduled task that locks after N minutes of no `markActivity()` calls. Uses `java.util.concurrent.ScheduledExecutorService`. The vault settings hold the timeout (`autoLockMinutes`).
 
 - [ ] **Step 1: Skeleton.** (Implementation is small enough to inline; integration test in Phase 3.)
 
 ```java
-package com.conch.vault.lock;
+package com.termlab.vault.lock;
 
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -1139,7 +1139,7 @@ public final class InactivityTimer {
     private final LockManager lockManager;
     private final ScheduledExecutorService scheduler =
         Executors.newSingleThreadScheduledExecutor(r -> {
-            Thread t = new Thread(r, "ConchVaultInactivityTimer");
+            Thread t = new Thread(r, "TermLabVaultInactivityTimer");
             t.setDaemon(true);
             return t;
         });
@@ -1176,20 +1176,20 @@ public final class InactivityTimer {
 - [ ] **Step 2: Commit.**
 
 ```bash
-git add plugins/vault/src/com/conch/vault/lock/InactivityTimer.java
+git add plugins/vault/src/com/termlab/vault/lock/InactivityTimer.java
 git commit -m "feat(vault): inactivity timer for auto-lock"
 ```
 
 ### Task 2.3 — macOS Keychain device secret via JNA
 
 **Files:**
-- Create: `plugins/vault/src/com/conch/vault/keychain/KeychainUnavailableException.java`
-- Create: `plugins/vault/src/com/conch/vault/keychain/DeviceSecret.java`
-- Create: `plugins/vault/src/com/conch/vault/keychain/MacKeychain.java`
-- Create: `plugins/vault/src/com/conch/vault/keychain/LinuxSecretService.java` (stub — throws KeychainUnavailableException)
-- Create: `plugins/vault/src/com/conch/vault/keychain/WindowsCredentialManager.java` (stub — throws KeychainUnavailableException)
+- Create: `plugins/vault/src/com/termlab/vault/keychain/KeychainUnavailableException.java`
+- Create: `plugins/vault/src/com/termlab/vault/keychain/DeviceSecret.java`
+- Create: `plugins/vault/src/com/termlab/vault/keychain/MacKeychain.java`
+- Create: `plugins/vault/src/com/termlab/vault/keychain/LinuxSecretService.java` (stub — throws KeychainUnavailableException)
+- Create: `plugins/vault/src/com/termlab/vault/keychain/WindowsCredentialManager.java` (stub — throws KeychainUnavailableException)
 
-The macOS Keychain stores a 32-byte random "device secret" identified by service `com.conch.vault.device-secret` and account `default`. On first vault creation, generate and store it. On every key derivation, retrieve it and concat with the password before Argon2: `Argon2(password || device_secret, salt)`.
+The macOS Keychain stores a 32-byte random "device secret" identified by service `com.termlab.vault.device-secret` and account `default`. On first vault creation, generate and store it. On every key derivation, retrieve it and concat with the password before Argon2: `Argon2(password || device_secret, salt)`.
 
 JNA bindings to `Security.framework`:
 - `SecKeychainAddGenericPassword` for write
@@ -1199,12 +1199,12 @@ JNA bindings to `Security.framework`:
 - [ ] **Step 1: Define DeviceSecret API.**
 
 ```java
-package com.conch.vault.keychain;
+package com.termlab.vault.keychain;
 
 import com.intellij.openapi.util.SystemInfo;
 
 public final class DeviceSecret {
-    private static final String SERVICE = "com.conch.vault";
+    private static final String SERVICE = "com.termlab.vault";
     private static final String ACCOUNT = "device-secret";
 
     private DeviceSecret() {}
@@ -1244,7 +1244,7 @@ public final class DeviceSecret {
 Use `com.sun.jna.Native.load("Security", SecurityLibrary.class)`. The four functions you need:
 
 ```java
-package com.conch.vault.keychain;
+package com.termlab.vault.keychain;
 
 import com.sun.jna.*;
 import com.sun.jna.ptr.IntByReference;
@@ -1345,24 +1345,24 @@ Each is a one-line implementation that throws `KeychainUnavailableException("not
 
 - [ ] **Step 4: Smoke-test by hand.**
 
-There's no automated test for keychain integration (it would write to the user's real keychain). After committing, do a manual smoke test once you boot Conch in Phase 4:
-1. Boot Conch
+There's no automated test for keychain integration (it would write to the user's real keychain). After committing, do a manual smoke test once you boot TermLab in Phase 4:
+1. Boot TermLab
 2. Open vault for the first time → enters new-vault flow → device secret should be created
-3. Verify in macOS Keychain Access app: search for "com.conch.vault" → should see one entry, account "device-secret"
+3. Verify in macOS Keychain Access app: search for "com.termlab.vault" → should see one entry, account "device-secret"
 
 - [ ] **Step 5: Commit.**
 
 ```bash
-git add plugins/vault/src/com/conch/vault/keychain/
+git add plugins/vault/src/com/termlab/vault/keychain/
 git commit -m "feat(vault): macOS Keychain device secret storage via JNA"
 ```
 
 ### Task 2.4 — Wire device secret into key derivation
 
 **Files:**
-- Modify: `plugins/vault/src/com/conch/vault/crypto/KeyDerivation.java`
-- Modify: `plugins/vault/src/com/conch/vault/crypto/VaultCrypto.java`
-- Modify: `plugins/vault/test/com/conch/vault/crypto/KeyDerivationTest.java`
+- Modify: `plugins/vault/src/com/termlab/vault/crypto/KeyDerivation.java`
+- Modify: `plugins/vault/src/com/termlab/vault/crypto/VaultCrypto.java`
+- Modify: `plugins/vault/test/com/termlab/vault/crypto/KeyDerivationTest.java`
 
 Add an overload `deriveKey(password, deviceSecret, salt)` that concatenates `password || deviceSecret` before passing to Argon2. The existing two-arg form stays for tests but is no longer the primary path.
 
@@ -1397,27 +1397,27 @@ git commit -am "feat(vault): mix device secret into key derivation"
 
 ---
 
-## Phase 3 — Integration with Conch core
+## Phase 3 — Integration with TermLab core
 
 ### Task 3.1 — VaultCredentialProvider implements `CredentialProvider`
 
 **Files:**
-- Create: `plugins/vault/src/com/conch/vault/credentials/VaultCredentialProvider.java`
-- Create: `plugins/vault/src/com/conch/vault/credentials/AuthMethodMapper.java`
-- Create: `plugins/vault/test/com/conch/vault/credentials/VaultCredentialProviderTest.java`
+- Create: `plugins/vault/src/com/termlab/vault/credentials/VaultCredentialProvider.java`
+- Create: `plugins/vault/src/com/termlab/vault/credentials/AuthMethodMapper.java`
+- Create: `plugins/vault/test/com/termlab/vault/credentials/VaultCredentialProviderTest.java`
 
-The SDK interface (`conch_workbench/sdk/src/com/conch/sdk/CredentialProvider.java`) defines four methods: `getDisplayName()`, `isAvailable()`, `getCredential(UUID)`, `promptForCredential()`. The return type is a flat `Credential` record (with `char[]` sensitive fields and a `destroy()` method) — **not** the vault's internal `VaultAccount`. This decoupling means the SDK contract is stable even if the vault's internal model changes.
+The SDK interface (`termlab_workbench/sdk/src/com/termlab/sdk/CredentialProvider.java`) defines four methods: `getDisplayName()`, `isAvailable()`, `getCredential(UUID)`, `promptForCredential()`. The return type is a flat `Credential` record (with `char[]` sensitive fields and a `destroy()` method) — **not** the vault's internal `VaultAccount`. This decoupling means the SDK contract is stable even if the vault's internal model changes.
 
 **Key boundary work:** the vault's internal `vault.model.AuthMethod` is a sealed interface with three records (`Password`, `Key`, `KeyAndPassword`); the SDK's `CredentialProvider.AuthMethod` is a three-value enum (`PASSWORD`, `KEY`, `KEY_AND_PASSWORD`). The conversion happens here, not anywhere else.
 
 - [ ] **Step 1: Write the AuthMethodMapper helper.**
 
 ```java
-package com.conch.vault.credentials;
+package com.termlab.vault.credentials;
 
-import com.conch.sdk.CredentialProvider;
-import com.conch.vault.model.AuthMethod;
-import com.conch.vault.model.VaultAccount;
+import com.termlab.sdk.CredentialProvider;
+import com.termlab.vault.model.AuthMethod;
+import com.termlab.vault.model.VaultAccount;
 import org.jetbrains.annotations.NotNull;
 
 /**
@@ -1469,11 +1469,11 @@ final class AuthMethodMapper {
 - [ ] **Step 2: Failing test for the mapper.**
 
 ```java
-package com.conch.vault.credentials;
+package com.termlab.vault.credentials;
 
-import com.conch.sdk.CredentialProvider;
-import com.conch.vault.model.AuthMethod;
-import com.conch.vault.model.VaultAccount;
+import com.termlab.sdk.CredentialProvider;
+import com.termlab.vault.model.AuthMethod;
+import com.termlab.vault.model.VaultAccount;
 import org.junit.jupiter.api.Test;
 
 import java.time.Instant;
@@ -1549,13 +1549,13 @@ Expected: FAIL (mapper class doesn't exist).
 - [ ] **Step 5: Implement VaultCredentialProvider against the actual SDK.**
 
 ```java
-package com.conch.vault.credentials;
+package com.termlab.vault.credentials;
 
-import com.conch.sdk.CredentialProvider;
-import com.conch.vault.lock.LockManager;
-import com.conch.vault.model.Vault;
-import com.conch.vault.model.VaultAccount;
-import com.conch.vault.ui.AccountPickerDialog;
+import com.termlab.sdk.CredentialProvider;
+import com.termlab.vault.lock.LockManager;
+import com.termlab.vault.model.Vault;
+import com.termlab.vault.model.VaultAccount;
+import com.termlab.vault.ui.AccountPickerDialog;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.project.ProjectManager;
 import org.jetbrains.annotations.NotNull;
@@ -1606,7 +1606,7 @@ public final class VaultCredentialProvider implements CredentialProvider {
 - [ ] **Step 6: Commit.**
 
 ```bash
-git add plugins/vault/src/com/conch/vault/credentials/ plugins/vault/test/com/conch/vault/credentials/
+git add plugins/vault/src/com/termlab/vault/credentials/ plugins/vault/test/com/termlab/vault/credentials/
 git commit -m "feat(vault): VaultCredentialProvider — implements SDK CredentialProvider"
 ```
 
@@ -1616,20 +1616,20 @@ git commit -m "feat(vault): VaultCredentialProvider — implements SDK Credentia
 
 **Files:**
 - Create: `plugins/vault/resources/META-INF/plugin.xml`
-- Create: `plugins/vault/src/com/conch/vault/ConchVaultPlugin.java`
+- Create: `plugins/vault/src/com/termlab/vault/TermLabVaultPlugin.java`
 
 `plugin.xml` declares:
-- `<id>com.conch.vault</id>`
-- `<depends>com.conch.core</depends>` — the credentialProvider extension point lives in `com.conch.core`
+- `<id>com.termlab.vault</id>`
+- `<depends>com.termlab.core</depends>` — the credentialProvider extension point lives in `com.termlab.core`
 - Application service: `LockManager` (singleton, holds the in-memory vault state for the whole IDE)
 - Application service: `VaultCredentialProvider` (bound to the LockManager)
-- Extension to `com.conch.core.credentialProvider`:
+- Extension to `com.termlab.core.credentialProvider`:
   ```xml
-  <extensions defaultExtensionNs="com.conch.core">
-    <credentialProvider implementation="com.conch.vault.credentials.VaultCredentialProvider"/>
+  <extensions defaultExtensionNs="com.termlab.core">
+    <credentialProvider implementation="com.termlab.vault.credentials.VaultCredentialProvider"/>
   </extensions>
   ```
-- Action: `com.conch.vault.OpenVaultAction` bound to `Cmd+Shift+V`
+- Action: `com.termlab.vault.OpenVaultAction` bound to `Cmd+Shift+V`
 - Status bar widget factory
 - Project listener to bridge "user activity" → `InactivityTimer.markActivity()`
 
@@ -1637,18 +1637,18 @@ git commit -m "feat(vault): VaultCredentialProvider — implements SDK Credentia
 
 (Boilerplate — see existing plugin.xml files like `plugins/sh/plugin/resources/META-INF/plugin.xml` for reference.)
 
-- [ ] **Step 2: Implement ConchVaultPlugin.java as the application service that wires LockManager + InactivityTimer + VaultCredentialProvider together at first access.**
+- [ ] **Step 2: Implement TermLabVaultPlugin.java as the application service that wires LockManager + InactivityTimer + VaultCredentialProvider together at first access.**
 
-- [ ] **Step 3: Build the conch product, launch it, verify the vault service initializes (no UI yet, just check the log).**
+- [ ] **Step 3: Build the termlab product, launch it, verify the vault service initializes (no UI yet, just check the log).**
 
 ```bash
-make conch
-# In a separate terminal: tail ~/.config/conch/system/conch/log/idea.log | grep -i vault
+make termlab
+# In a separate terminal: tail ~/.config/termlab/system/termlab/log/idea.log | grep -i vault
 ```
 
 - [ ] **Step 4: Commit.**
 
-**Phase 3 milestone:** The vault service is loaded into the running Conch process. Other plugins can call `CredentialProvider.getCredential(uuid)` and `isAvailable()`. `promptForCredential()` returns null until Task 4.7 lands the picker dialog. There's still no UI to populate the vault — that's the rest of Phase 4.
+**Phase 3 milestone:** The vault service is loaded into the running TermLab process. Other plugins can call `CredentialProvider.getCredential(uuid)` and `isAvailable()`. `promptForCredential()` returns null until Task 4.7 lands the picker dialog. There's still no UI to populate the vault — that's the rest of Phase 4.
 
 ---
 
@@ -1657,7 +1657,7 @@ make conch
 ### Task 4.1 — CreateVaultDialog (first-run setup)
 
 **Files:**
-- Create: `plugins/vault/src/com/conch/vault/ui/CreateVaultDialog.java`
+- Create: `plugins/vault/src/com/termlab/vault/ui/CreateVaultDialog.java`
 
 A `DialogWrapper` shown when the user opens the vault for the first time and `vault.enc` doesn't exist yet. Two password fields (master + confirm), validation, "Create vault" button.
 
@@ -1668,7 +1668,7 @@ A `DialogWrapper` shown when the user opens the vault for the first time and `va
 ### Task 4.2 — UnlockDialog (password prompt)
 
 **Files:**
-- Create: `plugins/vault/src/com/conch/vault/ui/UnlockDialog.java`
+- Create: `plugins/vault/src/com/termlab/vault/ui/UnlockDialog.java`
 
 Single password field. On submit calls `LockManager.unlock(...)`. Wrong password shows error message in the dialog without dismissing.
 
@@ -1678,7 +1678,7 @@ Single password field. On submit calls `LockManager.unlock(...)`. Wrong password
 ### Task 4.3 — VaultDialog (main account list view)
 
 **Files:**
-- Create: `plugins/vault/src/com/conch/vault/ui/VaultDialog.java`
+- Create: `plugins/vault/src/com/termlab/vault/ui/VaultDialog.java`
 
 Shown after successful unlock. Layout:
 
@@ -1709,7 +1709,7 @@ Shown after successful unlock. Layout:
 ### Task 4.4 — AccountEditDialog (CRUD)
 
 **Files:**
-- Create: `plugins/vault/src/com/conch/vault/ui/AccountEditDialog.java`
+- Create: `plugins/vault/src/com/termlab/vault/ui/AccountEditDialog.java`
 
 Form with fields: display name, username, auth method (radio buttons: Password / Key / Key + Password), per-method fields. Save button updates the in-memory vault and triggers `VaultFile.save(...)`.
 
@@ -1721,8 +1721,8 @@ Form with fields: display name, username, auth method (radio buttons: Password /
 ### Task 4.5 — VaultLockStatusBarWidget
 
 **Files:**
-- Create: `plugins/vault/src/com/conch/vault/ui/VaultLockStatusBarWidget.java`
-- Create: `plugins/vault/src/com/conch/vault/ui/VaultLockStatusBarWidgetFactory.java`
+- Create: `plugins/vault/src/com/termlab/vault/ui/VaultLockStatusBarWidget.java`
+- Create: `plugins/vault/src/com/termlab/vault/ui/VaultLockStatusBarWidgetFactory.java`
 
 Implements `com.intellij.openapi.wm.StatusBarWidget` and `StatusBarWidgetFactory`. Displays:
 - 🔒 icon when locked, click to open `UnlockDialog`
@@ -1732,13 +1732,13 @@ Subscribes to `LockManager` listener for instant updates.
 
 - [ ] **Step 1:** Implement widget + factory.
 - [ ] **Step 2:** Register in plugin.xml.
-- [ ] **Step 3:** Build, launch Conch, verify the lock icon appears in the status bar.
+- [ ] **Step 3:** Build, launch TermLab, verify the lock icon appears in the status bar.
 - [ ] **Step 4:** Commit.
 
 ### Task 4.6 — OpenVaultAction (Cmd+Shift+V)
 
 **Files:**
-- Create: `plugins/vault/src/com/conch/vault/actions/OpenVaultAction.java`
+- Create: `plugins/vault/src/com/termlab/vault/actions/OpenVaultAction.java`
 
 ```java
 public class OpenVaultAction extends AnAction {
@@ -1766,17 +1766,17 @@ Register in plugin.xml with keyboard shortcut `meta shift V` (macOS) and `ctrl s
 ### Task 4.7 — AccountPickerDialog (used by `promptForCredential`)
 
 **Files:**
-- Create: `plugins/vault/src/com/conch/vault/ui/AccountPickerDialog.java`
-- Modify: `plugins/vault/src/com/conch/vault/credentials/VaultCredentialProvider.java` (replace the `return null;` placeholder added in Task 3.1)
+- Create: `plugins/vault/src/com/termlab/vault/ui/AccountPickerDialog.java`
+- Modify: `plugins/vault/src/com/termlab/vault/credentials/VaultCredentialProvider.java` (replace the `return null;` placeholder added in Task 3.1)
 
 When another plugin calls `CredentialProvider.promptForCredential()`, the vault must show an account picker. This dialog is a stripped-down version of `VaultDialog` — list of accounts, search filter, OK/Cancel — with no edit/delete affordances. If the vault is locked when the dialog is invoked, it triggers `UnlockDialog` first; if the user cancels unlock, the picker returns null.
 
 ```java
-package com.conch.vault.ui;
+package com.termlab.vault.ui;
 
-import com.conch.vault.lock.LockManager;
-import com.conch.vault.model.Vault;
-import com.conch.vault.model.VaultAccount;
+import com.termlab.vault.lock.LockManager;
+import com.termlab.vault.model.Vault;
+import com.termlab.vault.model.VaultAccount;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.ui.DialogWrapper;
 import com.intellij.ui.SearchTextField;
@@ -1875,10 +1875,10 @@ public final class AccountPickerDialog extends DialogWrapper {
 ### Task 5.1 — Algorithm wrappers
 
 **Files:**
-- Create: `plugins/vault/src/com/conch/vault/keygen/algorithms/Ed25519Generator.java`
-- Create: `plugins/vault/src/com/conch/vault/keygen/algorithms/EcdsaGenerator.java`
-- Create: `plugins/vault/src/com/conch/vault/keygen/algorithms/RsaGenerator.java`
-- Create: `plugins/vault/test/com/conch/vault/keygen/SshKeyGeneratorTest.java`
+- Create: `plugins/vault/src/com/termlab/vault/keygen/algorithms/Ed25519Generator.java`
+- Create: `plugins/vault/src/com/termlab/vault/keygen/algorithms/EcdsaGenerator.java`
+- Create: `plugins/vault/src/com/termlab/vault/keygen/algorithms/RsaGenerator.java`
+- Create: `plugins/vault/test/com/termlab/vault/keygen/SshKeyGeneratorTest.java`
 
 Use `java.security.KeyPairGenerator` for RSA and ECDSA, BouncyCastle for Ed25519 (`Ed25519KeyPairGenerator`).
 
@@ -1887,7 +1887,7 @@ Each generator returns a `KeyPair` (Java type). The `OpenSshFormatter` translate
 ### Task 5.2 — OpenSshFormatter
 
 **Files:**
-- Create: `plugins/vault/src/com/conch/vault/keygen/OpenSshFormatter.java`
+- Create: `plugins/vault/src/com/termlab/vault/keygen/OpenSshFormatter.java`
 
 This is the tricky one. OpenSSH private key format (`-----BEGIN OPENSSH PRIVATE KEY-----`) has a specific binary layout (RFC 5656 + OpenSSH-specific extensions). For Ed25519, the format is well-documented; for RSA and ECDSA, it's also defined.
 
@@ -1895,12 +1895,12 @@ This is the tricky one. OpenSSH private key format (`-----BEGIN OPENSSH PRIVATE 
 
 - [ ] **Step 1:** For Ed25519, use BC's `Ed25519PrivateKeyParameters` + `OpenSSHPrivateKeyUtil.encodePrivateKey(...)`.
 - [ ] **Step 2:** Public keys go through BC's `OpenSSHPublicKeyUtil`.
-- [ ] **Step 3:** Write the resulting bytes to `~/.ssh/conch_vault/id_<algo>_<short-uuid>` and `<that>.pub` with permissions 0600 / 0644.
+- [ ] **Step 3:** Write the resulting bytes to `~/.ssh/termlab_vault/id_<algo>_<short-uuid>` and `<that>.pub` with permissions 0600 / 0644.
 
 ### Task 5.3 — SshKeyGenerator (public API)
 
 **Files:**
-- Create: `plugins/vault/src/com/conch/vault/keygen/SshKeyGenerator.java`
+- Create: `plugins/vault/src/com/termlab/vault/keygen/SshKeyGenerator.java`
 
 ```java
 public final class SshKeyGenerator {
@@ -1915,14 +1915,14 @@ Computes SHA256 fingerprint of the public key for the GeneratedKeyEntry.
 ### Task 5.4 — KeyGenDialog
 
 **Files:**
-- Create: `plugins/vault/src/com/conch/vault/ui/KeyGenDialog.java`
+- Create: `plugins/vault/src/com/termlab/vault/ui/KeyGenDialog.java`
 
 Algorithm dropdown, comment field, "Generate" button. On success, the new entry is added to `vault.generatedKeys`, vault saved, dialog closes.
 
 - [ ] **Step 1-4:** Implement, test by generating each algorithm and verifying the resulting `.pub` file is parseable by `ssh-keygen -l -f <pub>`.
 - [ ] **Step 5:** Commit each algorithm separately (Ed25519 first since it's simplest).
 
-**Phase 5 milestone:** Generated keys are tracked in the vault, written to `~/.ssh/conch_vault/`, and can be selected as `AuthMethod.Key` when creating an account.
+**Phase 5 milestone:** Generated keys are tracked in the vault, written to `~/.ssh/termlab_vault/`, and can be selected as `AuthMethod.Key` when creating an account.
 
 ---
 
@@ -1931,22 +1931,22 @@ Algorithm dropdown, comment field, "Generate" button. On success, the new entry 
 ### Task 6.1 — VaultPaletteContributor
 
 **Files:**
-- Create: `plugins/vault/src/com/conch/vault/palette/VaultPaletteContributor.java`
-- Modify: `plugins/vault/resources/META-INF/plugin.xml` (register the contributor under `com.conch.core.commandPaletteContributor`)
+- Create: `plugins/vault/src/com/termlab/vault/palette/VaultPaletteContributor.java`
+- Modify: `plugins/vault/resources/META-INF/plugin.xml` (register the contributor under `com.termlab.core.commandPaletteContributor`)
 
-The SDK's `CommandPaletteContributor` interface (`conch_workbench/sdk/src/com/conch/sdk/CommandPaletteContributor.java`) requires three methods: `getTabName()`, `getTabWeight()`, and `search(String query)`. The contributor returns a list of `PaletteItem`s, each with a `Runnable` action.
+The SDK's `CommandPaletteContributor` interface (`termlab_workbench/sdk/src/com/termlab/sdk/CommandPaletteContributor.java`) requires three methods: `getTabName()`, `getTabWeight()`, and `search(String query)`. The contributor returns a list of `PaletteItem`s, each with a `Runnable` action.
 
 This contributor lives **inside** the vault plugin (it has direct access to `LockManager`'s in-memory state); it does NOT consume `CredentialProvider` for enumeration. `CredentialProvider` only exposes lookup-by-id and prompt — it intentionally has no `listAccountIds()`. Enumeration is the vault plugin's own concern.
 
 ```java
-package com.conch.vault.palette;
+package com.termlab.vault.palette;
 
-import com.conch.sdk.CommandPaletteContributor;
-import com.conch.sdk.PaletteItem;
-import com.conch.vault.lock.LockManager;
-import com.conch.vault.model.Vault;
-import com.conch.vault.model.VaultAccount;
-import com.conch.vault.ui.AccountEditDialog;
+import com.termlab.sdk.CommandPaletteContributor;
+import com.termlab.sdk.PaletteItem;
+import com.termlab.vault.lock.LockManager;
+import com.termlab.vault.model.Vault;
+import com.termlab.vault.model.VaultAccount;
+import com.termlab.vault.ui.AccountEditDialog;
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.project.ProjectManager;
 import org.jetbrains.annotations.NotNull;
@@ -2006,27 +2006,27 @@ public final class VaultPaletteContributor implements CommandPaletteContributor 
 
 Register in plugin.xml:
 ```xml
-<extensions defaultExtensionNs="com.conch.core">
-  <commandPaletteContributor implementation="com.conch.vault.palette.VaultPaletteContributor"/>
+<extensions defaultExtensionNs="com.termlab.core">
+  <commandPaletteContributor implementation="com.termlab.vault.palette.VaultPaletteContributor"/>
 </extensions>
 ```
 
 - [ ] **Step 1:** Implement.
 - [ ] **Step 2:** Register in plugin.xml.
-- [ ] **Step 3:** Build, launch Conch, press `Cmd+Shift+P` → "Vault" tab → see accounts and actions.
+- [ ] **Step 3:** Build, launch TermLab, press `Cmd+Shift+P` → "Vault" tab → see accounts and actions.
 - [ ] **Step 4:** Commit.
 
 ### Task 6.2 — VaultShutdownHook
 
 **Files:**
-- Create: `plugins/vault/src/com/conch/vault/hardening/VaultShutdownHook.java`
+- Create: `plugins/vault/src/com/termlab/vault/hardening/VaultShutdownHook.java`
 
 A `Runtime.getRuntime().addShutdownHook(...)` registered at plugin load. On JVM exit, calls `LockManager.lock()` and explicitly zeroes any cached `SecureBytes`.
 
 ### Task 6.3 — JVM hardening flags
 
 **Files:**
-- Modify: `conch_workbench/BUILD.bazel` (the `jvm_flags` list in `conch_run`)
+- Modify: `termlab_workbench/BUILD.bazel` (the `jvm_flags` list in `termlab_run`)
 
 Add:
 ```
@@ -2034,13 +2034,13 @@ Add:
 "-XX:-HeapDumpOnOutOfMemoryError",
 ```
 
-These prevent post-mortem extraction of vault contents from a running or crashed Conch process.
+These prevent post-mortem extraction of vault contents from a running or crashed TermLab process.
 
 - [ ] **Step 1:** Add flags.
-- [ ] **Step 2:** Verify Conch still launches and runs.
+- [ ] **Step 2:** Verify TermLab still launches and runs.
 - [ ] **Step 3:** Commit.
 
-**Phase 6 milestone:** Vault entries appear in the command palette. Conch shuts down cleanly with vault sealed. Process hardening is in place.
+**Phase 6 milestone:** Vault entries appear in the command palette. TermLab shuts down cleanly with vault sealed. Process hardening is in place.
 
 ---
 
@@ -2049,7 +2049,7 @@ These prevent post-mortem extraction of vault contents from a running or crashed
 Tracked here so they don't get accidentally absorbed:
 
 - **Linux / Windows keychain backends.** Stubs only. Real implementations are a follow-up plan.
-- **Vault → Rust migration.** No importer for `~/projects/conch_2`-era vault files. Users start fresh.
+- **Vault → Rust migration.** No importer for `~/projects/termlab_2`-era vault files. Users start fresh.
 - **SSH plugin.** This plan only ships the vault and the `CredentialProvider` extension. The SSH plugin that consumes credentials is its own plan (next).
 - **Tunnel manager.** Depends on the SSH plugin.
 - **SFTP plugin.** Depends on the SSH plugin.
@@ -2071,13 +2071,13 @@ Tracked here so they don't get accidentally absorbed:
 
 **5. SecKeychainAddGenericPassword is deprecated** (replaced by `SecItemAdd` in modern Security framework). It still works through macOS 14 but Apple may remove it. If/when that happens, port the keychain backend to use `CFDictionary`-based `SecItem*` calls. Out of scope for v1.
 
-**6. Test isolation.** Several tests touch `~/.config/conch/vault.enc`. **Always** use `@TempDir` in tests; never test against the user's real vault path.
+**6. Test isolation.** Several tests touch `~/.config/termlab/vault.enc`. **Always** use `@TempDir` in tests; never test against the user's real vault path.
 
 **7. String → char[] divergence at the SDK boundary (known v1 weakness).** The vault's internal `vault.model.AuthMethod` uses `String` fields for passwords and passphrases because Gson serializes Strings natively. The SDK's `CredentialProvider.Credential` correctly uses `char[]` so consumers can `Arrays.fill('\0')` and explicitly destroy secrets. The conversion happens in `AuthMethodMapper.toCredential(...)` (Task 3.1) — `String.toCharArray()` allocates a fresh char array we hand to consumers, which they can zero.
 
 The weakness: the **internal** `String` form is **not** zeroable. Once Gson parses JSON into a `Vault` object, the password Strings live in the heap until garbage collection, and even then the heap region may persist. An attacker who can read the JVM's memory after the vault is decrypted can still recover the cleartext. This is strictly worse than the Rust reference implementation, which uses `Zeroize for AuthMethod` to wipe String contents on drop (Rust's `String` is just an owned heap buffer; Java's is immutable).
 
-**Acceptable for v1 because:** the in-memory window is bounded by the lock manager's auto-lock timeout (default 15 min), and the device-binding + AES-GCM disk encryption mean the *file* on disk is still secure. Process hardening (Task 6.3) prevents debugger/heap-dump extraction. The weakness only matters against a memory-reading attacker on a running, unlocked Conch.
+**Acceptable for v1 because:** the in-memory window is bounded by the lock manager's auto-lock timeout (default 15 min), and the device-binding + AES-GCM disk encryption mean the *file* on disk is still secure. Process hardening (Task 6.3) prevents debugger/heap-dump extraction. The weakness only matters against a memory-reading attacker on a running, unlocked TermLab.
 
 **Path to fix post-v1** (do NOT do this in the initial implementation — it's a separate effort):
 - Replace `String` fields in `AuthMethod` records with `byte[]`/`char[]`.
@@ -2093,17 +2093,17 @@ Tracked in `docs/plans/` as a future hardening pass once the vault is shipping.
 
 A user can:
 
-1. Launch Conch on a fresh machine.
+1. Launch TermLab on a fresh machine.
 2. Press `Cmd+Shift+V`.
 3. Be prompted to set a master password (vault doesn't exist yet).
 4. Create the vault. Device secret is auto-generated and stored in macOS Keychain.
 5. Add three accounts: a password-only one, an SSH key one, a key+password one.
-6. Close Conch.
-7. Reopen Conch. Vault is locked.
+6. Close TermLab.
+7. Reopen TermLab. Vault is locked.
 8. Press `Cmd+Shift+V`, enter the master password, see the three accounts.
-9. Wait 16 minutes without interacting with Conch. Vault auto-locks. Status bar lock icon updates.
+9. Wait 16 minutes without interacting with TermLab. Vault auto-locks. Status bar lock icon updates.
 10. Generate an Ed25519 SSH key from the vault dialog. New entry appears.
-11. Verify the generated public key is loadable via `ssh-keygen -l -f ~/.ssh/conch_vault/id_ed25519_<id>.pub`.
-12. Quit Conch. No vault contents survive in the system pasteboard or any temp file.
+11. Verify the generated public key is loadable via `ssh-keygen -l -f ~/.ssh/termlab_vault/id_ed25519_<id>.pub`.
+12. Quit TermLab. No vault contents survive in the system pasteboard or any temp file.
 
 When all twelve steps work end-to-end on a clean macOS install, this plan is done. The next plan picks up the SSH plugin, which reads from this vault.

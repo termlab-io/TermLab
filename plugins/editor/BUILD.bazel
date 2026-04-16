@@ -9,16 +9,16 @@ resourcegroup(
 
 jvm_library(
     name = "editor",
-    module_name = "intellij.conch.editor",
+    module_name = "intellij.termlab.editor",
     visibility = ["//visibility:public"],
     srcs = glob(["src/**/*.java"], allow_empty = True),
     resources = [":editor_resources"],
     deps = [
-        "//conch/sdk",
-        "//conch/core",
-        "//conch/plugins/sftp",
-        "//conch/plugins/sftp/libs:sshd_sftp",
-        "//conch/plugins/ssh",
+        "//termlab/sdk",
+        "//termlab/core",
+        "//termlab/plugins/sftp",
+        "//termlab/plugins/sftp/libs:sshd_sftp",
+        "//termlab/plugins/ssh",
         "//platform/analysis-api:analysis",
         "//platform/core-api:core",
         "//platform/core-ui",
@@ -38,12 +38,12 @@ jvm_library(
 
 jvm_library(
     name = "editor_test_lib",
-    module_name = "intellij.conch.editor.tests",
+    module_name = "intellij.termlab.editor.tests",
     visibility = ["//visibility:public"],
     srcs = glob(["test/**/*.java"], allow_empty = True),
     deps = [
         ":editor",
-        "//conch/sdk",
+        "//termlab/sdk",
         "//libraries/junit5",
         "//libraries/junit5-jupiter",
         "//libraries/junit5-launcher",
@@ -56,7 +56,7 @@ jvm_library(
 
 java_binary(
     name = "editor_test_runner",
-    main_class = "com.conch.editor.TestRunner",
+    main_class = "com.termlab.editor.TestRunner",
     runtime_deps = [
         ":editor_test_lib",
         "//libraries/junit5-jupiter",
@@ -64,4 +64,4 @@ java_binary(
     ],
 )
 
-exports_files(["intellij.conch.editor.iml"], visibility = ["//visibility:public"])
+exports_files(["intellij.termlab.editor.iml"], visibility = ["//visibility:public"])

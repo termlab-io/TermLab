@@ -1,61 +1,61 @@
 <idea-plugin>
-    <id>com.conch.sftp</id>
-    <name>Conch SFTP</name>
+    <id>com.termlab.sftp</id>
+    <name>TermLab SFTP</name>
     <version>0.1.0</version>
-    <vendor>Conch</vendor>
+    <vendor>TermLab</vendor>
     <description>
-        Dual-pane SFTP browser for Conch Workbench. Browse local files
-        alongside a remote SSH host's filesystem, reusing Conch's existing
+        Dual-pane SFTP browser for TermLab. Browse local files
+        alongside a remote SSH host's filesystem, reusing TermLab's existing
         SSH host credentials (vault / keyfile / prompt), proxy-jump, and
         host-key verifier.
     </description>
 
     <depends>com.intellij.modules.platform</depends>
-    <depends>com.conch.core</depends>
-    <depends>com.conch.ssh</depends>
+    <depends>com.termlab.core</depends>
+    <depends>com.termlab.ssh</depends>
 
     <extensionPoints>
         <extensionPoint name="localFileOpener"
-                        interface="com.conch.sftp.spi.LocalFileOpener"
+                        interface="com.termlab.sftp.spi.LocalFileOpener"
                         dynamic="true"/>
         <extensionPoint name="remoteFileOpener"
-                        interface="com.conch.sftp.spi.RemoteFileOpener"
+                        interface="com.termlab.sftp.spi.RemoteFileOpener"
                         dynamic="true"/>
     </extensionPoints>
 
     <extensions defaultExtensionNs="com.intellij">
         <notificationGroup
-            id="Conch SFTP"
+            id="TermLab SFTP"
             displayType="BALLOON"
-            toolWindowId="Conch SFTP"/>
+            toolWindowId="TermLab SFTP"/>
 
         <applicationService
-            serviceImplementation="com.conch.sftp.persistence.ConchSftpConfig"/>
+            serviceImplementation="com.termlab.sftp.persistence.TermLabSftpConfig"/>
 
         <applicationService
-            serviceImplementation="com.conch.sftp.session.SftpSessionManager"/>
+            serviceImplementation="com.termlab.sftp.session.SftpSessionManager"/>
 
         <toolWindow
-            id="Conch SFTP"
+            id="TermLab SFTP"
             anchor="bottom"
             icon="AllIcons.Nodes.ExtractedFolder"
-            factoryClass="com.conch.sftp.toolwindow.SftpToolWindowFactory"/>
+            factoryClass="com.termlab.sftp.toolwindow.SftpToolWindowFactory"/>
 
         <searchEverywhereContributor
-            implementation="com.conch.sftp.palette.SftpSearchEverywhereContributor$Factory"/>
+            implementation="com.termlab.sftp.palette.SftpSearchEverywhereContributor$Factory"/>
 
         <virtualFileSystem
-            implementationClass="com.conch.sftp.vfs.SftpVirtualFileSystem"
+            implementationClass="com.termlab.sftp.vfs.SftpVirtualFileSystem"
             key="sftp"
             physical="false"/>
     </extensions>
 
-    <extensions defaultExtensionNs="com.conch.core">
-        <fileSourceProvider implementation="com.conch.sftp.filepicker.SftpFileSourceProvider"/>
+    <extensions defaultExtensionNs="com.termlab.core">
+        <fileSourceProvider implementation="com.termlab.sftp.filepicker.SftpFileSourceProvider"/>
     </extensions>
 
     <projectListeners>
-        <listener class="com.conch.sftp.session.SftpEditorTabListener"
+        <listener class="com.termlab.sftp.session.SftpEditorTabListener"
                   topic="com.intellij.openapi.fileEditor.FileEditorManagerListener"/>
     </projectListeners>
 
@@ -65,8 +65,8 @@
           Linux/Windows. Mirrors the SSH plugin's Cmd+K popup: pick a
           saved host, open the SFTP tool window, connect on select.
         -->
-        <action id="Conch.NewSftpSession"
-                class="com.conch.sftp.actions.NewSftpSessionAction"
+        <action id="TermLab.NewSftpSession"
+                class="com.termlab.sftp.actions.NewSftpSessionAction"
                 text="New SFTP Session…"
                 description="Open the host picker and start a new SFTP session">
             <keyboard-shortcut keymap="$default" first-keystroke="meta shift K"/>

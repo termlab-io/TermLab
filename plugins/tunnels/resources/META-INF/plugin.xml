@@ -1,14 +1,14 @@
 <idea-plugin>
-    <id>com.conch.tunnels</id>
-    <name>Conch Tunnels</name>
-    <vendor>Conch</vendor>
+    <id>com.termlab.tunnels</id>
+    <name>TermLab Tunnels</name>
+    <vendor>TermLab</vendor>
     <description>SSH tunnel manager. Creates local and remote port
-    forwarding tunnels through hosts managed by the Conch SSH plugin
+    forwarding tunnels through hosts managed by the TermLab SSH plugin
     or defined in ~/.ssh/config.</description>
 
-    <depends>com.conch.core</depends>
-    <depends>com.conch.ssh</depends>
-    <depends>com.conch.vault</depends>
+    <depends>com.termlab.core</depends>
+    <depends>com.termlab.ssh</depends>
+    <depends>com.termlab.vault</depends>
 
     <extensions defaultExtensionNs="com.intellij">
         <!--
@@ -17,13 +17,13 @@
           future contributors share one instance; loads from disk on
           first access.
         -->
-        <applicationService serviceImplementation="com.conch.tunnels.model.TunnelStore"/>
+        <applicationService serviceImplementation="com.termlab.tunnels.model.TunnelStore"/>
 
         <!--
           TunnelConnectionManager tracks active tunnel sessions.
           Application-scoped so connections persist across project windows.
         -->
-        <applicationService serviceImplementation="com.conch.tunnels.client.TunnelConnectionManager"/>
+        <applicationService serviceImplementation="com.termlab.tunnels.client.TunnelConnectionManager"/>
 
         <!--
           Tunnels tool window — right sidebar. Icon reuses SecurityRole to
@@ -32,9 +32,9 @@
         <toolWindow id="Tunnels"
                     anchor="right"
                     icon="AllIcons.Nodes.SecurityRole"
-                    factoryClass="com.conch.tunnels.toolwindow.TunnelsToolWindowFactory"/>
+                    factoryClass="com.termlab.tunnels.toolwindow.TunnelsToolWindowFactory"/>
 
         <searchEverywhereContributor
-            implementation="com.conch.tunnels.palette.TunnelsSearchEverywhereContributor$Factory"/>
+            implementation="com.termlab.tunnels.palette.TunnelsSearchEverywhereContributor$Factory"/>
     </extensions>
 </idea-plugin>

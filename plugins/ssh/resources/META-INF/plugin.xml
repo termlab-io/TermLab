@@ -1,19 +1,19 @@
 <idea-plugin>
-    <id>com.conch.ssh</id>
-    <name>Conch SSH</name>
-    <vendor>Conch</vendor>
+    <id>com.termlab.ssh</id>
+    <name>TermLab SSH</name>
+    <vendor>TermLab</vendor>
     <description>SSH host manager and session provider. Opens remote
-    shells as terminal tabs using credentials from the Conch Vault.</description>
+    shells as terminal tabs using credentials from the TermLab Vault.</description>
 
     <!--
-      com.conch.core declares the terminalSessionProvider extension point.
-      com.conch.vault provides the credentialProvider we consume when
+      com.termlab.core declares the terminalSessionProvider extension point.
+      com.termlab.vault provides the credentialProvider we consume when
       resolving saved host credentials — ordering the dependency also
       guarantees the vault's extension is registered before our
       SshSessionProvider tries to look it up.
     -->
-    <depends>com.conch.core</depends>
-    <depends>com.conch.vault</depends>
+    <depends>com.termlab.core</depends>
+    <depends>com.termlab.vault</depends>
 
     <extensions defaultExtensionNs="com.intellij">
         <!--
@@ -23,15 +23,15 @@
           one instance; the service constructor loads from disk on first
           access.
         -->
-        <applicationService serviceImplementation="com.conch.ssh.model.HostStore"/>
+        <applicationService serviceImplementation="com.termlab.ssh.model.HostStore"/>
 
         <!--
-          ConchSshClient owns a single MINA SshClient instance and its
+          TermLabSshClient owns a single MINA SshClient instance and its
           internal IO thread pool. Registering as an application service so
           the pool persists across sessions instead of being re-created per
           connection.
         -->
-        <applicationService serviceImplementation="com.conch.ssh.client.ConchSshClient"/>
+        <applicationService serviceImplementation="com.termlab.ssh.client.TermLabSshClient"/>
 
         <!--
           Hosts tool window — left sidebar, between Project and Structure
@@ -41,17 +41,17 @@
         <toolWindow id="Hosts"
                     anchor="right"
                     icon="AllIcons.Webreferences.Server"
-                    factoryClass="com.conch.ssh.toolwindow.HostsToolWindowFactory"/>
+                    factoryClass="com.termlab.ssh.toolwindow.HostsToolWindowFactory"/>
         <searchEverywhereContributor
-            implementation="com.conch.ssh.palette.HostsSearchEverywhereContributor$Factory"/>
+            implementation="com.termlab.ssh.palette.HostsSearchEverywhereContributor$Factory"/>
     </extensions>
 
     <!--
       Register the SSH session provider and the palette contributor under
       the core extension points.
     -->
-    <extensions defaultExtensionNs="com.conch.core">
-        <terminalSessionProvider implementation="com.conch.ssh.provider.SshSessionProvider"/>
+    <extensions defaultExtensionNs="com.termlab.core">
+        <terminalSessionProvider implementation="com.termlab.ssh.provider.SshSessionProvider"/>
     </extensions>
 
     <actions>
@@ -60,8 +60,8 @@
           Opens a host picker from anywhere in the IDE. Same code path as
           the palette's Hosts tab, just a different entry point.
         -->
-        <action id="Conch.NewSshSession"
-                class="com.conch.ssh.actions.NewSshSessionAction"
+        <action id="TermLab.NewSshSession"
+                class="com.termlab.ssh.actions.NewSshSessionAction"
                 text="New SSH Session…"
                 description="Open the host picker and start a new SSH session">
             <keyboard-shortcut keymap="$default" first-keystroke="meta K"/>

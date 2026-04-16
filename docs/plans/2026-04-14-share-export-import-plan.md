@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Build a new `plugins/share` module that exports selected SSH hosts + tunnels (optionally with vault credentials) into a single encrypted `.conchshare` file, and imports such files on another machine with inline vault setup.
+**Goal:** Build a new `plugins/share` module that exports selected SSH hosts + tunnels (optionally with vault credentials) into a single encrypted `.termlabshare` file, and imports such files on another machine with inline vault setup.
 
-**Architecture:** New plugin depending on `vault`, `ssh`, `tunnels`. Pure Java 21. Reuses `VaultCrypto` + `KeyDerivation` for the bundle envelope. Adds two missing methods (`createVault`, `withUnlocked`) to `LockManager`. Because the vault's existing model stores key **file paths** (not key bytes), the bundle introduces a `BundledKeyMaterial` type that carries the actual private key bytes; on import, `ImportExecutor` writes each material to `~/.config/conch/imported-keys/<uuid>.key` and rewrites sentinel paths (`$CONCH_SHARE_KEY:<uuid>`) in the incoming accounts/keys to the real location.
+**Architecture:** New plugin depending on `vault`, `ssh`, `tunnels`. Pure Java 21. Reuses `VaultCrypto` + `KeyDerivation` for the bundle envelope. Adds two missing methods (`createVault`, `withUnlocked`) to `LockManager`. Because the vault's existing model stores key **file paths** (not key bytes), the bundle introduces a `BundledKeyMaterial` type that carries the actual private key bytes; on import, `ImportExecutor` writes each material to `~/.config/termlab/imported-keys/<uuid>.key` and rewrites sentinel paths (`$TERMLAB_SHARE_KEY:<uuid>`) in the incoming accounts/keys to the real location.
 
 **Tech Stack:** Java 21, Bazel, Gson, IntelliJ Platform, JUnit 5, BouncyCastle (via `//libraries/bouncy-castle-provider`, reused for Argon2id).
 
@@ -14,7 +14,7 @@
 
 ## Key Design Notes (read before starting)
 
-1. **Key bytes are carried out-of-band in the bundle.** `ShareBundle` has a top-level `keyMaterial: List<BundledKeyMaterial>`. Sentinel paths (`$CONCH_SHARE_KEY:<uuid>`) appear in `AuthMethod.Key.keyPath`, `AuthMethod.KeyAndPassword.keyPath`, and `VaultKey.privatePath`. On import, these are rewritten to on-disk paths.
+1. **Key bytes are carried out-of-band in the bundle.** `ShareBundle` has a top-level `keyMaterial: List<BundledKeyMaterial>`. Sentinel paths (`$TERMLAB_SHARE_KEY:<uuid>`) appear in `AuthMethod.Key.keyPath`, `AuthMethod.KeyAndPassword.keyPath`, and `VaultKey.privatePath`. On import, these are rewritten to on-disk paths.
 
 2. **Two missing LockManager methods must be added first** (Task 2). Everything downstream assumes they exist.
 
@@ -24,9 +24,9 @@
 
 5. **Sealed types are serialized with a `"type"` discriminator field.** See `SshGson`, `TunnelGson`, `VaultGson` — copy the pattern exactly for any new sealed hierarchies.
 
-6. **Sentinel path format:** `$CONCH_SHARE_KEY:<uuid-string>`. All three consumers (ImportExecutor, tests, export path rewriter) must use this exact constant — define once as `BundledKeyMaterial.SENTINEL_PREFIX = "$CONCH_SHARE_KEY:"`.
+6. **Sentinel path format:** `$TERMLAB_SHARE_KEY:<uuid-string>`. All three consumers (ImportExecutor, tests, export path rewriter) must use this exact constant — define once as `BundledKeyMaterial.SENTINEL_PREFIX = "$TERMLAB_SHARE_KEY:"`.
 
-7. **Test target naming:** `//conch/plugins/share:share_test_runner`. Main class: `com.conch.share.TestRunner`.
+7. **Test target naming:** `//termlab/plugins/share:share_test_runner`. Main class: `com.termlab.share.TestRunner`.
 
 8. **Project root for bazel commands:** `$INTELLIJ_ROOT` (set in the Makefile). Always run bazel commands from there via `cd $(INTELLIJ_ROOT) && bash bazel.cmd ...`, or use the Makefile targets.
 
@@ -40,7 +40,7 @@ plugins/share/
 ├── resources/
 │   └── META-INF/
 │       └── plugin.xml
-├── src/com/conch/share/
+├── src/com/termlab/share/
 │   ├── TestRunner.java                          (JUnit 5 launcher)
 │   ├── model/
 │   │   ├── ShareBundle.java                     (top-level record)
@@ -75,7 +75,7 @@ plugins/share/
 │   └── actions/
 │       ├── ExportAction.java
 │       └── ImportAction.java
-└── test/com/conch/share/
+└── test/com/termlab/share/
     ├── codec/
     │   └── ShareBundleCodecTest.java
     ├── planner/
@@ -90,11 +90,11 @@ plugins/share/
 ```
 
 Additionally modifies:
-- `plugins/vault/src/com/conch/vault/lock/LockManager.java` — adds `createVault`, `withUnlocked`
-- `plugins/vault/test/com/conch/vault/lock/LockManagerTest.java` — new tests (create file if it doesn't exist)
-- `BUILD.bazel` (root) — adds `//conch/plugins/share` to `conch_run` runtime_deps
-- `plugins/ssh/src/com/conch/ssh/toolwindow/HostsToolWindow.java` — adds Export/Import toolbar buttons
-- `plugins/tunnels/src/com/conch/tunnels/toolwindow/TunnelsToolWindow.java` — same
+- `plugins/vault/src/com/termlab/vault/lock/LockManager.java` — adds `createVault`, `withUnlocked`
+- `plugins/vault/test/com/termlab/vault/lock/LockManagerTest.java` — new tests (create file if it doesn't exist)
+- `BUILD.bazel` (root) — adds `//termlab/plugins/share` to `termlab_run` runtime_deps
+- `plugins/ssh/src/com/termlab/ssh/toolwindow/HostsToolWindow.java` — adds Export/Import toolbar buttons
+- `plugins/tunnels/src/com/termlab/tunnels/toolwindow/TunnelsToolWindow.java` — same
 
 ---
 
@@ -103,10 +103,10 @@ Additionally modifies:
 **Files:**
 - Create: `plugins/share/BUILD.bazel`
 - Create: `plugins/share/resources/META-INF/plugin.xml`
-- Create: `plugins/share/src/com/conch/share/TestRunner.java`
-- Create: `plugins/share/src/com/conch/share/package-info.java`
-- Create: `plugins/share/test/com/conch/share/SmokeTest.java`
-- Modify: `BUILD.bazel` (root, add share to `conch_run` runtime_deps)
+- Create: `plugins/share/src/com/termlab/share/TestRunner.java`
+- Create: `plugins/share/src/com/termlab/share/package-info.java`
+- Create: `plugins/share/test/com/termlab/share/SmokeTest.java`
+- Modify: `BUILD.bazel` (root, add share to `termlab_run` runtime_deps)
 
 - [ ] **Step 1.1: Create `plugins/share/BUILD.bazel`**
 
@@ -122,16 +122,16 @@ resourcegroup(
 
 jvm_library(
     name = "share",
-    module_name = "intellij.conch.share",
+    module_name = "intellij.termlab.share",
     visibility = ["//visibility:public"],
     srcs = glob(["src/**/*.java"], allow_empty = True),
     resources = [":share_resources"],
     deps = [
-        "//conch/sdk",
-        "//conch/core",
-        "//conch/plugins/vault",
-        "//conch/plugins/ssh",
-        "//conch/plugins/tunnels",
+        "//termlab/sdk",
+        "//termlab/core",
+        "//termlab/plugins/vault",
+        "//termlab/plugins/ssh",
+        "//termlab/plugins/tunnels",
         "//platform/analysis-api:analysis",
         "//platform/core-api:core",
         "//platform/core-ui",
@@ -151,15 +151,15 @@ jvm_library(
 
 jvm_library(
     name = "share_test_lib",
-    module_name = "intellij.conch.share.tests",
+    module_name = "intellij.termlab.share.tests",
     visibility = ["//visibility:public"],
     srcs = glob(["test/**/*.java"], allow_empty = True),
     deps = [
         ":share",
-        "//conch/sdk",
-        "//conch/plugins/vault",
-        "//conch/plugins/ssh",
-        "//conch/plugins/tunnels",
+        "//termlab/sdk",
+        "//termlab/plugins/vault",
+        "//termlab/plugins/ssh",
+        "//termlab/plugins/tunnels",
         "//libraries/junit5",
         "//libraries/junit5-jupiter",
         "//libraries/junit5-launcher",
@@ -172,7 +172,7 @@ jvm_library(
 
 java_binary(
     name = "share_test_runner",
-    main_class = "com.conch.share.TestRunner",
+    main_class = "com.termlab.share.TestRunner",
     runtime_deps = [
         ":share_test_lib",
         "//libraries/junit5-jupiter",
@@ -180,31 +180,31 @@ java_binary(
     ],
 )
 
-exports_files(["intellij.conch.share.iml"], visibility = ["//visibility:public"])
+exports_files(["intellij.termlab.share.iml"], visibility = ["//visibility:public"])
 ```
 
 - [ ] **Step 1.2: Create `plugins/share/resources/META-INF/plugin.xml`**
 
 ```xml
 <idea-plugin>
-    <id>com.conch.share</id>
-    <name>Conch Share</name>
-    <vendor>Conch</vendor>
+    <id>com.termlab.share</id>
+    <name>TermLab Share</name>
+    <vendor>TermLab</vendor>
     <description>Export and import SSH hosts, tunnels, and credentials as encrypted bundles.</description>
 
-    <depends>com.conch.core</depends>
-    <depends>com.conch.vault</depends>
-    <depends>com.conch.ssh</depends>
-    <depends>com.conch.tunnels</depends>
+    <depends>com.termlab.core</depends>
+    <depends>com.termlab.vault</depends>
+    <depends>com.termlab.ssh</depends>
+    <depends>com.termlab.tunnels</depends>
 
     <actions>
-        <action id="Conch.Share.Export"
-                class="com.conch.share.actions.ExportAction"
-                text="Export Conch Bundle…"
+        <action id="TermLab.Share.Export"
+                class="com.termlab.share.actions.ExportAction"
+                text="Export TermLab Bundle…"
                 description="Export SSH hosts and tunnels as an encrypted share bundle"/>
-        <action id="Conch.Share.Import"
-                class="com.conch.share.actions.ImportAction"
-                text="Import Conch Bundle…"
+        <action id="TermLab.Share.Import"
+                class="com.termlab.share.actions.ImportAction"
+                text="Import TermLab Bundle…"
                 description="Import SSH hosts, tunnels, and credentials from a share bundle"/>
     </actions>
 </idea-plugin>
@@ -212,10 +212,10 @@ exports_files(["intellij.conch.share.iml"], visibility = ["//visibility:public"]
 
 - [ ] **Step 1.3: Create `TestRunner.java`**
 
-Copy the pattern from `plugins/vault/src/com/conch/vault/TestRunner.java` — read that file first and mirror its structure exactly. If it does not exist, use this minimal launcher:
+Copy the pattern from `plugins/vault/src/com/termlab/vault/TestRunner.java` — read that file first and mirror its structure exactly. If it does not exist, use this minimal launcher:
 
 ```java
-package com.conch.share;
+package com.termlab.share;
 
 import org.junit.platform.engine.discovery.DiscoverySelectors;
 import org.junit.platform.launcher.Launcher;
@@ -230,7 +230,7 @@ import java.io.PrintWriter;
 public final class TestRunner {
     public static void main(String[] args) {
         LauncherDiscoveryRequest request = LauncherDiscoveryRequestBuilder.request()
-            .selectors(DiscoverySelectors.selectPackage("com.conch.share"))
+            .selectors(DiscoverySelectors.selectPackage("com.termlab.share"))
             .build();
 
         SummaryGeneratingListener listener = new SummaryGeneratingListener();
@@ -252,13 +252,13 @@ public final class TestRunner {
 - [ ] **Step 1.4: Create `package-info.java`**
 
 ```java
-package com.conch.share;
+package com.termlab.share;
 ```
 
-- [ ] **Step 1.5: Create `test/com/conch/share/SmokeTest.java`**
+- [ ] **Step 1.5: Create `test/com/termlab/share/SmokeTest.java`**
 
 ```java
-package com.conch.share;
+package com.termlab.share;
 
 import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -273,13 +273,13 @@ class SmokeTest {
 
 - [ ] **Step 1.6: Add share plugin to root `BUILD.bazel`**
 
-Read `BUILD.bazel` (root), find the `conch_run` target's `runtime_deps` list (around lines 38-66), and add `"//conch/plugins/share",` immediately after `"//conch/plugins/tunnels",`.
+Read `BUILD.bazel` (root), find the `termlab_run` target's `runtime_deps` list (around lines 38-66), and add `"//termlab/plugins/share",` immediately after `"//termlab/plugins/tunnels",`.
 
 - [ ] **Step 1.7: Build and run smoke test**
 
 ```bash
-cd $INTELLIJ_ROOT && bash bazel.cmd build //conch/plugins/share:share
-cd $INTELLIJ_ROOT && bash bazel.cmd run //conch/plugins/share:share_test_runner
+cd $INTELLIJ_ROOT && bash bazel.cmd build //termlab/plugins/share:share
+cd $INTELLIJ_ROOT && bash bazel.cmd run //termlab/plugins/share:share_test_runner
 ```
 
 Expected: build succeeds, SmokeTest passes (1 test, 0 failures).
@@ -298,8 +298,8 @@ git commit -m "feat(share): scaffold plugin module with smoke test"
 These methods are referenced throughout the share plugin design but don't exist yet. Adding them now (with tests) before any share code depends on them.
 
 **Files:**
-- Modify: `plugins/vault/src/com/conch/vault/lock/LockManager.java`
-- Create or modify: `plugins/vault/test/com/conch/vault/lock/LockManagerTest.java`
+- Modify: `plugins/vault/src/com/termlab/vault/lock/LockManager.java`
+- Create or modify: `plugins/vault/test/com/termlab/vault/lock/LockManagerTest.java`
 
 - [ ] **Step 2.1: Read existing `LockManager.java` in full**
 
@@ -307,13 +307,13 @@ Before writing anything, read the full file so the new methods match its style (
 
 - [ ] **Step 2.2: Write failing test for `createVault` when no vault exists**
 
-Add to `LockManagerTest.java` (create file if missing; follow JUnit 5 patterns from `plugins/vault/test/com/conch/vault/crypto/VaultCryptoTest.java`):
+Add to `LockManagerTest.java` (create file if missing; follow JUnit 5 patterns from `plugins/vault/test/com/termlab/vault/crypto/VaultCryptoTest.java`):
 
 ```java
-package com.conch.vault.lock;
+package com.termlab.vault.lock;
 
-import com.conch.vault.model.Vault;
-import com.conch.vault.persistence.VaultFile;
+import com.termlab.vault.model.Vault;
+import com.termlab.vault.persistence.VaultFile;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -364,7 +364,7 @@ class LockManagerTest {
 - [ ] **Step 2.3: Run test, verify failure**
 
 ```bash
-cd $INTELLIJ_ROOT && bash bazel.cmd run //conch/plugins/vault:vault_test_runner
+cd $INTELLIJ_ROOT && bash bazel.cmd run //termlab/plugins/vault:vault_test_runner
 ```
 
 Expected: `createVault_writesFileAndUnlocks` fails with "cannot find symbol: method createVault".
@@ -396,12 +396,12 @@ public synchronized void createVault(@NotNull byte[] password) throws IOExceptio
 }
 ```
 
-Add any missing imports: `java.nio.file.Files`, `java.nio.file.Path`, `com.conch.vault.persistence.VaultFile`, `com.conch.vault.model.Vault`, `com.conch.vault.crypto.WrongPasswordException`, `com.conch.vault.crypto.VaultCorruptedException`.
+Add any missing imports: `java.nio.file.Files`, `java.nio.file.Path`, `com.termlab.vault.persistence.VaultFile`, `com.termlab.vault.model.Vault`, `com.termlab.vault.crypto.WrongPasswordException`, `com.termlab.vault.crypto.VaultCorruptedException`.
 
 - [ ] **Step 2.5: Run tests, verify pass**
 
 ```bash
-cd $INTELLIJ_ROOT && bash bazel.cmd run //conch/plugins/vault:vault_test_runner
+cd $INTELLIJ_ROOT && bash bazel.cmd run //termlab/plugins/vault:vault_test_runner
 ```
 
 Expected: both `createVault` tests pass.
@@ -491,7 +491,7 @@ Note: this version calls `save()` after the operation so mutations to the vault 
 - [ ] **Step 2.9: Run tests, verify pass**
 
 ```bash
-cd $INTELLIJ_ROOT && bash bazel.cmd run //conch/plugins/vault:vault_test_runner
+cd $INTELLIJ_ROOT && bash bazel.cmd run //termlab/plugins/vault:vault_test_runner
 ```
 
 Expected: all tests pass including existing vault tests.
@@ -508,15 +508,15 @@ git commit -m "feat(vault): add LockManager.createVault and withUnlocked"
 ## Task 3: `ShareBundle` data model
 
 **Files:**
-- Create: `plugins/share/src/com/conch/share/model/ShareBundle.java`
-- Create: `plugins/share/src/com/conch/share/model/BundleMetadata.java`
-- Create: `plugins/share/src/com/conch/share/model/BundledVault.java`
-- Create: `plugins/share/src/com/conch/share/model/BundledKeyMaterial.java`
+- Create: `plugins/share/src/com/termlab/share/model/ShareBundle.java`
+- Create: `plugins/share/src/com/termlab/share/model/BundleMetadata.java`
+- Create: `plugins/share/src/com/termlab/share/model/BundledVault.java`
+- Create: `plugins/share/src/com/termlab/share/model/BundledKeyMaterial.java`
 
 - [ ] **Step 3.1: Create `BundledKeyMaterial.java`**
 
 ```java
-package com.conch.share.model;
+package com.termlab.share.model;
 
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -529,7 +529,7 @@ public record BundledKeyMaterial(
     @Nullable String publicKeyBase64,
     @Nullable String originalFilename
 ) {
-    public static final String SENTINEL_PREFIX = "$CONCH_SHARE_KEY:";
+    public static final String SENTINEL_PREFIX = "$TERMLAB_SHARE_KEY:";
 
     public static @NotNull String sentinelFor(@NotNull UUID id) {
         return SENTINEL_PREFIX + id;
@@ -551,10 +551,10 @@ public record BundledKeyMaterial(
 - [ ] **Step 3.2: Create `BundledVault.java`**
 
 ```java
-package com.conch.share.model;
+package com.termlab.share.model;
 
-import com.conch.vault.model.VaultAccount;
-import com.conch.vault.model.VaultKey;
+import com.termlab.vault.model.VaultAccount;
+import com.termlab.vault.model.VaultKey;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.List;
@@ -576,7 +576,7 @@ public record BundledVault(
 - [ ] **Step 3.3: Create `BundleMetadata.java`**
 
 ```java
-package com.conch.share.model;
+package com.termlab.share.model;
 
 import org.jetbrains.annotations.NotNull;
 
@@ -585,7 +585,7 @@ import java.time.Instant;
 public record BundleMetadata(
     @NotNull Instant createdAt,
     @NotNull String sourceHost,
-    @NotNull String conchVersion,
+    @NotNull String termlabVersion,
     boolean includesCredentials
 ) {}
 ```
@@ -593,10 +593,10 @@ public record BundleMetadata(
 - [ ] **Step 3.4: Create `ShareBundle.java`**
 
 ```java
-package com.conch.share.model;
+package com.termlab.share.model;
 
-import com.conch.ssh.model.SshHost;
-import com.conch.tunnels.model.SshTunnel;
+import com.termlab.ssh.model.SshHost;
+import com.termlab.tunnels.model.SshTunnel;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.List;
@@ -616,7 +616,7 @@ public record ShareBundle(
 - [ ] **Step 3.5: Run build**
 
 ```bash
-cd $INTELLIJ_ROOT && bash bazel.cmd build //conch/plugins/share:share
+cd $INTELLIJ_ROOT && bash bazel.cmd build //termlab/plugins/share:share
 ```
 
 Expected: build succeeds.
@@ -624,7 +624,7 @@ Expected: build succeeds.
 - [ ] **Step 3.6: Commit**
 
 ```bash
-git add plugins/share/src/com/conch/share/model
+git add plugins/share/src/com/termlab/share/model
 git commit -m "feat(share): add ShareBundle data model"
 ```
 
@@ -635,19 +635,19 @@ git commit -m "feat(share): add ShareBundle data model"
 Reuses `VaultCrypto` / `KeyDerivation` for AES-256-GCM + Argon2id. Bundle byte layout mirrors `VaultFileFormat` but with a different magic and independent version.
 
 **Files:**
-- Create: `plugins/share/src/com/conch/share/codec/ShareBundleFormat.java`
-- Create: `plugins/share/src/com/conch/share/codec/ShareBundleGson.java`
-- Create: `plugins/share/src/com/conch/share/codec/ShareBundleCodec.java`
-- Create: `plugins/share/src/com/conch/share/codec/exceptions/WrongBundlePasswordException.java`
-- Create: `plugins/share/src/com/conch/share/codec/exceptions/BundleCorruptedException.java`
-- Create: `plugins/share/src/com/conch/share/codec/exceptions/UnsupportedBundleVersionException.java`
-- Create: `plugins/share/test/com/conch/share/codec/ShareBundleCodecTest.java`
+- Create: `plugins/share/src/com/termlab/share/codec/ShareBundleFormat.java`
+- Create: `plugins/share/src/com/termlab/share/codec/ShareBundleGson.java`
+- Create: `plugins/share/src/com/termlab/share/codec/ShareBundleCodec.java`
+- Create: `plugins/share/src/com/termlab/share/codec/exceptions/WrongBundlePasswordException.java`
+- Create: `plugins/share/src/com/termlab/share/codec/exceptions/BundleCorruptedException.java`
+- Create: `plugins/share/src/com/termlab/share/codec/exceptions/UnsupportedBundleVersionException.java`
+- Create: `plugins/share/test/com/termlab/share/codec/ShareBundleCodecTest.java`
 
 - [ ] **Step 4.1: Create exception types**
 
 `WrongBundlePasswordException.java`:
 ```java
-package com.conch.share.codec.exceptions;
+package com.termlab.share.codec.exceptions;
 
 public class WrongBundlePasswordException extends Exception {
     public WrongBundlePasswordException() {
@@ -658,7 +658,7 @@ public class WrongBundlePasswordException extends Exception {
 
 `BundleCorruptedException.java`:
 ```java
-package com.conch.share.codec.exceptions;
+package com.termlab.share.codec.exceptions;
 
 public class BundleCorruptedException extends Exception {
     public BundleCorruptedException(String message) {
@@ -672,7 +672,7 @@ public class BundleCorruptedException extends Exception {
 
 `UnsupportedBundleVersionException.java`:
 ```java
-package com.conch.share.codec.exceptions;
+package com.termlab.share.codec.exceptions;
 
 public class UnsupportedBundleVersionException extends Exception {
     private final int version;
@@ -690,12 +690,12 @@ public class UnsupportedBundleVersionException extends Exception {
 
 - [ ] **Step 4.2: Create `ShareBundleFormat.java`**
 
-Read `plugins/vault/src/com/conch/vault/crypto/VaultFileFormat.java` first and mirror its structure exactly, changing only `MAGIC` and the class name.
+Read `plugins/vault/src/com/termlab/vault/crypto/VaultFileFormat.java` first and mirror its structure exactly, changing only `MAGIC` and the class name.
 
 ```java
-package com.conch.share.codec;
+package com.termlab.share.codec;
 
-import com.conch.share.codec.exceptions.BundleCorruptedException;
+import com.termlab.share.codec.exceptions.BundleCorruptedException;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
@@ -703,7 +703,7 @@ import java.nio.charset.StandardCharsets;
 
 public final class ShareBundleFormat {
 
-    public static final byte[] MAGIC = "CONCHSHR".getBytes(StandardCharsets.US_ASCII);
+    public static final byte[] MAGIC = "TERMLABSHR".getBytes(StandardCharsets.US_ASCII);
     public static final int VERSION = 1;
     public static final int SALT_LEN = 16;
     public static final int NONCE_LEN = 12;
@@ -732,7 +732,7 @@ public final class ShareBundleFormat {
         System.arraycopy(data, 0, magic, 0, MAGIC.length);
         for (int i = 0; i < MAGIC.length; i++) {
             if (magic[i] != MAGIC[i]) {
-                throw new BundleCorruptedException("not a conch share bundle (bad magic)");
+                throw new BundleCorruptedException("not a termlab share bundle (bad magic)");
             }
         }
         ByteBuffer buf = ByteBuffer.wrap(data, MAGIC.length, 4).order(ByteOrder.LITTLE_ENDIAN);
@@ -755,29 +755,29 @@ public final class ShareBundleFormat {
 Reuses the sealed-type adapters from `SshGson`, `TunnelGson`, and `VaultGson` — the share Gson must reference the **same** adapters so serialized `SshHost`, `SshTunnel`, and `VaultAccount` shapes match the on-disk formats byte-for-byte.
 
 Read these three files first:
-- `plugins/ssh/src/com/conch/ssh/persistence/SshGson.java`
-- `plugins/tunnels/src/com/conch/tunnels/persistence/TunnelGson.java`
-- `plugins/vault/src/com/conch/vault/crypto/VaultGson.java`
+- `plugins/ssh/src/com/termlab/ssh/persistence/SshGson.java`
+- `plugins/tunnels/src/com/termlab/tunnels/persistence/TunnelGson.java`
+- `plugins/vault/src/com/termlab/vault/crypto/VaultGson.java`
 
 Note which adapter classes are package-private vs public. If an adapter is package-private (common for `VaultGson` internals), you cannot reference it from `plugins/share`. Two options:
 1. **Preferred:** widen visibility of the adapter classes to `public` and move them to a subpackage if needed.
 2. Fallback: reflectively obtain the Gson instance and reuse it whole.
 
 Pick option 1 unless it breaks the module boundary. Specifically:
-- Make `com.conch.ssh.persistence.SshGson.GSON` reusable (it already is public).
-- Make `com.conch.tunnels.persistence.TunnelGson.GSON` reusable (already public).
+- Make `com.termlab.ssh.persistence.SshGson.GSON` reusable (it already is public).
+- Make `com.termlab.tunnels.persistence.TunnelGson.GSON` reusable (already public).
 - For `VaultGson`, promote `AuthMethodSerializer` and `AuthMethodDeserializer` (or the whole `VaultGson` class + `GSON` field) to public.
 
 ```java
-package com.conch.share.codec;
+package com.termlab.share.codec;
 
-import com.conch.share.model.BundleMetadata;
-import com.conch.share.model.BundledKeyMaterial;
-import com.conch.share.model.BundledVault;
-import com.conch.share.model.ShareBundle;
-import com.conch.ssh.model.SshAuth;
-import com.conch.tunnels.model.TunnelHost;
-import com.conch.vault.model.AuthMethod;
+import com.termlab.share.model.BundleMetadata;
+import com.termlab.share.model.BundledKeyMaterial;
+import com.termlab.share.model.BundledVault;
+import com.termlab.share.model.ShareBundle;
+import com.termlab.ssh.model.SshAuth;
+import com.termlab.tunnels.model.TunnelHost;
+import com.termlab.vault.model.AuthMethod;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 
@@ -788,12 +788,12 @@ public final class ShareBundleGson {
     public static final Gson GSON = new GsonBuilder()
         .setPrettyPrinting()
         .registerTypeAdapter(Instant.class, new InstantAdapter())
-        .registerTypeAdapter(SshAuth.class, new com.conch.ssh.persistence.SshAuthSerializer())
-        .registerTypeAdapter(SshAuth.class, new com.conch.ssh.persistence.SshAuthDeserializer())
-        .registerTypeAdapter(TunnelHost.class, new com.conch.tunnels.persistence.TunnelHostSerializer())
-        .registerTypeAdapter(TunnelHost.class, new com.conch.tunnels.persistence.TunnelHostDeserializer())
-        .registerTypeAdapter(AuthMethod.class, new com.conch.vault.crypto.AuthMethodSerializer())
-        .registerTypeAdapter(AuthMethod.class, new com.conch.vault.crypto.AuthMethodDeserializer())
+        .registerTypeAdapter(SshAuth.class, new com.termlab.ssh.persistence.SshAuthSerializer())
+        .registerTypeAdapter(SshAuth.class, new com.termlab.ssh.persistence.SshAuthDeserializer())
+        .registerTypeAdapter(TunnelHost.class, new com.termlab.tunnels.persistence.TunnelHostSerializer())
+        .registerTypeAdapter(TunnelHost.class, new com.termlab.tunnels.persistence.TunnelHostDeserializer())
+        .registerTypeAdapter(AuthMethod.class, new com.termlab.vault.crypto.AuthMethodSerializer())
+        .registerTypeAdapter(AuthMethod.class, new com.termlab.vault.crypto.AuthMethodDeserializer())
         .create();
 
     private ShareBundleGson() {}
@@ -827,28 +827,28 @@ public final class ShareBundleGson {
 
 - [ ] **Step 4.4: Widen visibility of vault Gson adapters (if needed)**
 
-If `VaultGson` has package-private adapter classes, modify `plugins/vault/src/com/conch/vault/crypto/VaultGson.java` (or wherever they live) to expose them. Minimum: make `AuthMethodSerializer` and `AuthMethodDeserializer` top-level public classes in `com.conch.vault.crypto`. Same for SSH and tunnel adapters if they're nested.
+If `VaultGson` has package-private adapter classes, modify `plugins/vault/src/com/termlab/vault/crypto/VaultGson.java` (or wherever they live) to expose them. Minimum: make `AuthMethodSerializer` and `AuthMethodDeserializer` top-level public classes in `com.termlab.vault.crypto`. Same for SSH and tunnel adapters if they're nested.
 
 After widening, rebuild vault/ssh/tunnels to confirm nothing breaks:
 
 ```bash
-cd $INTELLIJ_ROOT && bash bazel.cmd build //conch/plugins/vault //conch/plugins/ssh //conch/plugins/tunnels
+cd $INTELLIJ_ROOT && bash bazel.cmd build //termlab/plugins/vault //termlab/plugins/ssh //termlab/plugins/tunnels
 ```
 
 - [ ] **Step 4.5: Write failing test for codec round-trip**
 
-Create `plugins/share/test/com/conch/share/codec/ShareBundleCodecTest.java`:
+Create `plugins/share/test/com/termlab/share/codec/ShareBundleCodecTest.java`:
 
 ```java
-package com.conch.share.codec;
+package com.termlab.share.codec;
 
-import com.conch.share.codec.exceptions.BundleCorruptedException;
-import com.conch.share.codec.exceptions.UnsupportedBundleVersionException;
-import com.conch.share.codec.exceptions.WrongBundlePasswordException;
-import com.conch.share.model.BundleMetadata;
-import com.conch.share.model.BundledKeyMaterial;
-import com.conch.share.model.BundledVault;
-import com.conch.share.model.ShareBundle;
+import com.termlab.share.codec.exceptions.BundleCorruptedException;
+import com.termlab.share.codec.exceptions.UnsupportedBundleVersionException;
+import com.termlab.share.codec.exceptions.WrongBundlePasswordException;
+import com.termlab.share.model.BundleMetadata;
+import com.termlab.share.model.BundledKeyMaterial;
+import com.termlab.share.model.BundledVault;
+import com.termlab.share.model.ShareBundle;
 import org.junit.jupiter.api.Test;
 
 import java.time.Instant;
@@ -958,7 +958,7 @@ class ShareBundleCodecTest {
 - [ ] **Step 4.6: Run tests, verify compile failure**
 
 ```bash
-cd $INTELLIJ_ROOT && bash bazel.cmd run //conch/plugins/share:share_test_runner
+cd $INTELLIJ_ROOT && bash bazel.cmd run //termlab/plugins/share:share_test_runner
 ```
 
 Expected: compile error, `ShareBundleCodec` does not exist.
@@ -968,13 +968,13 @@ Expected: compile error, `ShareBundleCodec` does not exist.
 Reuse `KeyDerivation` and the AES-GCM cipher invocation from `VaultCrypto`. Read `VaultCrypto.java` first to confirm the exact BouncyCastle / javax.crypto call shape. If `VaultCrypto` has package-private internal methods (`encryptBytes(plaintext, key, nonce)`), promote them to public or copy the encrypt/decrypt primitive into a new package-private helper in the share codec.
 
 ```java
-package com.conch.share.codec;
+package com.termlab.share.codec;
 
-import com.conch.share.codec.exceptions.BundleCorruptedException;
-import com.conch.share.codec.exceptions.UnsupportedBundleVersionException;
-import com.conch.share.codec.exceptions.WrongBundlePasswordException;
-import com.conch.share.model.ShareBundle;
-import com.conch.vault.crypto.KeyDerivation;
+import com.termlab.share.codec.exceptions.BundleCorruptedException;
+import com.termlab.share.codec.exceptions.UnsupportedBundleVersionException;
+import com.termlab.share.codec.exceptions.WrongBundlePasswordException;
+import com.termlab.share.model.ShareBundle;
+import com.termlab.vault.crypto.KeyDerivation;
 
 import javax.crypto.Cipher;
 import javax.crypto.spec.GCMParameterSpec;
@@ -1059,7 +1059,7 @@ public final class ShareBundleCodec {
 - [ ] **Step 4.8: Run tests, verify pass**
 
 ```bash
-cd $INTELLIJ_ROOT && bash bazel.cmd run //conch/plugins/share:share_test_runner
+cd $INTELLIJ_ROOT && bash bazel.cmd run //termlab/plugins/share:share_test_runner
 ```
 
 Expected: all codec tests pass. If `decode_unknownVersion_throws` fails because of the tag-check order, adjust the test assertion or the decode logic — the envelope version check runs before the tag check in the current implementation.
@@ -1076,14 +1076,14 @@ git commit -m "feat(share): add ShareBundleCodec with AES-GCM + Argon2id envelop
 ## Task 5: `SshConfigReader`
 
 **Files:**
-- Create: `plugins/share/src/com/conch/share/conversion/SshConfigEntry.java`
-- Create: `plugins/share/src/com/conch/share/conversion/SshConfigReader.java`
-- Create: `plugins/share/test/com/conch/share/conversion/SshConfigReaderTest.java`
+- Create: `plugins/share/src/com/termlab/share/conversion/SshConfigEntry.java`
+- Create: `plugins/share/src/com/termlab/share/conversion/SshConfigReader.java`
+- Create: `plugins/share/test/com/termlab/share/conversion/SshConfigReaderTest.java`
 
 - [ ] **Step 5.1: Create `SshConfigEntry.java`**
 
 ```java
-package com.conch.share.conversion;
+package com.termlab.share.conversion;
 
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -1104,10 +1104,10 @@ public record SshConfigEntry(
 
 - [ ] **Step 5.2: Write failing tests for `SshConfigReader`**
 
-Create `plugins/share/test/com/conch/share/conversion/SshConfigReaderTest.java`:
+Create `plugins/share/test/com/termlab/share/conversion/SshConfigReaderTest.java`:
 
 ```java
-package com.conch.share.conversion;
+package com.termlab.share.conversion;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -1211,7 +1211,7 @@ class SshConfigReaderTest {
 - [ ] **Step 5.3: Run tests, verify failure**
 
 ```bash
-cd $INTELLIJ_ROOT && bash bazel.cmd run //conch/plugins/share:share_test_runner
+cd $INTELLIJ_ROOT && bash bazel.cmd run //termlab/plugins/share:share_test_runner
 ```
 
 Expected: compile failure, `SshConfigReader` does not exist.
@@ -1219,7 +1219,7 @@ Expected: compile failure, `SshConfigReader` does not exist.
 - [ ] **Step 5.4: Implement `SshConfigReader.java`**
 
 ```java
-package com.conch.share.conversion;
+package com.termlab.share.conversion;
 
 import org.jetbrains.annotations.NotNull;
 
@@ -1349,7 +1349,7 @@ public final class SshConfigReader {
 - [ ] **Step 5.5: Run tests, verify pass**
 
 ```bash
-cd $INTELLIJ_ROOT && bash bazel.cmd run //conch/plugins/share:share_test_runner
+cd $INTELLIJ_ROOT && bash bazel.cmd run //termlab/plugins/share:share_test_runner
 ```
 
 Expected: all `SshConfigReaderTest` tests pass.
@@ -1357,7 +1357,7 @@ Expected: all `SshConfigReaderTest` tests pass.
 - [ ] **Step 5.6: Commit**
 
 ```bash
-git add plugins/share/src/com/conch/share/conversion plugins/share/test/com/conch/share/conversion
+git add plugins/share/src/com/termlab/share/conversion plugins/share/test/com/termlab/share/conversion
 git commit -m "feat(share): add SshConfigReader for exporting ~/.ssh/config aliases"
 ```
 
@@ -1366,15 +1366,15 @@ git commit -m "feat(share): add SshConfigReader for exporting ~/.ssh/config alia
 ## Task 6: `KeyFileImporter`
 
 **Files:**
-- Create: `plugins/share/src/com/conch/share/conversion/KeyFileImporter.java`
-- Create: `plugins/share/test/com/conch/share/conversion/KeyFileImporterTest.java`
+- Create: `plugins/share/src/com/termlab/share/conversion/KeyFileImporter.java`
+- Create: `plugins/share/test/com/termlab/share/conversion/KeyFileImporterTest.java`
 
 - [ ] **Step 6.1: Create `KeyFileImporter.java` skeleton (return type + static method signature only)**
 
 ```java
-package com.conch.share.conversion;
+package com.termlab.share.conversion;
 
-import com.conch.share.model.BundledKeyMaterial;
+import com.termlab.share.model.BundledKeyMaterial;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -1402,12 +1402,12 @@ public final class KeyFileImporter {
 
 - [ ] **Step 6.2: Write failing tests**
 
-Create `plugins/share/test/com/conch/share/conversion/KeyFileImporterTest.java`:
+Create `plugins/share/test/com/termlab/share/conversion/KeyFileImporterTest.java`:
 
 ```java
-package com.conch.share.conversion;
+package com.termlab.share.conversion;
 
-import com.conch.share.model.BundledKeyMaterial;
+import com.termlab.share.model.BundledKeyMaterial;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -1551,7 +1551,7 @@ Expected: all `KeyFileImporterTest` tests pass. Note the encrypted-key heuristic
 - [ ] **Step 6.6: Commit**
 
 ```bash
-git add plugins/share/src/com/conch/share/conversion plugins/share/test/com/conch/share/conversion
+git add plugins/share/src/com/termlab/share/conversion plugins/share/test/com/termlab/share/conversion
 git commit -m "feat(share): add KeyFileImporter for bundling private keys"
 ```
 
@@ -1562,16 +1562,16 @@ git commit -m "feat(share): add KeyFileImporter for bundling private keys"
 Central logic that turns a user selection into a `ShareBundle`. Several distinct behaviours — each tested separately.
 
 **Files:**
-- Create: `plugins/share/src/com/conch/share/planner/ConversionWarning.java`
-- Create: `plugins/share/src/com/conch/share/planner/ExportPlan.java`
-- Create: `plugins/share/src/com/conch/share/planner/ExportRequest.java`
-- Create: `plugins/share/src/com/conch/share/planner/ExportPlanner.java`
-- Create: `plugins/share/test/com/conch/share/planner/ExportPlannerTest.java`
+- Create: `plugins/share/src/com/termlab/share/planner/ConversionWarning.java`
+- Create: `plugins/share/src/com/termlab/share/planner/ExportPlan.java`
+- Create: `plugins/share/src/com/termlab/share/planner/ExportRequest.java`
+- Create: `plugins/share/src/com/termlab/share/planner/ExportPlanner.java`
+- Create: `plugins/share/test/com/termlab/share/planner/ExportPlannerTest.java`
 
 - [ ] **Step 7.1: Create `ConversionWarning.java`**
 
 ```java
-package com.conch.share.planner;
+package com.termlab.share.planner;
 
 import org.jetbrains.annotations.NotNull;
 
@@ -1581,9 +1581,9 @@ public record ConversionWarning(@NotNull String subject, @NotNull String message
 - [ ] **Step 7.2: Create `ExportPlan.java`**
 
 ```java
-package com.conch.share.planner;
+package com.termlab.share.planner;
 
-import com.conch.share.model.ShareBundle;
+import com.termlab.share.model.ShareBundle;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.List;
@@ -1600,11 +1600,11 @@ public record ExportPlan(
 - [ ] **Step 7.3: Create `ExportRequest.java`**
 
 ```java
-package com.conch.share.planner;
+package com.termlab.share.planner;
 
-import com.conch.ssh.model.SshHost;
-import com.conch.tunnels.model.SshTunnel;
-import com.conch.vault.model.Vault;
+import com.termlab.ssh.model.SshHost;
+import com.termlab.tunnels.model.SshTunnel;
+import com.termlab.vault.model.Vault;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -1622,30 +1622,30 @@ public record ExportRequest(
     @Nullable Vault unlockedVault,
     @NotNull Path sshConfigPath,
     @NotNull String sourceHost,
-    @NotNull String conchVersion
+    @NotNull String termlabVersion
 ) {}
 ```
 
 - [ ] **Step 7.4: Write failing test — basic host selection with no credentials**
 
-Create `plugins/share/test/com/conch/share/planner/ExportPlannerTest.java`:
+Create `plugins/share/test/com/termlab/share/planner/ExportPlannerTest.java`:
 
 ```java
-package com.conch.share.planner;
+package com.termlab.share.planner;
 
-import com.conch.share.model.BundledKeyMaterial;
-import com.conch.share.model.ShareBundle;
-import com.conch.ssh.model.KeyFileAuth;
-import com.conch.ssh.model.PromptPasswordAuth;
-import com.conch.ssh.model.SshHost;
-import com.conch.ssh.model.VaultAuth;
-import com.conch.tunnels.model.InternalHost;
-import com.conch.tunnels.model.SshConfigHost;
-import com.conch.tunnels.model.SshTunnel;
-import com.conch.tunnels.model.TunnelType;
-import com.conch.vault.model.AuthMethod;
-import com.conch.vault.model.Vault;
-import com.conch.vault.model.VaultAccount;
+import com.termlab.share.model.BundledKeyMaterial;
+import com.termlab.share.model.ShareBundle;
+import com.termlab.ssh.model.KeyFileAuth;
+import com.termlab.ssh.model.PromptPasswordAuth;
+import com.termlab.ssh.model.SshHost;
+import com.termlab.ssh.model.VaultAuth;
+import com.termlab.tunnels.model.InternalHost;
+import com.termlab.tunnels.model.SshConfigHost;
+import com.termlab.tunnels.model.SshTunnel;
+import com.termlab.tunnels.model.TunnelType;
+import com.termlab.vault.model.AuthMethod;
+import com.termlab.vault.model.Vault;
+import com.termlab.vault.model.VaultAccount;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -1661,14 +1661,14 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class ExportPlannerTest {
 
-    private SshHost host(String label, com.conch.ssh.model.SshAuth auth) {
+    private SshHost host(String label, com.termlab.ssh.model.SshAuth auth) {
         return new SshHost(
             UUID.randomUUID(), label, label + ".example.com", 22, "ops",
             auth, null, null, Instant.now(), Instant.now()
         );
     }
 
-    private SshTunnel tunnel(String label, com.conch.tunnels.model.TunnelHost host) {
+    private SshTunnel tunnel(String label, com.termlab.tunnels.model.TunnelHost host) {
         return new SshTunnel(
             UUID.randomUUID(), label, TunnelType.LOCAL, host,
             8080, "localhost", "target", 80, Instant.now(), Instant.now()
@@ -1846,28 +1846,28 @@ class ExportPlannerTest {
 - [ ] **Step 7.6: Implement `ExportPlanner.java`**
 
 ```java
-package com.conch.share.planner;
+package com.termlab.share.planner;
 
-import com.conch.share.conversion.KeyFileImporter;
-import com.conch.share.conversion.SshConfigEntry;
-import com.conch.share.conversion.SshConfigReader;
-import com.conch.share.model.BundleMetadata;
-import com.conch.share.model.BundledKeyMaterial;
-import com.conch.share.model.BundledVault;
-import com.conch.share.model.ShareBundle;
-import com.conch.ssh.model.KeyFileAuth;
-import com.conch.ssh.model.PromptPasswordAuth;
-import com.conch.ssh.model.SshAuth;
-import com.conch.ssh.model.SshHost;
-import com.conch.ssh.model.VaultAuth;
-import com.conch.tunnels.model.InternalHost;
-import com.conch.tunnels.model.SshConfigHost;
-import com.conch.tunnels.model.SshTunnel;
-import com.conch.tunnels.model.TunnelHost;
-import com.conch.vault.model.AuthMethod;
-import com.conch.vault.model.Vault;
-import com.conch.vault.model.VaultAccount;
-import com.conch.vault.model.VaultKey;
+import com.termlab.share.conversion.KeyFileImporter;
+import com.termlab.share.conversion.SshConfigEntry;
+import com.termlab.share.conversion.SshConfigReader;
+import com.termlab.share.model.BundleMetadata;
+import com.termlab.share.model.BundledKeyMaterial;
+import com.termlab.share.model.BundledVault;
+import com.termlab.share.model.ShareBundle;
+import com.termlab.ssh.model.KeyFileAuth;
+import com.termlab.ssh.model.PromptPasswordAuth;
+import com.termlab.ssh.model.SshAuth;
+import com.termlab.ssh.model.SshHost;
+import com.termlab.ssh.model.VaultAuth;
+import com.termlab.tunnels.model.InternalHost;
+import com.termlab.tunnels.model.SshConfigHost;
+import com.termlab.tunnels.model.SshTunnel;
+import com.termlab.tunnels.model.TunnelHost;
+import com.termlab.vault.model.AuthMethod;
+import com.termlab.vault.model.Vault;
+import com.termlab.vault.model.VaultAccount;
+import com.termlab.vault.model.VaultKey;
 import org.jetbrains.annotations.NotNull;
 
 import java.nio.file.Path;
@@ -2026,7 +2026,7 @@ public final class ExportPlanner {
         BundleMetadata metadata = new BundleMetadata(
             Instant.now(),
             req.sourceHost(),
-            req.conchVersion(),
+            req.termlabVersion(),
             req.includeCredentials()
         );
 
@@ -2105,7 +2105,7 @@ Expected: all 7 `ExportPlannerTest` tests pass.
 - [ ] **Step 7.8: Commit**
 
 ```bash
-git add plugins/share/src/com/conch/share/planner plugins/share/test/com/conch/share/planner
+git add plugins/share/src/com/termlab/share/planner plugins/share/test/com/termlab/share/planner
 git commit -m "feat(share): add ExportPlanner with conversion logic"
 ```
 
@@ -2116,16 +2116,16 @@ git commit -m "feat(share): add ExportPlanner with conversion logic"
 Takes a decoded `ShareBundle` plus the user's current state, and produces an annotated list of `ImportItem`s.
 
 **Files:**
-- Create: `plugins/share/src/com/conch/share/model/ImportItem.java`
-- Create: `plugins/share/src/com/conch/share/planner/ImportPlan.java`
-- Create: `plugins/share/src/com/conch/share/planner/CurrentState.java`
-- Create: `plugins/share/src/com/conch/share/planner/ImportPlanner.java`
-- Create: `plugins/share/test/com/conch/share/planner/ImportPlannerTest.java`
+- Create: `plugins/share/src/com/termlab/share/model/ImportItem.java`
+- Create: `plugins/share/src/com/termlab/share/planner/ImportPlan.java`
+- Create: `plugins/share/src/com/termlab/share/planner/CurrentState.java`
+- Create: `plugins/share/src/com/termlab/share/planner/ImportPlanner.java`
+- Create: `plugins/share/test/com/termlab/share/planner/ImportPlannerTest.java`
 
 - [ ] **Step 8.1: Create `ImportItem.java`**
 
 ```java
-package com.conch.share.model;
+package com.termlab.share.model;
 
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -2160,11 +2160,11 @@ public final class ImportItem {
 - [ ] **Step 8.2: Create `CurrentState.java`**
 
 ```java
-package com.conch.share.planner;
+package com.termlab.share.planner;
 
-import com.conch.ssh.model.SshHost;
-import com.conch.tunnels.model.SshTunnel;
-import com.conch.vault.model.Vault;
+import com.termlab.ssh.model.SshHost;
+import com.termlab.tunnels.model.SshTunnel;
+import com.termlab.vault.model.Vault;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -2184,9 +2184,9 @@ public record CurrentState(
 - [ ] **Step 8.3: Create `ImportPlan.java`**
 
 ```java
-package com.conch.share.planner;
+package com.termlab.share.planner;
 
-import com.conch.share.model.ImportItem;
+import com.termlab.share.model.ImportItem;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.List;
@@ -2202,20 +2202,20 @@ public record ImportPlan(
 
 - [ ] **Step 8.4: Write failing tests**
 
-Create `plugins/share/test/com/conch/share/planner/ImportPlannerTest.java`:
+Create `plugins/share/test/com/termlab/share/planner/ImportPlannerTest.java`:
 
 ```java
-package com.conch.share.planner;
+package com.termlab.share.planner;
 
-import com.conch.share.model.BundleMetadata;
-import com.conch.share.model.BundledVault;
-import com.conch.share.model.ImportItem;
-import com.conch.share.model.ShareBundle;
-import com.conch.ssh.model.PromptPasswordAuth;
-import com.conch.ssh.model.SshHost;
-import com.conch.tunnels.model.InternalHost;
-import com.conch.tunnels.model.SshTunnel;
-import com.conch.tunnels.model.TunnelType;
+import com.termlab.share.model.BundleMetadata;
+import com.termlab.share.model.BundledVault;
+import com.termlab.share.model.ImportItem;
+import com.termlab.share.model.ShareBundle;
+import com.termlab.ssh.model.PromptPasswordAuth;
+import com.termlab.ssh.model.SshHost;
+import com.termlab.tunnels.model.InternalHost;
+import com.termlab.tunnels.model.SshTunnel;
+import com.termlab.tunnels.model.TunnelType;
 import org.junit.jupiter.api.Test;
 
 import java.time.Instant;
@@ -2308,17 +2308,17 @@ class ImportPlannerTest {
 - [ ] **Step 8.6: Implement `ImportPlanner.java`**
 
 ```java
-package com.conch.share.planner;
+package com.termlab.share.planner;
 
-import com.conch.share.model.ImportItem;
-import com.conch.share.model.ShareBundle;
-import com.conch.ssh.model.SshHost;
-import com.conch.tunnels.model.InternalHost;
-import com.conch.tunnels.model.SshTunnel;
-import com.conch.tunnels.model.TunnelHost;
-import com.conch.vault.model.Vault;
-import com.conch.vault.model.VaultAccount;
-import com.conch.vault.model.VaultKey;
+import com.termlab.share.model.ImportItem;
+import com.termlab.share.model.ShareBundle;
+import com.termlab.ssh.model.SshHost;
+import com.termlab.tunnels.model.InternalHost;
+import com.termlab.tunnels.model.SshTunnel;
+import com.termlab.tunnels.model.TunnelHost;
+import com.termlab.vault.model.Vault;
+import com.termlab.vault.model.VaultAccount;
+import com.termlab.vault.model.VaultKey;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.ArrayList;
@@ -2441,7 +2441,7 @@ public final class ImportPlanner {
 - [ ] **Step 8.8: Commit**
 
 ```bash
-git add plugins/share/src/com/conch/share/model/ImportItem.java plugins/share/src/com/conch/share/planner plugins/share/test/com/conch/share/planner/ImportPlannerTest.java
+git add plugins/share/src/com/termlab/share/model/ImportItem.java plugins/share/src/com/termlab/share/planner plugins/share/test/com/termlab/share/planner/ImportPlannerTest.java
 git commit -m "feat(share): add ImportPlanner with conflict detection"
 ```
 
@@ -2452,15 +2452,15 @@ git commit -m "feat(share): add ImportPlanner with conflict detection"
 Writes the approved import items to disk. Materializes key bytes, rewrites sentinel paths, writes all three files atomically.
 
 **Files:**
-- Create: `plugins/share/src/com/conch/share/planner/ImportExecutor.java`
-- Create: `plugins/share/src/com/conch/share/planner/ImportResult.java`
-- Create: `plugins/share/src/com/conch/share/planner/ImportPaths.java`
-- Create: `plugins/share/test/com/conch/share/planner/ImportExecutorTest.java`
+- Create: `plugins/share/src/com/termlab/share/planner/ImportExecutor.java`
+- Create: `plugins/share/src/com/termlab/share/planner/ImportResult.java`
+- Create: `plugins/share/src/com/termlab/share/planner/ImportPaths.java`
+- Create: `plugins/share/test/com/termlab/share/planner/ImportExecutorTest.java`
 
 - [ ] **Step 9.1: Create `ImportPaths.java`**
 
 ```java
-package com.conch.share.planner;
+package com.termlab.share.planner;
 
 import org.jetbrains.annotations.NotNull;
 
@@ -2477,7 +2477,7 @@ public record ImportPaths(
 - [ ] **Step 9.2: Create `ImportResult.java`**
 
 ```java
-package com.conch.share.planner;
+package com.termlab.share.planner;
 
 import org.jetbrains.annotations.NotNull;
 
@@ -2493,28 +2493,28 @@ public record ImportResult(
 
 - [ ] **Step 9.3: Write failing tests**
 
-Create `plugins/share/test/com/conch/share/planner/ImportExecutorTest.java`:
+Create `plugins/share/test/com/termlab/share/planner/ImportExecutorTest.java`:
 
 ```java
-package com.conch.share.planner;
+package com.termlab.share.planner;
 
-import com.conch.share.model.BundleMetadata;
-import com.conch.share.model.BundledKeyMaterial;
-import com.conch.share.model.BundledVault;
-import com.conch.share.model.ImportItem;
-import com.conch.share.model.ShareBundle;
-import com.conch.ssh.model.PromptPasswordAuth;
-import com.conch.ssh.model.SshHost;
-import com.conch.ssh.model.VaultAuth;
-import com.conch.ssh.persistence.HostsFile;
-import com.conch.tunnels.model.InternalHost;
-import com.conch.tunnels.model.SshTunnel;
-import com.conch.tunnels.model.TunnelType;
-import com.conch.tunnels.persistence.TunnelsFile;
-import com.conch.vault.lock.LockManager;
-import com.conch.vault.model.AuthMethod;
-import com.conch.vault.model.Vault;
-import com.conch.vault.model.VaultAccount;
+import com.termlab.share.model.BundleMetadata;
+import com.termlab.share.model.BundledKeyMaterial;
+import com.termlab.share.model.BundledVault;
+import com.termlab.share.model.ImportItem;
+import com.termlab.share.model.ShareBundle;
+import com.termlab.ssh.model.PromptPasswordAuth;
+import com.termlab.ssh.model.SshHost;
+import com.termlab.ssh.model.VaultAuth;
+import com.termlab.ssh.persistence.HostsFile;
+import com.termlab.tunnels.model.InternalHost;
+import com.termlab.tunnels.model.SshTunnel;
+import com.termlab.tunnels.model.TunnelType;
+import com.termlab.tunnels.persistence.TunnelsFile;
+import com.termlab.vault.lock.LockManager;
+import com.termlab.vault.model.AuthMethod;
+import com.termlab.vault.model.Vault;
+import com.termlab.vault.model.VaultAccount;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -2666,20 +2666,20 @@ class ImportExecutorTest {
 - [ ] **Step 9.5: Implement `ImportExecutor.java`**
 
 ```java
-package com.conch.share.planner;
+package com.termlab.share.planner;
 
-import com.conch.share.model.BundledKeyMaterial;
-import com.conch.share.model.ImportItem;
-import com.conch.share.model.ShareBundle;
-import com.conch.ssh.model.SshHost;
-import com.conch.ssh.persistence.HostsFile;
-import com.conch.tunnels.model.SshTunnel;
-import com.conch.tunnels.persistence.TunnelsFile;
-import com.conch.vault.lock.LockManager;
-import com.conch.vault.model.AuthMethod;
-import com.conch.vault.model.Vault;
-import com.conch.vault.model.VaultAccount;
-import com.conch.vault.model.VaultKey;
+import com.termlab.share.model.BundledKeyMaterial;
+import com.termlab.share.model.ImportItem;
+import com.termlab.share.model.ShareBundle;
+import com.termlab.ssh.model.SshHost;
+import com.termlab.ssh.persistence.HostsFile;
+import com.termlab.tunnels.model.SshTunnel;
+import com.termlab.tunnels.persistence.TunnelsFile;
+import com.termlab.vault.lock.LockManager;
+import com.termlab.vault.model.AuthMethod;
+import com.termlab.vault.model.Vault;
+import com.termlab.vault.model.VaultAccount;
+import com.termlab.vault.model.VaultKey;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -2917,7 +2917,7 @@ public final class ImportExecutor {
 - [ ] **Step 9.7: Commit**
 
 ```bash
-git add plugins/share/src/com/conch/share/planner plugins/share/test/com/conch/share/planner/ImportExecutorTest.java
+git add plugins/share/src/com/termlab/share/planner plugins/share/test/com/termlab/share/planner/ImportExecutorTest.java
 git commit -m "feat(share): add ImportExecutor with key materialization"
 ```
 
@@ -2928,13 +2928,13 @@ git commit -m "feat(share): add ImportExecutor with key materialization"
 UI work. No unit tests — this is covered by the manual checklist. Focus on getting the controls right and delegating all logic to `ExportPlanner`.
 
 **Files:**
-- Create: `plugins/share/src/com/conch/share/ui/PasswordUtil.java`
-- Create: `plugins/share/src/com/conch/share/ui/ExportDialog.java`
+- Create: `plugins/share/src/com/termlab/share/ui/PasswordUtil.java`
+- Create: `plugins/share/src/com/termlab/share/ui/ExportDialog.java`
 
 - [ ] **Step 10.1: Create `PasswordUtil.java`**
 
 ```java
-package com.conch.share.ui;
+package com.termlab.share.ui;
 
 import java.nio.ByteBuffer;
 import java.nio.CharBuffer;
@@ -2971,18 +2971,18 @@ This gives you the exact pattern for `DialogWrapper` subclasses and how to fetch
 - [ ] **Step 10.3: Create `ExportDialog.java`**
 
 ```java
-package com.conch.share.ui;
+package com.termlab.share.ui;
 
-import com.conch.share.codec.ShareBundleCodec;
-import com.conch.share.planner.ConversionWarning;
-import com.conch.share.planner.ExportPlan;
-import com.conch.share.planner.ExportPlanner;
-import com.conch.share.planner.ExportRequest;
-import com.conch.ssh.model.SshHost;
-import com.conch.ssh.persistence.HostsFile;
-import com.conch.tunnels.model.SshTunnel;
-import com.conch.tunnels.persistence.TunnelsFile;
-import com.conch.vault.lock.LockManager;
+import com.termlab.share.codec.ShareBundleCodec;
+import com.termlab.share.planner.ConversionWarning;
+import com.termlab.share.planner.ExportPlan;
+import com.termlab.share.planner.ExportPlanner;
+import com.termlab.share.planner.ExportRequest;
+import com.termlab.ssh.model.SshHost;
+import com.termlab.ssh.persistence.HostsFile;
+import com.termlab.tunnels.model.SshTunnel;
+import com.termlab.tunnels.persistence.TunnelsFile;
+import com.termlab.vault.lock.LockManager;
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.fileChooser.FileChooserFactory;
 import com.intellij.openapi.fileChooser.FileSaverDescriptor;
@@ -3030,14 +3030,14 @@ public final class ExportDialog extends DialogWrapper {
         this.allHosts = loadHosts();
         this.allTunnels = loadTunnels();
 
-        setTitle("Export Conch Bundle");
+        setTitle("Export TermLab Bundle");
         setOKButtonText("Export…");
         init();
     }
 
     private List<SshHost> loadHosts() {
         try {
-            Path p = Path.of(System.getProperty("user.home"), ".config", "conch", "ssh-hosts.json");
+            Path p = Path.of(System.getProperty("user.home"), ".config", "termlab", "ssh-hosts.json");
             return HostsFile.exists(p) ? HostsFile.load(p) : List.of();
         } catch (Exception e) {
             return List.of();
@@ -3046,7 +3046,7 @@ public final class ExportDialog extends DialogWrapper {
 
     private List<SshTunnel> loadTunnels() {
         try {
-            Path p = Path.of(System.getProperty("user.home"), ".config", "conch", "tunnels.json");
+            Path p = Path.of(System.getProperty("user.home"), ".config", "termlab", "tunnels.json");
             return TunnelsFile.load(p);
         } catch (Exception e) {
             return List.of();
@@ -3157,7 +3157,7 @@ public final class ExportDialog extends DialogWrapper {
         PasswordUtil.zero(pwChars);
 
         LockManager lm = ApplicationManager.getApplication().getService(LockManager.class);
-        com.conch.vault.model.Vault vault = null;
+        com.termlab.vault.model.Vault vault = null;
         if (includeCreds) {
             if (lm == null || lm.getVault() == null) {
                 Messages.showErrorDialog(getContentPanel(),
@@ -3193,8 +3193,8 @@ public final class ExportDialog extends DialogWrapper {
         }
 
         FileSaverDescriptor descriptor = new FileSaverDescriptor(
-            "Save Conch Bundle", "Choose where to save the encrypted bundle", "conchshare");
-        String defaultName = "conch-share-" + LocalDate.now() + ".conchshare";
+            "Save TermLab Bundle", "Choose where to save the encrypted bundle", "termlabshare");
+        String defaultName = "termlab-share-" + LocalDate.now() + ".termlabshare";
         VirtualFileWrapper wrapper = FileChooserFactory.getInstance()
             .createSaveFileDialog(descriptor, project)
             .save((com.intellij.openapi.vfs.VirtualFile) null, defaultName);
@@ -3229,7 +3229,7 @@ public final class ExportDialog extends DialogWrapper {
 - [ ] **Step 10.4: Build to verify**
 
 ```bash
-cd $INTELLIJ_ROOT && bash bazel.cmd build //conch/plugins/share:share
+cd $INTELLIJ_ROOT && bash bazel.cmd build //termlab/plugins/share:share
 ```
 
 Expected: compiles cleanly. If `CheckboxTree` or `CheckedTreeNode` aren't in the deps, add `//platform/platform-impl:ide-impl` (it already is) and adjust imports — inspect `HostsToolWindow.java` for the exact import path used by the existing code.
@@ -3237,7 +3237,7 @@ Expected: compiles cleanly. If `CheckboxTree` or `CheckedTreeNode` aren't in the
 - [ ] **Step 10.5: Commit**
 
 ```bash
-git add plugins/share/src/com/conch/share/ui
+git add plugins/share/src/com/termlab/share/ui
 git commit -m "feat(share): add ExportDialog"
 ```
 
@@ -3246,15 +3246,15 @@ git commit -m "feat(share): add ExportDialog"
 ## Task 11: `ConflictResolutionDialog` + `ImportDialog`
 
 **Files:**
-- Create: `plugins/share/src/com/conch/share/ui/ConflictResolutionDialog.java`
-- Create: `plugins/share/src/com/conch/share/ui/ImportDialog.java`
+- Create: `plugins/share/src/com/termlab/share/ui/ConflictResolutionDialog.java`
+- Create: `plugins/share/src/com/termlab/share/ui/ImportDialog.java`
 
 - [ ] **Step 11.1: Create `ConflictResolutionDialog.java`**
 
 ```java
-package com.conch.share.ui;
+package com.termlab.share.ui;
 
-import com.conch.share.model.ImportItem;
+import com.termlab.share.model.ImportItem;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.ui.DialogWrapper;
 import com.intellij.openapi.ui.Messages;
@@ -3358,24 +3358,24 @@ public final class ConflictResolutionDialog extends DialogWrapper {
 This is the largest UI class. It wraps the three-step flow: file+password → inline vault setup (conditional) → preview/execute.
 
 ```java
-package com.conch.share.ui;
+package com.termlab.share.ui;
 
-import com.conch.share.codec.ShareBundleCodec;
-import com.conch.share.codec.exceptions.BundleCorruptedException;
-import com.conch.share.codec.exceptions.UnsupportedBundleVersionException;
-import com.conch.share.codec.exceptions.WrongBundlePasswordException;
-import com.conch.share.model.ImportItem;
-import com.conch.share.model.ShareBundle;
-import com.conch.share.planner.CurrentState;
-import com.conch.share.planner.ImportExecutor;
-import com.conch.share.planner.ImportPaths;
-import com.conch.share.planner.ImportPlan;
-import com.conch.share.planner.ImportPlanner;
-import com.conch.share.planner.ImportResult;
-import com.conch.ssh.persistence.HostsFile;
-import com.conch.tunnels.persistence.TunnelsFile;
-import com.conch.vault.lock.LockManager;
-import com.conch.vault.persistence.VaultFile;
+import com.termlab.share.codec.ShareBundleCodec;
+import com.termlab.share.codec.exceptions.BundleCorruptedException;
+import com.termlab.share.codec.exceptions.UnsupportedBundleVersionException;
+import com.termlab.share.codec.exceptions.WrongBundlePasswordException;
+import com.termlab.share.model.ImportItem;
+import com.termlab.share.model.ShareBundle;
+import com.termlab.share.planner.CurrentState;
+import com.termlab.share.planner.ImportExecutor;
+import com.termlab.share.planner.ImportPaths;
+import com.termlab.share.planner.ImportPlan;
+import com.termlab.share.planner.ImportPlanner;
+import com.termlab.share.planner.ImportResult;
+import com.termlab.ssh.persistence.HostsFile;
+import com.termlab.tunnels.persistence.TunnelsFile;
+import com.termlab.vault.lock.LockManager;
+import com.termlab.vault.persistence.VaultFile;
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.fileChooser.FileChooser;
 import com.intellij.openapi.fileChooser.FileChooserDescriptorFactory;
@@ -3400,7 +3400,7 @@ public final class ImportDialog {
     public void run() {
         // Step 1: file chooser.
         VirtualFile file = FileChooser.chooseFile(
-            FileChooserDescriptorFactory.createSingleFileDescriptor("conchshare"),
+            FileChooserDescriptorFactory.createSingleFileDescriptor("termlabshare"),
             project, null);
         if (file == null) return;
 
@@ -3423,11 +3423,11 @@ public final class ImportDialog {
                 Messages.showErrorDialog(project, "Incorrect password.", "Bundle Locked");
             } catch (BundleCorruptedException bce) {
                 Messages.showErrorDialog(project,
-                    "Not a valid Conch share bundle: " + bce.getMessage(), "Invalid Bundle");
+                    "Not a valid TermLab share bundle: " + bce.getMessage(), "Invalid Bundle");
                 return;
             } catch (UnsupportedBundleVersionException uve) {
                 Messages.showErrorDialog(project,
-                    "This bundle was created by a newer version of Conch (v" + uve.version() + ").",
+                    "This bundle was created by a newer version of TermLab (v" + uve.version() + ").",
                     "Unsupported Bundle Version");
                 return;
             } catch (Exception e) {
@@ -3502,14 +3502,14 @@ public final class ImportDialog {
     }
 
     private CurrentState loadCurrentState(@Nullable LockManager lm) {
-        var hosts = new ArrayList<com.conch.ssh.model.SshHost>();
-        var tunnels = new ArrayList<com.conch.tunnels.model.SshTunnel>();
+        var hosts = new ArrayList<com.termlab.ssh.model.SshHost>();
+        var tunnels = new ArrayList<com.termlab.tunnels.model.SshTunnel>();
         try {
-            Path hp = Path.of(System.getProperty("user.home"), ".config", "conch", "ssh-hosts.json");
+            Path hp = Path.of(System.getProperty("user.home"), ".config", "termlab", "ssh-hosts.json");
             if (HostsFile.exists(hp)) hosts.addAll(HostsFile.load(hp));
         } catch (Exception ignored) {}
         try {
-            Path tp = Path.of(System.getProperty("user.home"), ".config", "conch", "tunnels.json");
+            Path tp = Path.of(System.getProperty("user.home"), ".config", "termlab", "tunnels.json");
             tunnels.addAll(TunnelsFile.load(tp));
         } catch (Exception ignored) {}
         return new CurrentState(hosts, tunnels, lm != null ? lm.getVault() : null);
@@ -3565,7 +3565,7 @@ public final class ImportDialog {
     }
 
     private ImportPaths defaultPaths() {
-        Path base = Path.of(System.getProperty("user.home"), ".config", "conch");
+        Path base = Path.of(System.getProperty("user.home"), ".config", "termlab");
         return new ImportPaths(
             base.resolve("ssh-hosts.json"),
             base.resolve("tunnels.json"),
@@ -3579,13 +3579,13 @@ public final class ImportDialog {
 - [ ] **Step 11.3: Build to verify**
 
 ```bash
-cd $INTELLIJ_ROOT && bash bazel.cmd build //conch/plugins/share:share
+cd $INTELLIJ_ROOT && bash bazel.cmd build //termlab/plugins/share:share
 ```
 
 - [ ] **Step 11.4: Commit**
 
 ```bash
-git add plugins/share/src/com/conch/share/ui
+git add plugins/share/src/com/termlab/share/ui
 git commit -m "feat(share): add ImportDialog with inline vault setup and conflict resolution"
 ```
 
@@ -3594,17 +3594,17 @@ git commit -m "feat(share): add ImportDialog with inline vault setup and conflic
 ## Task 12: Actions and toolbar wiring
 
 **Files:**
-- Create: `plugins/share/src/com/conch/share/actions/ExportAction.java`
-- Create: `plugins/share/src/com/conch/share/actions/ImportAction.java`
-- Modify: `plugins/ssh/src/com/conch/ssh/toolwindow/HostsToolWindow.java`
-- Modify: `plugins/tunnels/src/com/conch/tunnels/toolwindow/TunnelsToolWindow.java`
+- Create: `plugins/share/src/com/termlab/share/actions/ExportAction.java`
+- Create: `plugins/share/src/com/termlab/share/actions/ImportAction.java`
+- Modify: `plugins/ssh/src/com/termlab/ssh/toolwindow/HostsToolWindow.java`
+- Modify: `plugins/tunnels/src/com/termlab/tunnels/toolwindow/TunnelsToolWindow.java`
 
 - [ ] **Step 12.1: Create `ExportAction.java`**
 
 ```java
-package com.conch.share.actions;
+package com.termlab.share.actions;
 
-import com.conch.share.ui.ExportDialog;
+import com.termlab.share.ui.ExportDialog;
 import com.intellij.openapi.actionSystem.ActionUpdateThread;
 import com.intellij.openapi.actionSystem.AnAction;
 import com.intellij.openapi.actionSystem.AnActionEvent;
@@ -3619,7 +3619,7 @@ public final class ExportAction extends AnAction {
     }
 
     public ExportAction(ExportDialog.EntryPoint entryPoint) {
-        super("Export Conch Bundle…", "Export SSH hosts and tunnels as an encrypted share bundle", null);
+        super("Export TermLab Bundle…", "Export SSH hosts and tunnels as an encrypted share bundle", null);
         this.entryPoint = entryPoint;
     }
 
@@ -3638,9 +3638,9 @@ public final class ExportAction extends AnAction {
 - [ ] **Step 12.2: Create `ImportAction.java`**
 
 ```java
-package com.conch.share.actions;
+package com.termlab.share.actions;
 
-import com.conch.share.ui.ImportDialog;
+import com.termlab.share.ui.ImportDialog;
 import com.intellij.openapi.actionSystem.ActionUpdateThread;
 import com.intellij.openapi.actionSystem.AnAction;
 import com.intellij.openapi.actionSystem.AnActionEvent;
@@ -3649,7 +3649,7 @@ import org.jetbrains.annotations.NotNull;
 public final class ImportAction extends AnAction {
 
     public ImportAction() {
-        super("Import Conch Bundle…", "Import SSH hosts, tunnels, and credentials from a share bundle", null);
+        super("Import TermLab Bundle…", "Import SSH hosts, tunnels, and credentials from a share bundle", null);
     }
 
     @Override
@@ -3667,7 +3667,7 @@ public final class ImportAction extends AnAction {
 - [ ] **Step 12.3: Build to verify compile**
 
 ```bash
-cd $INTELLIJ_ROOT && bash bazel.cmd build //conch/plugins/share:share
+cd $INTELLIJ_ROOT && bash bazel.cmd build //termlab/plugins/share:share
 ```
 
 - [ ] **Step 12.4: Wire toolbar buttons in `HostsToolWindow.java`**
@@ -3681,9 +3681,9 @@ private @NotNull ActionToolbar buildToolbar() {
     group.add(new EditHostAction());
     group.add(new DeleteHostAction());
     group.addSeparator();
-    group.add(new com.conch.share.actions.ExportAction(
-        com.conch.share.ui.ExportDialog.EntryPoint.HOSTS));
-    group.add(new com.conch.share.actions.ImportAction());
+    group.add(new com.termlab.share.actions.ExportAction(
+        com.termlab.share.ui.ExportDialog.EntryPoint.HOSTS));
+    group.add(new com.termlab.share.actions.ImportAction());
     group.addSeparator();
     group.add(new RefreshAction());
     // ... rest unchanged
@@ -3699,30 +3699,30 @@ The SSH plugin's BUILD.bazel must now depend on the share plugin. **This creates
 
 ```xml
 <actions>
-    <group id="Conch.Share.ToolWindowGroup">
-        <action id="Conch.Share.Export.Hosts"
-                class="com.conch.share.actions.ExportAction"
+    <group id="TermLab.Share.ToolWindowGroup">
+        <action id="TermLab.Share.Export.Hosts"
+                class="com.termlab.share.actions.ExportAction"
                 text="Export…"
-                description="Export to a Conch share bundle"/>
-        <action id="Conch.Share.Import.Hosts"
-                class="com.conch.share.actions.ImportAction"
+                description="Export to a TermLab share bundle"/>
+        <action id="TermLab.Share.Import.Hosts"
+                class="com.termlab.share.actions.ImportAction"
                 text="Import…"
-                description="Import from a Conch share bundle"/>
+                description="Import from a TermLab share bundle"/>
     </group>
 
     <!-- These IDs must match the toolbar place IDs used by the SSH and Tunnels tool windows.
          Look for ActionManager.createActionToolbar("HostsToolbar", ...) in HostsToolWindow
          and "TunnelsToolbar" in TunnelsToolWindow. -->
 
-    <action id="Conch.ExportShareBundle.Menu"
-            class="com.conch.share.actions.ExportAction"
-            text="Export Conch Bundle…"
+    <action id="TermLab.ExportShareBundle.Menu"
+            class="com.termlab.share.actions.ExportAction"
+            text="Export TermLab Bundle…"
             description="Export SSH hosts and tunnels as an encrypted share bundle">
         <add-to-group group-id="ToolsMenu" anchor="last"/>
     </action>
-    <action id="Conch.ImportShareBundle.Menu"
-            class="com.conch.share.actions.ImportAction"
-            text="Import Conch Bundle…"
+    <action id="TermLab.ImportShareBundle.Menu"
+            class="com.termlab.share.actions.ImportAction"
+            text="Import TermLab Bundle…"
             description="Import SSH hosts, tunnels, and credentials from a share bundle">
         <add-to-group group-id="ToolsMenu" anchor="last"/>
     </action>
@@ -3731,12 +3731,12 @@ The SSH plugin's BUILD.bazel must now depend on the share plugin. **This creates
 
 **IMPORTANT:** Because the existing tool windows build their toolbars programmatically (not from `plugin.xml`), there is no DeclarativeActionGroup to hook into. You must modify `HostsToolWindow.java` and `TunnelsToolWindow.java` to append share actions dynamically. The cleanest way without creating a build cycle:
 
-- In `HostsToolWindow.buildToolbar()`, replace the direct class references with `ActionManager.getInstance().getAction("Conch.Share.Export.Hosts")`. This is a string lookup — no compile-time dependency on `plugins/share` is needed.
+- In `HostsToolWindow.buildToolbar()`, replace the direct class references with `ActionManager.getInstance().getAction("TermLab.Share.Export.Hosts")`. This is a string lookup — no compile-time dependency on `plugins/share` is needed.
 
 ```java
 // In HostsToolWindow.buildToolbar() after the separator:
-AnAction exportAction = ActionManager.getInstance().getAction("Conch.Share.Export.Hosts");
-AnAction importAction = ActionManager.getInstance().getAction("Conch.Share.Import.Hosts");
+AnAction exportAction = ActionManager.getInstance().getAction("TermLab.Share.Export.Hosts");
+AnAction importAction = ActionManager.getInstance().getAction("TermLab.Share.Import.Hosts");
 if (exportAction != null) group.add(exportAction);
 if (importAction != null) group.add(importAction);
 ```
@@ -3745,15 +3745,15 @@ This pattern keeps `plugins/ssh` unchanged in its build deps. `plugin.xml` in th
 
 - [ ] **Step 12.5: Wire toolbar buttons in `TunnelsToolWindow.java`**
 
-Same pattern as Step 12.4, using action IDs `Conch.Share.Export.Tunnels` and `Conch.Share.Import.Tunnels`. Register these two additional actions in `plugins/share/resources/META-INF/plugin.xml` alongside the hosts variants.
+Same pattern as Step 12.4, using action IDs `TermLab.Share.Export.Tunnels` and `TermLab.Share.Import.Tunnels`. Register these two additional actions in `plugins/share/resources/META-INF/plugin.xml` alongside the hosts variants.
 
 Note that `ExportAction` has two constructors — the no-arg one (used when looked up by ID through plugin.xml) defaults to HOSTS entry point. For the tunnels variant, subclass:
 
 ```java
-// plugins/share/src/com/conch/share/actions/ExportActionTunnels.java
-package com.conch.share.actions;
+// plugins/share/src/com/termlab/share/actions/ExportActionTunnels.java
+package com.termlab.share.actions;
 
-import com.conch.share.ui.ExportDialog;
+import com.termlab.share.ui.ExportDialog;
 
 public final class ExportActionTunnels extends ExportAction {
     public ExportActionTunnels() {
@@ -3765,34 +3765,34 @@ public final class ExportActionTunnels extends ExportAction {
 And register it in `plugin.xml`:
 
 ```xml
-<action id="Conch.Share.Export.Tunnels"
-        class="com.conch.share.actions.ExportActionTunnels"
+<action id="TermLab.Share.Export.Tunnels"
+        class="com.termlab.share.actions.ExportActionTunnels"
         text="Export…"
-        description="Export to a Conch share bundle"/>
-<action id="Conch.Share.Import.Tunnels"
-        class="com.conch.share.actions.ImportAction"
+        description="Export to a TermLab share bundle"/>
+<action id="TermLab.Share.Import.Tunnels"
+        class="com.termlab.share.actions.ImportAction"
         text="Import…"
-        description="Import from a Conch share bundle"/>
+        description="Import from a TermLab share bundle"/>
 ```
 
-- [ ] **Step 12.6: Build full conch_run**
+- [ ] **Step 12.6: Build full termlab_run**
 
 ```bash
-make conch-build
+make termlab-build
 ```
 
 Expected: full build succeeds.
 
-- [ ] **Step 12.7: Run Conch and verify manually**
+- [ ] **Step 12.7: Run TermLab and verify manually**
 
 ```bash
-make conch
+make termlab
 ```
 
 Manual checks:
 - SSH Hosts tool window shows Export… and Import… buttons.
 - Tunnels tool window shows Export… and Import… buttons.
-- Tools menu has "Export Conch Bundle…" and "Import Conch Bundle…".
+- Tools menu has "Export TermLab Bundle…" and "Import TermLab Bundle…".
 - Export dialog opens, selection tree populated, password fields work, validation kicks in.
 - Import dialog opens from a bundle produced in the same session, previews items, per-conflict prompts fire.
 
@@ -3808,35 +3808,35 @@ git commit -m "feat(share): wire Export/Import actions into tool windows and Too
 ## Task 13: Full round-trip integration test
 
 **Files:**
-- Create: `plugins/share/test/com/conch/share/integration/FullRoundTripTest.java`
+- Create: `plugins/share/test/com/termlab/share/integration/FullRoundTripTest.java`
 
 - [ ] **Step 13.1: Write the test**
 
 ```java
-package com.conch.share.integration;
+package com.termlab.share.integration;
 
-import com.conch.share.codec.ShareBundleCodec;
-import com.conch.share.model.ShareBundle;
-import com.conch.share.planner.CurrentState;
-import com.conch.share.planner.ExportPlan;
-import com.conch.share.planner.ExportPlanner;
-import com.conch.share.planner.ExportRequest;
-import com.conch.share.planner.ImportExecutor;
-import com.conch.share.planner.ImportPaths;
-import com.conch.share.planner.ImportPlan;
-import com.conch.share.planner.ImportPlanner;
-import com.conch.ssh.model.PromptPasswordAuth;
-import com.conch.ssh.model.SshHost;
-import com.conch.ssh.model.VaultAuth;
-import com.conch.ssh.persistence.HostsFile;
-import com.conch.tunnels.model.InternalHost;
-import com.conch.tunnels.model.SshTunnel;
-import com.conch.tunnels.model.TunnelType;
-import com.conch.tunnels.persistence.TunnelsFile;
-import com.conch.vault.lock.LockManager;
-import com.conch.vault.model.AuthMethod;
-import com.conch.vault.model.Vault;
-import com.conch.vault.model.VaultAccount;
+import com.termlab.share.codec.ShareBundleCodec;
+import com.termlab.share.model.ShareBundle;
+import com.termlab.share.planner.CurrentState;
+import com.termlab.share.planner.ExportPlan;
+import com.termlab.share.planner.ExportPlanner;
+import com.termlab.share.planner.ExportRequest;
+import com.termlab.share.planner.ImportExecutor;
+import com.termlab.share.planner.ImportPaths;
+import com.termlab.share.planner.ImportPlan;
+import com.termlab.share.planner.ImportPlanner;
+import com.termlab.ssh.model.PromptPasswordAuth;
+import com.termlab.ssh.model.SshHost;
+import com.termlab.ssh.model.VaultAuth;
+import com.termlab.ssh.persistence.HostsFile;
+import com.termlab.tunnels.model.InternalHost;
+import com.termlab.tunnels.model.SshTunnel;
+import com.termlab.tunnels.model.TunnelType;
+import com.termlab.tunnels.persistence.TunnelsFile;
+import com.termlab.vault.lock.LockManager;
+import com.termlab.vault.model.AuthMethod;
+import com.termlab.vault.model.Vault;
+import com.termlab.vault.model.VaultAccount;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -3889,7 +3889,7 @@ class FullRoundTripTest {
 
         byte[] password = "sharepassword1".getBytes();
         byte[] encoded = ShareBundleCodec.encode(plan.bundle(), password);
-        Path bundleFile = machineA.resolve("bundle.conchshare");
+        Path bundleFile = machineA.resolve("bundle.termlabshare");
         Files.write(bundleFile, encoded);
 
         // Machine B: empty state
@@ -3941,7 +3941,7 @@ class FullRoundTripTest {
 - [ ] **Step 13.2: Run tests, verify pass**
 
 ```bash
-cd $INTELLIJ_ROOT && bash bazel.cmd run //conch/plugins/share:share_test_runner
+cd $INTELLIJ_ROOT && bash bazel.cmd run //termlab/plugins/share:share_test_runner
 ```
 
 Expected: all share plugin tests pass, including the round-trip.
@@ -3949,10 +3949,10 @@ Expected: all share plugin tests pass, including the round-trip.
 - [ ] **Step 13.3: Run full test suite**
 
 ```bash
-cd $INTELLIJ_ROOT && bash bazel.cmd run //conch/plugins/vault:vault_test_runner
-cd $INTELLIJ_ROOT && bash bazel.cmd run //conch/plugins/ssh:ssh_test_runner
-cd $INTELLIJ_ROOT && bash bazel.cmd run //conch/plugins/tunnels:tunnels_test_runner
-cd $INTELLIJ_ROOT && bash bazel.cmd run //conch/plugins/share:share_test_runner
+cd $INTELLIJ_ROOT && bash bazel.cmd run //termlab/plugins/vault:vault_test_runner
+cd $INTELLIJ_ROOT && bash bazel.cmd run //termlab/plugins/ssh:ssh_test_runner
+cd $INTELLIJ_ROOT && bash bazel.cmd run //termlab/plugins/tunnels:tunnels_test_runner
+cd $INTELLIJ_ROOT && bash bazel.cmd run //termlab/plugins/share:share_test_runner
 ```
 
 Expected: all four suites pass.
@@ -3960,7 +3960,7 @@ Expected: all four suites pass.
 - [ ] **Step 13.4: Commit**
 
 ```bash
-git add plugins/share/test/com/conch/share/integration
+git add plugins/share/test/com/termlab/share/integration
 git commit -m "test(share): full export/import round-trip integration test"
 ```
 
@@ -3970,10 +3970,10 @@ git commit -m "test(share): full export/import round-trip integration test"
 
 Before declaring done, confirm:
 
-- [ ] `make conch-build` succeeds.
+- [ ] `make termlab-build` succeeds.
 - [ ] All four plugin test runners pass (vault, ssh, tunnels, share).
-- [ ] `make conch` launches, both tool windows show Export/Import buttons, Tools menu has both entries.
-- [ ] Manual round-trip: export a host with credentials to a `.conchshare` file, quit Conch, delete `~/.config/conch/vault.enc` + `ssh-hosts.json` + `tunnels.json`, relaunch Conch, import the bundle, verify the host and credential reappear and the host can connect (or at least resolves its credential without error).
+- [ ] `make termlab` launches, both tool windows show Export/Import buttons, Tools menu has both entries.
+- [ ] Manual round-trip: export a host with credentials to a `.termlabshare` file, quit TermLab, delete `~/.config/termlab/vault.enc` + `ssh-hosts.json` + `tunnels.json`, relaunch TermLab, import the bundle, verify the host and credential reappear and the host can connect (or at least resolves its credential without error).
 - [ ] Manual edge cases: export without credentials produces an importable bundle; wrong bundle password shows a clear error; truncated bundle shows a clear error.
 - [ ] No secrets in commits (grep your diffs for `s3cret`, `masterb`, `sharepassword1` — these appear only in test code under `test/`).
 

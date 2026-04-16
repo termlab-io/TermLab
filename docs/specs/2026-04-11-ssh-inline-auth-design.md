@@ -6,14 +6,14 @@
 
 ## Architecture
 
-The host's credential reference is lifted from a single `@Nullable UUID credentialId` field to a non-null polymorphic `SshAuth auth` field. `SshAuth` is a sealed interface with three variants, and `SshSessionProvider.createSession` dispatches on the variant to build a short-lived `SshResolvedCredential` before handing the host to `ConchSshClient.connect`. The tool window, palette contributor, and all persistence code reads the new field through the same sealed-type switch — the mode is enforced by the compiler at every call site.
+The host's credential reference is lifted from a single `@Nullable UUID credentialId` field to a non-null polymorphic `SshAuth auth` field. `SshAuth` is a sealed interface with three variants, and `SshSessionProvider.createSession` dispatches on the variant to build a short-lived `SshResolvedCredential` before handing the host to `TermLabSshClient.connect`. The tool window, palette contributor, and all persistence code reads the new field through the same sealed-type switch — the mode is enforced by the compiler at every call site.
 
 JSON schema is migrated once on load: legacy hosts with a bare `credentialId` are rewritten into `{"auth": {"type": "vault", "credentialId": ...}}` before Gson deserializes them. New writes always use the `auth` object.
 
 ## Data model
 
 ```java
-// plugins/ssh/src/com/conch/ssh/model/SshAuth.java
+// plugins/ssh/src/com/termlab/ssh/model/SshAuth.java
 public sealed interface SshAuth
     permits VaultAuth, PromptPasswordAuth, KeyFileAuth {}
 ```
@@ -91,7 +91,7 @@ The "missing credential" fallback (saved UUID no longer resolvable) stays as a d
 
 ## Connect-time prompt
 
-New file: `plugins/ssh/src/com/conch/ssh/ui/InlineCredentialPromptDialog.java`. Thin `DialogWrapper` with a single `JPasswordField` and a message line:
+New file: `plugins/ssh/src/com/termlab/ssh/ui/InlineCredentialPromptDialog.java`. Thin `DialogWrapper` with a single `JPasswordField` and a message line:
 
 - Password mode: `Password for alice@db.example.com:22`
 - Passphrase mode: `Passphrase for /Users/alice/.ssh/id_ed25519 (alice@db.example.com)`, followed by a gray `Leave blank if the key is unencrypted.` hint
@@ -160,4 +160,4 @@ Each branch of the dispatcher produces its own `Retrier`:
 
 **In scope:** model/JSON changes, `HostEditDialog` rewrite, `InlineCredentialPromptDialog`, `SshSessionProvider` dispatch, resolver signature change, migration, the tests listed above.
 
-**Out of scope:** known-hosts / `ConchServerKeyVerifier` changes, tool-window changes (beyond whatever naturally follows from the model change), palette-contributor changes (same), vault-plugin changes, "smart" encrypted-key detection, the `-o IdentitiesOnly`-style fine control.
+**Out of scope:** known-hosts / `TermLabServerKeyVerifier` changes, tool-window changes (beyond whatever naturally follows from the model change), palette-contributor changes (same), vault-plugin changes, "smart" encrypted-key detection, the `-o IdentitiesOnly`-style fine control.

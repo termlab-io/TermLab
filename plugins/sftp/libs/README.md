@@ -1,4 +1,4 @@
-# Vendored libraries — Conch SFTP plugin
+# Vendored libraries — TermLab SFTP plugin
 
 ## sshd-sftp-2.15.0.jar
 
@@ -8,7 +8,7 @@ directory entry / file attribute types used by this plugin.
 
 - **Source:** https://repo1.maven.org/maven2/org/apache/sshd/sshd-sftp/2.15.0/sshd-sftp-2.15.0.jar
 - **Version:** 2.15.0 (matches `intellij.libraries.sshd.osgi` used by
-  the Conch SSH plugin — keep in lock-step on version bumps).
+  the TermLab SSH plugin — keep in lock-step on version bumps).
 - **SHA-1:** `2e226055ed060c64ed76256a9c45de6d0109eef8`
 - **License:** Apache License 2.0.
 
@@ -16,7 +16,7 @@ directory entry / file attribute types used by this plugin.
 
 This jar is committed to the repo rather than pulled through
 `intellij-community`'s auto-generated `lib/MODULE.bazel` system so the
-Conch SFTP plugin stays fully self-contained. The `maven libs` section
+TermLab SFTP plugin stays fully self-contained. The `maven libs` section
 of that file is regenerated periodically, which would wipe out any
 addition we made there.
 

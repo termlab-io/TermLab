@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 #
-# install-idea-config.sh — wire conch into intellij-community's IntelliJ project
+# install-idea-config.sh — wire termlab into intellij-community's IntelliJ project
 #
 # When you open intellij-community in IntelliJ IDEA, IntelliJ reads its project
-# state from intellij-community/.idea/. For Conch to be runnable/debuggable from
+# state from intellij-community/.idea/. For TermLab to be runnable/debuggable from
 # the IDE, two things must live there:
 #
-#   1. A registration entry in .idea/modules.xml pointing at each conch *.iml.
-#   2. A run configuration at .idea/runConfigurations/Conch.xml.
+#   1. A registration entry in .idea/modules.xml pointing at each termlab *.iml.
+#   2. A run configuration at .idea/runConfigurations/TermLab.xml.
 #
 # Both of these are *local-only* additions — they patch a file (modules.xml)
 # that intellij-community ships under git, so they show up as a 'modified' file
@@ -43,8 +43,8 @@ fi
 
 MODULES_XML="$INTELLIJ_DIR/.idea/modules.xml"
 RUN_CONFIG_DIR="$INTELLIJ_DIR/.idea/runConfigurations"
-RUN_CONFIG_DEST="$RUN_CONFIG_DIR/Conch.xml"
-RUN_CONFIG_SRC="$WORKBENCH_DIR/scripts/idea/Conch.run.xml"
+RUN_CONFIG_DEST="$RUN_CONFIG_DIR/TermLab.xml"
+RUN_CONFIG_SRC="$WORKBENCH_DIR/scripts/idea/TermLab.run.xml"
 
 # --- 1. Install the run configuration ----------------------------------------
 
@@ -56,29 +56,34 @@ else
   echo "==> Installed run configuration: $RUN_CONFIG_DEST"
 fi
 
-# --- 2. Register conch modules in modules.xml --------------------------------
+# --- 2. Register termlab modules in modules.xml --------------------------------
 #
-# We insert four <module .../> entries pointing at the symlinked conch tree
-# (intellij-community/conch → conch_workbench). They go just after the existing
+# We insert four <module .../> entries pointing at the symlinked termlab tree
+# (intellij-community/termlab → termlab_workbench). They go just after the existing
 # 'compose.ide.plugin.shared.tests.iml' entry, alphabetically near 'configurationScript'
-# where 'conch' belongs. The entries use $PROJECT_DIR$ so IntelliJ resolves them
+# where 'termlab' belongs. The entries use $PROJECT_DIR$ so IntelliJ resolves them
 # relative to intellij-community.
 
-CONCH_MODULES=(
-  "conch/core/intellij.conch.core.iml"
-  "conch/customization/intellij.conch.customization.iml"
-  "conch/intellij.conch.main.iml"
-  "conch/sdk/intellij.conch.sdk.iml"
+TERMLAB_MODULES=(
+  "termlab/core/intellij.termlab.core.iml"
+  "termlab/customization/intellij.termlab.customization.iml"
+  "termlab/intellij.termlab.main.iml"
+  "termlab/sdk/intellij.termlab.sdk.iml"
+  "termlab/plugins/ssh/intellij.termlab.ssh.iml"
+  "termlab/plugins/vault/intellij.termlab.vault.iml"
+  "termlab/plugins/tunnels/intellij.termlab.tunnels.iml"
+  "termlab/plugins/sftp/intellij.termlab.sftp.iml"
+  "termlab/plugins/editor/intellij.termlab.editor.iml"
 )
 
-if grep -q "intellij.conch.main.iml" "$MODULES_XML"; then
-  echo "==> Conch modules already registered in $MODULES_XML"
+if grep -q "intellij.termlab.main.iml" "$MODULES_XML"; then
+  echo "==> TermLab modules already registered in $MODULES_XML"
 else
-  echo "==> Registering conch modules in $MODULES_XML"
+  echo "==> Registering termlab modules in $MODULES_XML"
 
   # Build the block of <module .../> lines to insert.
   INSERT_BLOCK=""
-  for path in "${CONCH_MODULES[@]}"; do
+  for path in "${TERMLAB_MODULES[@]}"; do
     line="      <module fileurl=\"file://\$PROJECT_DIR\$/$path\" filepath=\"\$PROJECT_DIR\$/$path\" />"
     INSERT_BLOCK+="$line"$'\n'
   done
@@ -93,15 +98,14 @@ else
     exit 1
   fi
 
-  python3 - "$MODULES_XML" "$ANCHOR" <<PYEOF
+  python3 - "$MODULES_XML" "$ANCHOR" "${TERMLAB_MODULES[@]}" <<'PYEOF'
 import sys
 
-path, anchor = sys.argv[1], sys.argv[2]
-insert = """      <module fileurl="file://\$PROJECT_DIR\$/conch/core/intellij.conch.core.iml" filepath="\$PROJECT_DIR\$/conch/core/intellij.conch.core.iml" />
-      <module fileurl="file://\$PROJECT_DIR\$/conch/customization/intellij.conch.customization.iml" filepath="\$PROJECT_DIR\$/conch/customization/intellij.conch.customization.iml" />
-      <module fileurl="file://\$PROJECT_DIR\$/conch/intellij.conch.main.iml" filepath="\$PROJECT_DIR\$/conch/intellij.conch.main.iml" />
-      <module fileurl="file://\$PROJECT_DIR\$/conch/sdk/intellij.conch.sdk.iml" filepath="\$PROJECT_DIR\$/conch/sdk/intellij.conch.sdk.iml" />
-"""
+path, anchor, *modules = sys.argv[1:]
+insert = "".join(
+    f'      <module fileurl="file://$PROJECT_DIR$/{m}" filepath="$PROJECT_DIR$/{m}" />\n'
+    for m in modules
+)
 
 with open(path) as f:
     lines = f.readlines()
@@ -126,5 +130,5 @@ echo
 echo "✓ IDEA config installed."
 echo
 echo "Open intellij-community in IntelliJ IDEA, wait for it to index, then pick"
-echo "the 'Conch' run configuration from the run dropdown. ▶ runs it; 🐞 debugs"
-echo "with breakpoints in the conch sources."
+echo "the 'TermLab' run configuration from the run dropdown. ▶ runs it; 🐞 debugs"
+echo "with breakpoints in the termlab sources."

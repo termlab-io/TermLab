@@ -1,66 +1,66 @@
 <idea-plugin>
-    <id>com.conch.core</id>
-    <name>Conch Core</name>
+    <id>com.termlab.core</id>
+    <name>TermLab Core</name>
     <version>0.1.0</version>
-    <vendor>Conch</vendor>
+    <vendor>TermLab</vendor>
     <description>Terminal-driven workstation built on IntelliJ Platform</description>
 
     <depends>com.intellij.modules.platform</depends>
 
-    <!-- Conch-defined extension points for plugins to implement -->
+    <!-- TermLab-defined extension points for plugins to implement -->
     <extensionPoints>
         <extensionPoint name="terminalSessionProvider"
-                        interface="com.conch.sdk.TerminalSessionProvider"
+                        interface="com.termlab.sdk.TerminalSessionProvider"
                         dynamic="true"/>
         <extensionPoint name="credentialProvider"
-                        interface="com.conch.sdk.CredentialProvider"
+                        interface="com.termlab.sdk.CredentialProvider"
                         dynamic="true"/>
         <extensionPoint name="fileSourceProvider"
-                        interface="com.conch.core.filepicker.FileSourceProvider"
+                        interface="com.termlab.core.filepicker.FileSourceProvider"
                         dynamic="true"/>
     </extensionPoints>
 
     <extensions defaultExtensionNs="com.intellij">
         <applicationService
             serviceInterface="com.intellij.openapi.fileEditor.impl.EditorEmptyTextPainter"
-            serviceImplementation="com.conch.core.ConchEmptyTextPainter"
+            serviceImplementation="com.termlab.core.TermLabEmptyTextPainter"
             overrides="true"/>
 
         <applicationConfigurable
             parentId="root"
-            instance="com.conch.core.settings.ConchTerminalConfigurable"
-            id="conch.terminal.settings"
-            displayName="Conch Terminal"/>
+            instance="com.termlab.core.settings.TermLabTerminalConfigurable"
+            id="termlab.terminal.settings"
+            displayName="TermLab Terminal"/>
 
         <applicationConfigurable
-            parentId="conch.terminal.settings"
-            instance="com.conch.core.settings.ConchTerminalAppearanceConfigurable"
-            id="conch.terminal.settings.appearance"
+            parentId="termlab.terminal.settings"
+            instance="com.termlab.core.settings.TermLabTerminalAppearanceConfigurable"
+            id="termlab.terminal.settings.appearance"
             displayName="Appearance"/>
 
         <applicationConfigurable
-            parentId="conch.terminal.settings"
-            instance="com.conch.core.settings.ConchTerminalTerminalConfigurable"
-            id="conch.terminal.settings.terminal"
+            parentId="termlab.terminal.settings"
+            instance="com.termlab.core.settings.TermLabTerminalTerminalConfigurable"
+            id="termlab.terminal.settings.terminal"
             displayName="Terminal"/>
 
         <search.optionContributor
-            implementation="com.conch.core.settings.ConchSearchableOptionContributor"/>
+            implementation="com.termlab.core.settings.TermLabSearchableOptionContributor"/>
 
         <!--
           Skip the platform welcome frame entirely and open ~ as the
-          default workspace on every cold launch. Conch has no concept
+          default workspace on every cold launch. TermLab has no concept
           of picking a "project" — the user's home directory is the
           base the terminal launches shells from. See
-          ConchHomeDirNoProjectHandler for the hook point (IdeStarter
+          TermLabHomeDirNoProjectHandler for the hook point (IdeStarter
           calls this before showWelcomeFrame).
         -->
         <noProjectStateHandler
-            implementation="com.conch.core.ConchHomeDirNoProjectHandler"/>
+            implementation="com.termlab.core.TermLabHomeDirNoProjectHandler"/>
 
         <!--
           TermLab Dark UI theme. Referenced as the product default LaF
-          in ConchApplicationInfo.xml via
+          in TermLabApplicationInfo.xml via
           <default-laf light-classic="TermLab Light"
                        dark-classic="TermLab Dark"/>.
         -->
@@ -79,7 +79,7 @@
         <!--
           TermLab Dark editor + terminal color scheme. Inherits
           Darcula and overrides the 16-color ANSI palette plus editor
-          background/selection/caret colors. ConchTerminalSettings
+          background/selection/caret colors. TermLabTerminalSettings
           reads these ANSI keys at runtime to drive the terminal
           palette; the .theme.json above references this scheme via
           its `editorScheme` field.
@@ -91,25 +91,25 @@
                             path="/themes/termlab-flow-day"/>
 
         <fileEditorProvider
-            implementation="com.conch.core.terminal.ConchTerminalEditorProvider"/>
+            implementation="com.termlab.core.terminal.TermLabTerminalEditorProvider"/>
 
         <editorTabTitleProvider
-            implementation="com.conch.core.terminal.ConchEditorTabTitleProvider"
+            implementation="com.termlab.core.terminal.TermLabEditorTabTitleProvider"
             order="first"/>
 
         <postStartupActivity
-            implementation="com.conch.core.ConchStartupActivity"/>
+            implementation="com.termlab.core.TermLabStartupActivity"/>
 
         <projectFrameCapabilitiesProvider
-            implementation="com.conch.core.ConchProjectFrameCapabilitiesProvider"/>
+            implementation="com.termlab.core.TermLabProjectFrameCapabilitiesProvider"/>
 
         <actionConfigurationCustomizer
-            implementation="com.conch.core.actions.ConchActionConfigurationCustomizer"/>
+            implementation="com.termlab.core.actions.TermLabActionConfigurationCustomizer"/>
 
         <projectService
-            serviceImplementation="com.conch.core.workspace.WorkspaceManager"/>
+            serviceImplementation="com.termlab.core.workspace.WorkspaceManager"/>
 
-        <!-- Conch intentionally suppresses plugin-advertiser prompts.
+        <!-- TermLab intentionally suppresses plugin-advertiser prompts.
              This prevents marketplace-style notifications such as
              "Plugin ... supporting run configuration ... is not installed". -->
         <projectService
@@ -118,26 +118,26 @@
             serviceImplementation="com.intellij.openapi.updateSettings.impl.pluginsAdvertisement.HeadlessPluginAdvertiserServiceImpl"/>
 
         <searchEverywhereContributor
-            implementation="com.conch.core.palette.TerminalPaletteContributor$Factory"/>
+            implementation="com.termlab.core.palette.TerminalPaletteContributor$Factory"/>
 
         <!-- Override the platform's TabsCustomizationStrategy to only show
              Actions and Terminals tabs in Search Everywhere -->
         <applicationService
             serviceInterface="com.intellij.ide.actions.searcheverywhere.TabsCustomizationStrategy"
-            serviceImplementation="com.conch.core.palette.ConchTabsCustomizationStrategy"
+            serviceImplementation="com.termlab.core.palette.TermLabTabsCustomizationStrategy"
             overrides="true"/>
     </extensions>
 
     <applicationListeners>
-        <listener class="com.conch.core.ConchProjectCloseListener"
+        <listener class="com.termlab.core.TermLabProjectCloseListener"
                   topic="com.intellij.openapi.project.ProjectManagerListener"/>
         <!--
           Strips built-in Search Everywhere contributors (files, classes,
           symbols, text, run configs, top hits, calculator, YAML keys) so the
-          Command Palette's "All" tab only shows Conch things. Fires on
+          Command Palette's "All" tab only shows TermLab things. Fires on
           appFrameCreated, before the user can open Search Everywhere.
         -->
-        <listener class="com.conch.core.palette.ConchSearchEverywhereCustomizer"
+        <listener class="com.termlab.core.palette.TermLabSearchEverywhereCustomizer"
                   topic="com.intellij.ide.AppLifecycleListener"/>
 
         <!--
@@ -145,38 +145,38 @@
           modules still register via <toolWindow> extensions. Same
           appFrameCreated hook so the stripe buttons never get painted.
         -->
-        <listener class="com.conch.core.ConchToolWindowCustomizer"
+        <listener class="com.termlab.core.TermLabToolWindowCustomizer"
                   topic="com.intellij.ide.AppLifecycleListener"/>
 
         <!--
           Unregisters the platform's refactoring actions and group so the
           Ctrl+T "Refactor This" popup and top-level Refactor menu vanish.
-          See ConchRefactoringStripper for the list and the rationale.
+          See TermLabRefactoringStripper for the list and the rationale.
         -->
-        <listener class="com.conch.core.ConchRefactoringStripper"
+        <listener class="com.termlab.core.TermLabRefactoringStripper"
                   topic="com.intellij.ide.AppLifecycleListener"/>
 
         <!--
           Unregisters main-toolbar actions that don't apply to a
           terminal workstation: Save All, Synchronize, Back/Forward,
           Add Configuration, Run, Stop, plus the top-level Run and
-          Build menus. Mirrors ConchRefactoringStripper's approach —
+          Build menus. Mirrors TermLabRefactoringStripper's approach —
           action-level removal kills the toolbar slot, the menu
           entry, the Search Everywhere hit, and any keybinding in
           one step. Run / Stop specifically get replaced with
           NoopExecutorStubAction to defend against platform code
           paths that unconditionally look them up by id.
         -->
-        <listener class="com.conch.core.ConchToolbarStripper"
+        <listener class="com.termlab.core.TermLabToolbarStripper"
                   topic="com.intellij.ide.AppLifecycleListener"/>
 
         <!--
           Strips IDE-oriented Settings pages under Editor/ that don't affect
           the terminal view. Keeps Font, Color Scheme, and General/Appearance.
-          Project-scoped pages are stripped from ConchStartupActivity per
-          project open. See ConchEditorSettingsStripper for details.
+          Project-scoped pages are stripped from TermLabStartupActivity per
+          project open. See TermLabEditorSettingsStripper for details.
         -->
-        <listener class="com.conch.core.ConchEditorSettingsStripper"
+        <listener class="com.termlab.core.TermLabEditorSettingsStripper"
                   topic="com.intellij.ide.AppLifecycleListener"/>
 
         <!--
@@ -184,23 +184,23 @@
           IntelliJ's AppUIUtil.updateAppWindowIcon loads the app SVG at
           size=32 and calls Taskbar.setIconImage with that, so the dock
           icon otherwise appears blurry in dev mode. See
-          ConchMacDockIconCustomizer for the detailed rationale.
+          TermLabMacDockIconCustomizer for the detailed rationale.
         -->
-        <listener class="com.conch.core.ConchMacDockIconCustomizer"
+        <listener class="com.termlab.core.TermLabMacDockIconCustomizer"
                   topic="com.intellij.ide.AppLifecycleListener"/>
 
         <!--
           Removes built-in Darcula / IntelliJ Light theme providers so only
           TermLab themes appear in the theme picker.
         -->
-        <listener class="com.conch.core.ConchBuiltInThemeStripper"
+        <listener class="com.termlab.core.TermLabBuiltInThemeStripper"
                   topic="com.intellij.ide.AppLifecycleListener"/>
 
         <!--
           Points OS theme sync to TermLab Light / TermLab Dark instead of
           IntelliJ defaults, and keeps first-launch fallback on TermLab Light.
         -->
-        <listener class="com.conch.core.ConchThemeSyncCustomizer"
+        <listener class="com.termlab.core.TermLabThemeSyncCustomizer"
                   topic="com.intellij.ide.AppLifecycleListener"/>
 
         <!--
@@ -208,45 +208,45 @@
           off at startup so the Windows Defender exclusion-check
           post-startup activity bails out via
           ExtensionNotApplicableException and never pops its "add
-          your project to Defender exclusions" notification. Conch
+          your project to Defender exclusions" notification. TermLab
           doesn't index files so the check has nothing to offer.
           No-op on non-Windows hosts. See
-          ConchDefenderNotifierSuppressor for the registry key
+          TermLabDefenderNotifierSuppressor for the registry key
           lookup chain.
         -->
-        <listener class="com.conch.core.ConchDefenderNotifierSuppressor"
+        <listener class="com.termlab.core.TermLabDefenderNotifierSuppressor"
                   topic="com.intellij.ide.AppLifecycleListener"/>
 
         <!--
-          Pins Search Everywhere to the upper-half-center of the Conch
+          Pins Search Everywhere to the upper-half-center of the TermLab
           frame on every invocation, instead of the platform's default
           of remembering the user's drag position across opens. See
-          ConchSearchEverywhereLocationPinner.
+          TermLabSearchEverywhereLocationPinner.
 
           Known caveat: with this listener active, the first Cmd+Shift+P
-          press after moving the Conch window currently requires a
+          press after moving the TermLab window currently requires a
           second press to render the popup. Verified unrelated to this
           listener (bug reproduces with it removed entirely); documented
           here as a trade-off we're accepting for now.
         -->
-        <listener class="com.conch.core.palette.ConchSearchEverywhereLocationPinner"
+        <listener class="com.termlab.core.palette.TermLabSearchEverywhereLocationPinner"
                   topic="com.intellij.openapi.actionSystem.ex.AnActionListener"/>
     </applicationListeners>
 
     <projectListeners>
-        <listener class="com.conch.core.terminal.ConchTerminalOnlyFileEditorListener"
+        <listener class="com.termlab.core.terminal.TermLabTerminalOnlyFileEditorListener"
                   topic="com.intellij.openapi.fileEditor.FileEditorManagerListener"/>
 
         <!--
           Reactive stripper for dynamically-registered tool windows
           (Run, Debug, Hierarchy, Services). These don't use the static
           <toolWindow> extension point — they're registered by service
-          constructors at project-open time. ConchToolWindowStripper
+          constructors at project-open time. TermLabToolWindowStripper
           catches them as they register via toolWindowRegistered() and
           immediately unregisters them. Also sweeps any that registered
           before the listener wired up.
         -->
-        <listener class="com.conch.core.ConchToolWindowStripper"
+        <listener class="com.termlab.core.TermLabToolWindowStripper"
                   topic="com.intellij.openapi.wm.ex.ToolWindowManagerListener"/>
     </projectListeners>
 
@@ -254,20 +254,20 @@
         <!--
           Stub registered as id="Debug" so platform code that unconditionally
           looks up this action (notably RunToolbarTopLevelExecutorActionGroup
-          in RedesignedRunWidget.kt) doesn't NPE on startup. Conch strips the
+          in RedesignedRunWidget.kt) doesn't NPE on startup. TermLab strips the
           xdebugger modules via essential.minimal, so the real Debug executor
           never registers its action. See NoopExecutorStubAction docs for the
           full story.
         -->
         <action id="Debug"
-                class="com.conch.core.actions.NoopExecutorStubAction"
+                class="com.termlab.core.actions.NoopExecutorStubAction"
                 text=""
-                description="No-op stub — Conch has no debugger"/>
+                description="No-op stub — TermLab has no debugger"/>
 
-        <action id="Conch.CommandPalette"
+        <action id="TermLab.CommandPalette"
                 class="com.intellij.ide.actions.SearchEverywhereAction"
                 text="Command Palette"
-                description="Open the Conch command palette">
+                description="Open the TermLab command palette">
             <!-- $default = Linux/Windows: Ctrl+Shift+P (VS Code convention).
                  Mac overrides use Cmd+Shift+P via `meta`. -->
             <keyboard-shortcut keymap="$default" first-keystroke="control shift P"/>
@@ -278,27 +278,27 @@
         <!--
           Rename the currently-focused terminal tab. Added to
           EditorTabPopupMenu programmatically by
-          ConchActionConfigurationCustomizer so it's the single entry in the
+          TermLabActionConfigurationCustomizer so it's the single entry in the
           tab right-click menu (the rest of the inherited file-oriented
           entries get cleared). Bound to F2 globally so the shortcut works
           whether or not the popup is open.
         -->
-        <action id="Conch.RenameTerminalTab"
-                class="com.conch.core.actions.RenameTerminalTabAction"
+        <action id="TermLab.RenameTerminalTab"
+                class="com.termlab.core.actions.RenameTerminalTabAction"
                 text="Rename Tab…"
                 description="Rename the current terminal tab">
             <keyboard-shortcut keymap="$default" first-keystroke="F2"/>
         </action>
 
-        <group id="Conch.TerminalActions" text="Terminal" popup="true">
+        <group id="TermLab.TerminalActions" text="Terminal" popup="true">
             <add-to-group group-id="MainMenu" anchor="before" relative-to-action="HelpMenu"/>
 
             <!-- $default (Linux/Windows) uses ctrl+shift+<key> to avoid
                  colliding with terminal key bindings (ctrl+T / ctrl+W /
                  ctrl+D are common emacs/readline bindings). Mac keeps
                  plain meta+<key> per native convention. -->
-            <action id="Conch.NewTerminalTab"
-                    class="com.conch.core.actions.NewTerminalTabAction"
+            <action id="TermLab.NewTerminalTab"
+                    class="com.termlab.core.actions.NewTerminalTabAction"
                     text="New Terminal Tab"
                     description="Open a new local terminal tab">
                 <keyboard-shortcut keymap="$default" first-keystroke="control shift T"/>
@@ -306,8 +306,8 @@
                 <keyboard-shortcut keymap="Mac OS X" first-keystroke="meta T" replace-all="true"/>
             </action>
 
-            <action id="Conch.CloseTerminalTab"
-                    class="com.conch.core.actions.CloseTerminalTabAction"
+            <action id="TermLab.CloseTerminalTab"
+                    class="com.termlab.core.actions.CloseTerminalTabAction"
                     text="Close Terminal Tab"
                     description="Close the active terminal tab">
                 <keyboard-shortcut keymap="$default" first-keystroke="control shift W"/>
@@ -315,8 +315,8 @@
                 <keyboard-shortcut keymap="Mac OS X" first-keystroke="meta W" replace-all="true"/>
             </action>
 
-            <action id="Conch.SplitHorizontal"
-                    class="com.conch.core.actions.SplitTerminalHorizontalAction"
+            <action id="TermLab.SplitHorizontal"
+                    class="com.termlab.core.actions.SplitTerminalHorizontalAction"
                     text="Split Terminal Right"
                     description="Split and open a new terminal to the right">
                 <keyboard-shortcut keymap="$default" first-keystroke="control shift E"/>
@@ -324,8 +324,8 @@
                 <keyboard-shortcut keymap="Mac OS X" first-keystroke="meta D" replace-all="true"/>
             </action>
 
-            <action id="Conch.SplitVertical"
-                    class="com.conch.core.actions.SplitTerminalVerticalAction"
+            <action id="TermLab.SplitVertical"
+                    class="com.termlab.core.actions.SplitTerminalVerticalAction"
                     text="Split Terminal Down"
                     description="Split and open a new terminal below">
                 <keyboard-shortcut keymap="$default" first-keystroke="control shift O"/>
@@ -335,8 +335,8 @@
 
             <separator/>
 
-            <action id="Conch.FocusTerminalLeft"
-                    class="com.conch.core.actions.FocusTerminalLeftAction"
+            <action id="TermLab.FocusTerminalLeft"
+                    class="com.termlab.core.actions.FocusTerminalLeftAction"
                     text="Focus Terminal Left"
                     description="Move focus to the terminal split on the left">
                 <keyboard-shortcut keymap="$default" first-keystroke="alt shift LEFT"/>
@@ -344,8 +344,8 @@
                 <keyboard-shortcut keymap="Mac OS X" first-keystroke="meta alt LEFT" replace-all="true"/>
             </action>
 
-            <action id="Conch.FocusTerminalRight"
-                    class="com.conch.core.actions.FocusTerminalRightAction"
+            <action id="TermLab.FocusTerminalRight"
+                    class="com.termlab.core.actions.FocusTerminalRightAction"
                     text="Focus Terminal Right"
                     description="Move focus to the terminal split on the right">
                 <keyboard-shortcut keymap="$default" first-keystroke="alt shift RIGHT"/>
@@ -353,8 +353,8 @@
                 <keyboard-shortcut keymap="Mac OS X" first-keystroke="meta alt RIGHT" replace-all="true"/>
             </action>
 
-            <action id="Conch.FocusTerminalUp"
-                    class="com.conch.core.actions.FocusTerminalUpAction"
+            <action id="TermLab.FocusTerminalUp"
+                    class="com.termlab.core.actions.FocusTerminalUpAction"
                     text="Focus Terminal Up"
                     description="Move focus to the terminal split above">
                 <keyboard-shortcut keymap="$default" first-keystroke="alt shift UP"/>
@@ -362,8 +362,8 @@
                 <keyboard-shortcut keymap="Mac OS X" first-keystroke="meta alt UP" replace-all="true"/>
             </action>
 
-            <action id="Conch.FocusTerminalDown"
-                    class="com.conch.core.actions.FocusTerminalDownAction"
+            <action id="TermLab.FocusTerminalDown"
+                    class="com.termlab.core.actions.FocusTerminalDownAction"
                     text="Focus Terminal Down"
                     description="Move focus to the terminal split below">
                 <keyboard-shortcut keymap="$default" first-keystroke="alt shift DOWN"/>
@@ -373,8 +373,8 @@
 
             <separator/>
 
-            <action id="Conch.SaveWorkspace"
-                    class="com.conch.core.actions.SaveWorkspaceAction"
+            <action id="TermLab.SaveWorkspace"
+                    class="com.termlab.core.actions.SaveWorkspaceAction"
                     text="Save Workspace As..."
                     description="Save the current workspace layout">
                 <keyboard-shortcut keymap="$default" first-keystroke="control alt S"/>
@@ -382,15 +382,15 @@
                 <keyboard-shortcut keymap="Mac OS X" first-keystroke="meta shift S" replace-all="true"/>
             </action>
 
-            <action id="Conch.LoadWorkspace"
-                    class="com.conch.core.actions.LoadWorkspaceAction"
+            <action id="TermLab.LoadWorkspace"
+                    class="com.termlab.core.actions.LoadWorkspaceAction"
                     text="Load Workspace"
                     description="Load a saved workspace">
             </action>
         </group>
     </actions>
 
-    <extensions defaultExtensionNs="com.conch.core">
-        <fileSourceProvider implementation="com.conch.core.filepicker.LocalFileSourceProvider"/>
+    <extensions defaultExtensionNs="com.termlab.core">
+        <fileSourceProvider implementation="com.termlab.core.filepicker.LocalFileSourceProvider"/>
     </extensions>
 </idea-plugin>

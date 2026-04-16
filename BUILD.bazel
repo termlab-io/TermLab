@@ -1,42 +1,42 @@
 load("@rules_java//java:defs.bzl", "java_binary")
 load("@rules_jvm//:jvm.bzl", "jvm_library")
 
-# Roll-up module matching intellij.conch.main.iml. No own sources —
+# Roll-up module matching intellij.termlab.main.iml. No own sources —
 # it exists so the JPS-to-Bazel targets mapping can resolve
-# @community//conch:conch-main.jar, which the platform installer
+# @community//termlab:termlab-main.jar, which the platform installer
 # build pipeline references via ALL_COMMUNITY_TARGETS.
 jvm_library(
-    name = "conch-main",
-    module_name = "intellij.conch.main",
+    name = "termlab-main",
+    module_name = "intellij.termlab.main",
     visibility = ["//visibility:public"],
     srcs = glob([], allow_empty = True),
     runtime_deps = [
         "//platform/main/intellij.platform.monolith.main:monolith-main",
         "//platform/bootstrap",
         "//platform/starter",
-        "//conch/customization",
-        "//conch/core",
-        "//conch/sdk",
+        "//termlab/customization",
+        "//termlab/core",
+        "//termlab/sdk",
         "//plugins/classic-ui",
     ],
 )
 
 jvm_library(
-    name = "conch-main_test_lib",
-    module_name = "intellij.conch.main",
+    name = "termlab-main_test_lib",
+    module_name = "intellij.termlab.main",
     visibility = ["//visibility:public"],
     srcs = glob([], allow_empty = True),
-    runtime_deps = [":conch-main"],
+    runtime_deps = [":termlab-main"],
 )
 
-exports_files(["intellij.conch.main.iml"])
+exports_files(["intellij.termlab.main.iml"])
 
-# Run Conch from the command line.
+# Run TermLab from the command line.
 # Depends on the platform monolith (no product plugins) plus only
-# the specific modules and plugins Conch needs. No Java, VCS, Gradle,
+# the specific modules and plugins TermLab needs. No Java, VCS, Gradle,
 # AI, or other IDE plugins are included.
 java_binary(
-    name = "conch_run",
+    name = "termlab_run",
     runtime_deps = [
         # Platform core runtime (no product plugins)
         "//platform/main/intellij.platform.monolith.main:monolith-main",
@@ -44,25 +44,25 @@ java_binary(
         "//platform/bootstrap",
         "//platform/starter",
 
-        # Conch modules
-        "//conch/customization",
-        "//conch/core",
-        "//conch/sdk",
+        # TermLab modules
+        "//termlab/customization",
+        "//termlab/core",
+        "//termlab/sdk",
 
-        # Conch bundled plugins (first-party, always enabled)
-        "//conch/plugins/vault",
-        "//conch/plugins/ssh",
-        "//conch/plugins/tunnels",
-        "//conch/plugins/sftp",
+        # TermLab bundled plugins (first-party, always enabled)
+        "//termlab/plugins/vault",
+        "//termlab/plugins/ssh",
+        "//termlab/plugins/tunnels",
+        "//termlab/plugins/sftp",
         # Light editor: scratch files + SFTP-triggered file editing.
-        "//conch/plugins/editor",
+        "//termlab/plugins/editor",
         # Runtime implementation of PasswordSafe — required by the vault
         # plugin so it can store the device secret in the cross-platform
         # credential store (Keychain / Credential Manager / KWallet /
         # libsecret / encrypted file fallback).
         "//platform/credential-store-impl:credentialStore-impl",
 
-        # IntelliJ-platform bundled plugins — ONLY these exist in Conch
+        # IntelliJ-platform bundled plugins — ONLY these exist in TermLab
         "//plugins/classic-ui",
         "//json",
         # Required by the editor plugin for grammar-based syntax
@@ -140,7 +140,7 @@ java_binary(
         "-XX:MaxJavaStackTraceDepth=10000",
         "-XX:+IgnoreUnrecognizedVMOptions",
         # Pin UTF-8 for file / stdout / stderr. Mirrors
-        # ConchProperties.additionalVmOptions in the installer build
+        # TermLabProperties.additionalVmOptions in the installer build
         # so dev runs and shipped artifacts behave identically.
         "-Dfile.encoding=UTF-8",
         "-Dstdout.encoding=UTF-8",
@@ -149,30 +149,30 @@ java_binary(
         "-Dsun.awt.disablegrab=true",
         "-Dsun.java2d.metal=true",
         "-Dapple.laf.useScreenMenuBar=true",
-        "-Dapple.awt.application.icon=$${BUILD_WORKSPACE_DIRECTORY}/conch/customization/resources/conch.icns",
+        "-Dapple.awt.application.icon=$${BUILD_WORKSPACE_DIRECTORY}/termlab/customization/resources/termlab.icns",
         "-Djdk.attach.allowAttachSelf",
         "-Djdk.module.illegalAccess.silent=true",
         "-DjbScreenMenuBar.enabled=true",
         "-Didea.jre.check=true",
-        # Disable file indexing globally in Conch (terminal-first product).
+        # Disable file indexing globally in TermLab (terminal-first product).
         "-Didea.indexes.pretendNoFiles=true",
-        # Disable the native file watcher entirely. Conch has no
+        # Disable the native file watcher entirely. TermLab has no
         # project indexing so fsnotifier provides zero value, and on
         # Linux it trips an "inotify watch limit reached" balloon on
         # any user whose fs.inotify.max_user_watches is at distro
         # defaults. NativeFileWatcherImpl checks this property before
         # starting fsnotifier and bails out when set.
         "-Didea.filewatcher.disabled=true",
-        # Never auto-open Project View during startup in Conch.
+        # Never auto-open Project View during startup in TermLab.
         "-Dide.open.project.view.on.startup=false",
-        "-Didea.platform.prefix=Conch",
-        "-Didea.config.path=$${BUILD_WORKSPACE_DIRECTORY}/config/conch",
-        "-Didea.system.path=$${BUILD_WORKSPACE_DIRECTORY}/system/conch",
+        "-Didea.platform.prefix=TermLab",
+        "-Didea.config.path=$${BUILD_WORKSPACE_DIRECTORY}/config/termlab",
+        "-Didea.system.path=$${BUILD_WORKSPACE_DIRECTORY}/system/termlab",
         "-Didea.trust.all.projects=true",
         "-Dsplash=true",
         "-Dide.no.tips.dialog=true",
         # Disable telemetry metric exporters and statistics collection for
-        # terminal-first Conch dev sessions to reduce idle CPU/background work.
+        # terminal-first TermLab dev sessions to reduce idle CPU/background work.
         "-Didea.diagnostic.opentelemetry.metrics.file=",
         "-Didea.diagnostic.opentelemetry.meters.file.json=",
         "-Didea.disable.collect.statistics=true",
@@ -182,7 +182,7 @@ java_binary(
         # Default theme for new installations is wired via
         # <default-laf light-classic="TermLab Light"
         #              dark-classic="TermLab Dark"/> in
-        # ConchApplicationInfo.xml — LafManagerImpl reads
+        # TermLabApplicationInfo.xml — LafManagerImpl reads
         # ApplicationInfoEx.defaultClassicDarkLaf on first launch.
     ],
 )

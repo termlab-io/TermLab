@@ -1,0 +1,22 @@
+<component xmlns="http://jetbrains.org/intellij/schema/application-info">
+  <version major="0" minor="1" eap="true" codename="Uplink" patch="0" suffix="dd87220-dirty"/>
+  <company name="TermLab" url="https://github.com/termlab"/>
+  <build number="TL-__BUILD__" date="__BUILD_DATE__"/>
+  <logo url="/termlab_logo.png"/>
+  <icon svg="/termlab-icon.svg" svg-small="/termlab-icon_16.svg"/>
+  <names product="TermLab" fullname="TermLab" script="termlab"
+         motto="An Integrated SysOps Environment"/>
+  <!--
+    Product default LaF for Classic UI (New UI is disabled via
+    -Dide.experimental.ui=false). Light classic defaults to TermLab
+    Light; dark classic defaults to TermLab Dark. Values are looked up
+    by theme id, then by display name.
+  -->
+  <default-laf light-classic="TermLab Light" dark-classic="TermLab Dark"/>
+  <essential-plugin>com.termlab.core</essential-plugin>
+  <essential-plugin>com.termlab.ssh</essential-plugin>
+  <essential-plugin>com.termlab.vault</essential-plugin>
+  <essential-plugin>com.termlab.tunnels</essential-plugin>
+  <essential-plugin>com.termlab.sftp</essential-plugin>
+  <essential-plugin>com.intellij.modules.json</essential-plugin>
+</component>

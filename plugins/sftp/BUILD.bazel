@@ -9,15 +9,15 @@ resourcegroup(
 
 jvm_library(
     name = "sftp",
-    module_name = "intellij.conch.sftp",
+    module_name = "intellij.termlab.sftp",
     visibility = ["//visibility:public"],
     srcs = glob(["src/**/*.java"], allow_empty = True),
     resources = [":sftp_resources"],
     deps = [
-        "//conch/plugins/sftp/libs:sshd_sftp",
-        "//conch/sdk",
-        "//conch/core",
-        "//conch/plugins/ssh",
+        "//termlab/plugins/sftp/libs:sshd_sftp",
+        "//termlab/sdk",
+        "//termlab/core",
+        "//termlab/plugins/ssh",
         "//platform/analysis-api:analysis",
         "//platform/core-api:core",
         "//platform/core-ui",
@@ -36,14 +36,14 @@ jvm_library(
 
 jvm_library(
     name = "sftp_test_lib",
-    module_name = "intellij.conch.sftp.tests",
+    module_name = "intellij.termlab.sftp.tests",
     visibility = ["//visibility:public"],
     srcs = glob(["test/**/*.java"], allow_empty = True),
     deps = [
         ":sftp",
-        "//conch/sdk",
-        "//conch/plugins/ssh",
-        "//conch/plugins/sftp/libs:sshd_sftp",
+        "//termlab/sdk",
+        "//termlab/plugins/ssh",
+        "//termlab/plugins/sftp/libs:sshd_sftp",
         "//libraries/sshd-osgi",
         "//libraries/junit5",
         "//libraries/junit5-jupiter",
@@ -58,7 +58,7 @@ jvm_library(
 
 java_binary(
     name = "sftp_test_runner",
-    main_class = "com.conch.sftp.TestRunner",
+    main_class = "com.termlab.sftp.TestRunner",
     runtime_deps = [
         ":sftp_test_lib",
         "//libraries/junit5-jupiter",
@@ -66,4 +66,4 @@ java_binary(
     ],
 )
 
-exports_files(["intellij.conch.sftp.iml"], visibility = ["//visibility:public"])
+exports_files(["intellij.termlab.sftp.iml"], visibility = ["//visibility:public"])

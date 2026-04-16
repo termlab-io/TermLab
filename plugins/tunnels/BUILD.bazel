@@ -9,14 +9,14 @@ resourcegroup(
 
 jvm_library(
     name = "tunnels",
-    module_name = "intellij.conch.tunnels",
+    module_name = "intellij.termlab.tunnels",
     visibility = ["//visibility:public"],
     srcs = glob(["src/**/*.java"], allow_empty = True),
     resources = [":tunnels_resources"],
     deps = [
-        "//conch/sdk",
-        "//conch/core",
-        "//conch/plugins/ssh",
+        "//termlab/sdk",
+        "//termlab/core",
+        "//termlab/plugins/ssh",
         "//platform/analysis-api:analysis",
         "//platform/core-api:core",
         "//platform/core-ui",
@@ -37,13 +37,13 @@ jvm_library(
 
 jvm_library(
     name = "tunnels_test_lib",
-    module_name = "intellij.conch.tunnels.tests",
+    module_name = "intellij.termlab.tunnels.tests",
     visibility = ["//visibility:public"],
     srcs = glob(["test/**/*.java"], allow_empty = True),
     deps = [
         ":tunnels",
-        "//conch/sdk",
-        "//conch/plugins/ssh",
+        "//termlab/sdk",
+        "//termlab/plugins/ssh",
         "//libraries/junit5",
         "//libraries/junit5-jupiter",
         "//libraries/junit5-launcher",
@@ -55,7 +55,7 @@ jvm_library(
 
 java_binary(
     name = "tunnels_test_runner",
-    main_class = "com.conch.tunnels.TestRunner",
+    main_class = "com.termlab.tunnels.TestRunner",
     runtime_deps = [
         ":tunnels_test_lib",
         "//libraries/junit5-jupiter",
@@ -63,4 +63,4 @@ java_binary(
     ],
 )
 
-exports_files(["intellij.conch.tunnels.iml"], visibility = ["//visibility:public"])
+exports_files(["intellij.termlab.tunnels.iml"], visibility = ["//visibility:public"])

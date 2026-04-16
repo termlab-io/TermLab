@@ -29,12 +29,12 @@ A new `plugins/share` module, Java, following the existing plugin layout. Module
 
 Key classes:
 
-- **`ShareBundle`** — in-memory representation of a bundle: schema version, metadata (created timestamp, source machine name, Conch version, `includesCredentials` flag), `List<SshHost>`, `List<SshTunnel>`, and a nested `BundledVault` with `List<VaultAccount>` + `List<VaultKey>`. Pure data; no I/O, no crypto.
+- **`ShareBundle`** — in-memory representation of a bundle: schema version, metadata (created timestamp, source machine name, TermLab version, `includesCredentials` flag), `List<SshHost>`, `List<SshTunnel>`, and a nested `BundledVault` with `List<VaultAccount>` + `List<VaultKey>`. Pure data; no I/O, no crypto.
 - **`ShareBundleCodec`** — encodes and decodes a `ShareBundle` to/from the encrypted file format. Reuses `plugins/vault`'s `VaultCrypto` and `KeyDerivation` for AES-256-GCM + Argon2id — no crypto is reimplemented.
 - **`ExportPlanner`** — given a user selection, resolves dependencies (tunnel → host, host → credential), applies `SshConfigHost` and `KeyFileAuth` conversions, and produces a `ShareBundle` ready to encode. Pure logic, fully unit-testable.
 - **`ImportPlanner`** — given a decoded `ShareBundle` and the user's current state, builds a list of `ImportItem`s tagged with conflict status (`New`, `Same UUID exists`, `Label collision`, `Reference broken`). Pure logic.
 - **`ImportExecutor`** — applies a resolved import plan. The only class that mutates user state. Writes via `HostsFile`, `TunnelsFile`, and `LockManager.withUnlocked(...)`.
-- **`SshConfigReader`** — minimal `~/.ssh/config` parser scoped to direct alias matches and the fields Conch uses.
+- **`SshConfigReader`** — minimal `~/.ssh/config` parser scoped to direct alias matches and the fields TermLab uses.
 - **`KeyFileImporter`** — reads on-disk private keys, validates them, synthesizes `VaultKey` records.
 - **`ExportDialog`** and **`ImportDialog`** — `DialogWrapper` subclasses matching the existing vault/ssh UI conventions.
 
@@ -44,10 +44,10 @@ Key classes:
 
 ## Bundle Format
 
-Single file, extension **`.conchshare`**, versioned envelope mirroring `VaultFileFormat` so we reuse `VaultCrypto` directly:
+Single file, extension **`.termlabshare`**, versioned envelope mirroring `VaultFileFormat` so we reuse `VaultCrypto` directly:
 
 ```
-[ MAGIC (8 bytes, "CONCHSHR") ]
+[ MAGIC (8 bytes, "TERMLABSHR") ]
 [ FORMAT_VERSION (uint32, = 1) ]
 [ SALT (16 bytes) ]
 [ NONCE (12 bytes) ]
@@ -62,7 +62,7 @@ The ciphertext, once decrypted, is a single JSON document — the serialized `Sh
   "metadata": {
     "createdAt": "2026-04-14T10:32:00Z",
     "sourceHost": "dustin-mbp",
-    "conchVersion": "0.14.2",
+    "termlabVersion": "0.14.2",
     "includesCredentials": true
   },
   "hosts":      [ /* SshHost objects, reusing SshGson format */ ],
@@ -78,14 +78,14 @@ Notes:
 
 - Reuses existing Gson adapters (`SshGson`, `TunnelGson`, `VaultGson`) — no parallel schema to maintain.
 - `includesCredentials` is metadata only; the authoritative rule is "if `vault.accounts` and `vault.keys` are both empty, the bundle was credentials-off".
-- `schemaVersion: 1`. Future versions that change `SshHost` / `SshTunnel` / `VaultAccount` field shapes bump this and dispatch to a migration. v1 rejects unknown versions cleanly ("This bundle was created by a newer version of Conch").
+- `schemaVersion: 1`. Future versions that change `SshHost` / `SshTunnel` / `VaultAccount` field shapes bump this and dispatch to a migration. v1 rejects unknown versions cleanly ("This bundle was created by a newer version of TermLab").
 - Always encrypted, always requires a password at export and import time. No unencrypted path.
 - Argon2id parameters match the vault (`KeyDerivation` defaults).
 - No signing / no public-key crypto in v1.
 
 ## Export Flow
 
-**Entry points:** "Export…" toolbar buttons in the SSH and Tunnels tool windows, plus `Tools → Conch → Export…` top-level action. All three open the same `ExportDialog`, pre-populated with the tool window's item type expanded.
+**Entry points:** "Export…" toolbar buttons in the SSH and Tunnels tool windows, plus `Tools → TermLab → Export…` top-level action. All three open the same `ExportDialog`, pre-populated with the tool window's item type expanded.
 
 ### ExportDialog — single window, one page
 
@@ -103,7 +103,7 @@ When the user clicks Export:
 3. **Resolve `KeyFileAuth` hosts.** If credentials are included, read each key file via `KeyFileImporter`, synthesize a fresh-UUID `VaultAccount` with `AuthMethod = Key` (username taken from the `SshHost`'s existing `username` field), and rewrite the host's auth to `VaultAuth(new account UUID)`. If the underlying data model stores the key material as a standalone `VaultKey` referenced by the account, the planner creates that `VaultKey` first and the account references it. Passphrase-protected keys prompt for the passphrase during this step and bundle the passphrase alongside the key material. If credentials are off, leave auth as `KeyFileAuth` with the original path — recipient gets a broken host they can fix.
 4. **Resolve `VaultAuth` hosts.** If credentials are included, unlock the vault via `LockManager` (prompting master password if locked) and copy each referenced `VaultAccount` into the bundle. If that `VaultAccount`'s `AuthMethod` references a standalone `VaultKey` by ID, pull the referenced key into the bundle too. If credentials are off, rewrite the host's auth to `PromptPasswordAuth()` so the host imports cleanly and prompts at connect time.
 5. **Show conversion preview.** A second modal lists what will be converted and any warnings (e.g., *"Tunnel 'prod-db' references `~/.ssh/config` alias 'bastion', which uses Host wildcards — we'll convert the direct fields only"*). User confirms or cancels.
-6. **Encode and write.** `ShareBundleCodec.encode(bundle, password)` → native file save dialog, default filename `conch-share-YYYY-MM-DD.conchshare`.
+6. **Encode and write.** `ShareBundleCodec.encode(bundle, password)` → native file save dialog, default filename `termlab-share-YYYY-MM-DD.termlabshare`.
 
 ### Error paths
 
@@ -113,15 +113,15 @@ When the user clicks Export:
 
 ## Import Flow
 
-**Entry points:** "Import…" toolbar buttons in both tool windows and `Tools → Conch → Import…`. All route to `ImportDialog`, which starts with a native file chooser filtered to `*.conchshare`.
+**Entry points:** "Import…" toolbar buttons in both tool windows and `Tools → TermLab → Import…`. All route to `ImportDialog`, which starts with a native file chooser filtered to `*.termlabshare`.
 
 ### Step 1 — File + password
 
 A compact modal: selected file path, password field, Unlock button. `ShareBundleCodec.decode(file, password)` runs. Failure modes:
 
 - Wrong password: AES-GCM tag check fails → "Incorrect password".
-- Corrupt file or unknown magic: "Not a valid Conch share bundle".
-- Unknown schema version: "This bundle was created by a newer version of Conch".
+- Corrupt file or unknown magic: "Not a valid TermLab share bundle".
+- Unknown schema version: "This bundle was created by a newer version of TermLab".
 
 All three re-show the same dialog with an inline error.
 
@@ -233,4 +233,4 @@ None at design time. Questions that arise during implementation should come back
 
 - `docs/plans/2026-04-10-vault-plugin.md` — vault plugin, whose crypto primitives and `LockManager` are reused here.
 - `docs/plans/2026-04-11-ssh-plugin.md` — SSH plugin, whose `SshHost` model, `HostsFile`, and `CredentialProvider` integration points are reused here.
-- `docs/plans/2026-04-14-conch-roadmap.md` — project roadmap. Share/import is not currently in the published roadmap; this document introduces it.
+- `docs/plans/2026-04-14-termlab-roadmap.md` — project roadmap. Share/import is not currently in the published roadmap; this document introduces it.
