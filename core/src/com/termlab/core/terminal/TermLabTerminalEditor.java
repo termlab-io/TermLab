@@ -17,7 +17,12 @@ import org.jetbrains.annotations.Nullable;
 import com.intellij.openapi.vfs.VirtualFile;
 
 import javax.swing.*;
+import java.awt.datatransfer.DataFlavor;
+import java.io.IOException;
 import java.beans.PropertyChangeListener;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
 
 public final class TermLabTerminalEditor extends UserDataHolderBase implements FileEditor {
     private final Project project;
@@ -32,6 +37,7 @@ public final class TermLabTerminalEditor extends UserDataHolderBase implements F
         this.terminalWidget = new TermLabTerminalWidget(new TermLabTerminalSettings());
         applyCursorShape();
         initTerminalSession();
+        installFileDropHandler();
     }
 
     private void initTerminalSession() {
@@ -128,4 +134,40 @@ public final class TermLabTerminalEditor extends UserDataHolderBase implements F
 
     public @NotNull TermLabTerminalVirtualFile getTerminalFile() { return file; }
     public @NotNull JediTermWidget getTerminalWidget() { return terminalWidget; }
+
+    private void installFileDropHandler() {
+        TransferHandler handler = new TransferHandler() {
+            @Override
+            public boolean canImport(TransferSupport support) {
+                return support.isDrop() && support.isDataFlavorSupported(DataFlavor.javaFileListFlavor);
+            }
+
+            @Override
+            public boolean importData(TransferSupport support) {
+                if (!canImport(support) || connector == null || !connector.isConnected()) return false;
+                try {
+                    @SuppressWarnings("unchecked")
+                    List<Object> dropped = (List<Object>) support.getTransferable()
+                        .getTransferData(DataFlavor.javaFileListFlavor);
+                    List<Path> paths = new ArrayList<>(dropped.size());
+                    for (Object item : dropped) {
+                        if (item instanceof java.io.File file) {
+                            paths.add(file.toPath());
+                        }
+                    }
+                    String text = TerminalDroppedPathFormatter.formatDroppedPaths(paths);
+                    if (text.isEmpty()) return false;
+                    if (!terminalWidget.pasteText(text)) {
+                        connector.write(text);
+                    }
+                    terminalWidget.getTerminalPanel().requestFocusInWindow();
+                    return true;
+                } catch (UnsupportedOperationException | IOException | java.awt.datatransfer.UnsupportedFlavorException e) {
+                    return false;
+                }
+            }
+        };
+        terminalWidget.setTransferHandler(handler);
+        terminalWidget.getTerminalPanel().setTransferHandler(handler);
+    }
 }

@@ -27,6 +27,9 @@ import java.awt.event.MouseEvent;
  */
 public class TermLabTerminalWidget extends JediTermWidget {
 
+    private static final String BRACKETED_PASTE_PREFIX = "\u001b[200~";
+    private static final String BRACKETED_PASTE_SUFFIX = "\u001b[201~";
+
     public TermLabTerminalWidget(SettingsProvider settingsProvider) {
         super(settingsProvider);
     }
@@ -150,6 +153,7 @@ public class TermLabTerminalWidget extends JediTermWidget {
     private static final class TermLabTerminalPanel extends TerminalPanel {
 
         private volatile MouseMode currentMouseMode = MouseMode.MOUSE_REPORTING_NONE;
+        private volatile boolean bracketedPasteModeEnabled;
 
         TermLabTerminalPanel(@NotNull SettingsProvider settings,
                            @NotNull TerminalTextBuffer buffer,
@@ -161,6 +165,12 @@ public class TermLabTerminalWidget extends JediTermWidget {
         public void terminalMouseModeSet(MouseMode mode) {
             this.currentMouseMode = mode;
             super.terminalMouseModeSet(mode);
+        }
+
+        @Override
+        public void setBracketedPasteMode(boolean enabled) {
+            this.bracketedPasteModeEnabled = enabled;
+            super.setBracketedPasteMode(enabled);
         }
 
         @Override
@@ -177,6 +187,10 @@ public class TermLabTerminalWidget extends JediTermWidget {
             };
             TerminalAction.fillMenu(menu, provider);
             return menu;
+        }
+
+        boolean isBracketedPasteModeEnabled() {
+            return bracketedPasteModeEnabled;
         }
     }
 
@@ -273,5 +287,18 @@ public class TermLabTerminalWidget extends JediTermWidget {
                 return button;
             }
         });
+    }
+
+    public boolean pasteText(@NotNull String text) {
+        TerminalStarter starter = getTerminalStarter();
+        if (starter == null || text.isEmpty()) return false;
+
+        String payload = text;
+        if (myTerminalPanel instanceof TermLabTerminalPanel panel && panel.isBracketedPasteModeEnabled()) {
+            payload = BRACKETED_PASTE_PREFIX + text + BRACKETED_PASTE_SUFFIX;
+        }
+
+        starter.sendString(payload, true);
+        return true;
     }
 }
