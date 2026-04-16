@@ -8,7 +8,7 @@ import java.nio.charset.StandardCharsets;
  * On-disk layout for the encrypted vault file.
  *
  * <pre>
- *   [MAGIC(8) | VERSION(4 LE) | SALT(16) | NONCE(12) | CIPHERTEXT(...)]
+ *   [MAGIC(10) | VERSION(4 LE) | SALT(16) | NONCE(12) | CIPHERTEXT(...)]
  * </pre>
  *
  * <p>The layout matches the rusty_termlab_2 Rust reference so the format is
@@ -23,6 +23,9 @@ public final class VaultFileFormat {
     public static final int SALT_LEN = 16;
     public static final int NONCE_LEN = 12;
 
+    private static final int VERSION_OFFSET = MAGIC.length;
+    private static final int SALT_OFFSET = VERSION_OFFSET + 4;
+    private static final int NONCE_OFFSET = SALT_OFFSET + SALT_LEN;
     private static final int HEADER_LEN = MAGIC.length + 4 + SALT_LEN + NONCE_LEN;  // 40
 
     /** Parsed header + ciphertext slice returned from {@link #parse(byte[])}. */
@@ -57,14 +60,14 @@ public final class VaultFileFormat {
                 throw new VaultCorruptedException("invalid magic bytes");
             }
         }
-        int version = ByteBuffer.wrap(data, 8, 4).order(ByteOrder.LITTLE_ENDIAN).getInt();
+        int version = ByteBuffer.wrap(data, VERSION_OFFSET, 4).order(ByteOrder.LITTLE_ENDIAN).getInt();
         if (version != VERSION) {
             throw new VaultCorruptedException("unsupported vault version: " + version);
         }
         byte[] salt = new byte[SALT_LEN];
-        System.arraycopy(data, 12, salt, 0, SALT_LEN);
+        System.arraycopy(data, SALT_OFFSET, salt, 0, SALT_LEN);
         byte[] nonce = new byte[NONCE_LEN];
-        System.arraycopy(data, 12 + SALT_LEN, nonce, 0, NONCE_LEN);
+        System.arraycopy(data, NONCE_OFFSET, nonce, 0, NONCE_LEN);
         byte[] ciphertext = new byte[data.length - HEADER_LEN];
         System.arraycopy(data, HEADER_LEN, ciphertext, 0, ciphertext.length);
         return new Parsed(version, salt, nonce, ciphertext);

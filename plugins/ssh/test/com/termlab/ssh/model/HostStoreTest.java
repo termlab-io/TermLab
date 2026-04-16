@@ -6,6 +6,7 @@ import org.junit.jupiter.api.io.TempDir;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
@@ -137,5 +138,37 @@ class HostStoreTest {
 
         store.reload();
         assertEquals(0, store.size());
+    }
+
+    @Test
+    void listeners_fireOnMutationsAndReload(@TempDir Path tmp) throws Exception {
+        Path file = tmp.resolve("ssh-hosts.json");
+        HostStore store = new HostStore(file, List.of());
+        List<Integer> observedSizes = new ArrayList<>();
+        Runnable listener = () -> observedSizes.add(store.size());
+        store.addChangeListener(listener);
+
+        SshHost host = SshHost.create("prod", "example.com", 22, "admin", new VaultAuth(null));
+        store.addHost(host);
+        store.updateHost(host.withLabel("renamed"));
+        store.removeHost(host.id());
+        HostsFile.save(file, List.of(host));
+        store.reload();
+        store.clear();
+
+        assertEquals(List.of(1, 1, 0, 1, 0), observedSizes);
+    }
+
+    @Test
+    void removeChangeListener_stopsNotifications(@TempDir Path tmp) {
+        HostStore store = new HostStore(tmp.resolve("ssh-hosts.json"), List.of());
+        List<Integer> observedSizes = new ArrayList<>();
+        Runnable listener = () -> observedSizes.add(store.size());
+        store.addChangeListener(listener);
+        store.removeChangeListener(listener);
+
+        store.addHost(SshHost.create("prod", "example.com", 22, "admin", new VaultAuth(null)));
+
+        assertTrue(observedSizes.isEmpty());
     }
 }

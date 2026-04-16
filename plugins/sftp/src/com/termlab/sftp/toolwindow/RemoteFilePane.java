@@ -65,6 +65,8 @@ public final class RemoteFilePane extends JPanel {
     private final JLabel statusLabel = new JLabel("Not connected");
     private final JButton connectButton = new JButton("Connect");
     private final JButton disconnectButton = new JButton("Disconnect");
+    private final HostStore hostStore;
+    private final Runnable hostStoreListener;
 
     private @Nullable SshSftpSession activeSession;
     private @Nullable SshHost currentHost;
@@ -74,6 +76,8 @@ public final class RemoteFilePane extends JPanel {
     public RemoteFilePane(@NotNull Project project) {
         super(new BorderLayout());
         this.project = project;
+        this.hostStore = ApplicationManager.getApplication().getService(HostStore.class);
+        this.hostStoreListener = () -> ApplicationManager.getApplication().invokeLater(this::refreshHostPicker);
 
         add(buildNorth(), BorderLayout.NORTH);
 
@@ -196,20 +200,45 @@ public final class RemoteFilePane extends JPanel {
     }
 
     private void refreshHostPicker() {
+        SshHost selectedBeforeRefresh = activeSession != null ? currentHost : (SshHost) hostPicker.getSelectedItem();
         hostPicker.removeAllItems();
-        HostStore store = ApplicationManager.getApplication().getService(HostStore.class);
-        if (store == null) return;
+        if (hostStore == null) return;
         SshHost lastHost = null;
+        SshHost matchingSelection = null;
         String lastId = TermLabSftpConfig.getInstance().getLastRemoteHostId();
-        for (SshHost host : store.getHosts()) {
+        for (SshHost host : hostStore.getHosts()) {
             hostPicker.addItem(host);
             if (lastId != null && host.id().toString().equals(lastId)) {
                 lastHost = host;
             }
+            if (selectedBeforeRefresh != null && host.id().equals(selectedBeforeRefresh.id())) {
+                matchingSelection = host;
+            }
+        }
+        if (matchingSelection != null) {
+            hostPicker.setSelectedItem(matchingSelection);
+            return;
         }
         if (lastHost != null) {
             hostPicker.setSelectedItem(lastHost);
         }
+    }
+
+    @Override
+    public void addNotify() {
+        super.addNotify();
+        if (hostStore != null) {
+            hostStore.removeChangeListener(hostStoreListener);
+            hostStore.addChangeListener(hostStoreListener);
+        }
+    }
+
+    @Override
+    public void removeNotify() {
+        if (hostStore != null) {
+            hostStore.removeChangeListener(hostStoreListener);
+        }
+        super.removeNotify();
     }
 
     private void onRowActivated(int viewRow) {

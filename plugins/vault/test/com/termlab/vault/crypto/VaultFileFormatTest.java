@@ -25,7 +25,7 @@ class VaultFileFormatTest {
 
     @Test
     void parse_rejectsWrongMagic() {
-        byte[] bogus = new byte[40];
+        byte[] bogus = new byte[VaultFileFormat.MAGIC.length + 4 + VaultFileFormat.SALT_LEN + VaultFileFormat.NONCE_LEN];
         bogus[0] = 'X';
         VaultCorruptedException ex = assertThrows(VaultCorruptedException.class,
             () -> VaultFileFormat.parse(bogus));
@@ -41,8 +41,17 @@ class VaultFileFormatTest {
     @Test
     void parse_rejectsUnknownVersion() {
         byte[] file = VaultFileFormat.assemble(new byte[16], new byte[12], new byte[1]);
-        file[8] = 99;  // overwrite version byte
+        file[VaultFileFormat.MAGIC.length] = 99;  // overwrite version byte
         assertThrows(VaultCorruptedException.class, () -> VaultFileFormat.parse(file));
+    }
+
+    @Test
+    void parse_readsVersionAfterEntireMagicHeader() throws Exception {
+        byte[] file = VaultFileFormat.assemble(new byte[16], new byte[12], new byte[1]);
+
+        VaultFileFormat.Parsed parsed = VaultFileFormat.parse(file);
+
+        assertEquals(VaultFileFormat.VERSION, parsed.version());
     }
 
     @Test

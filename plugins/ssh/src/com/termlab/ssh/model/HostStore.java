@@ -12,6 +12,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 /**
  * In-memory holder for the saved host list, registered as an IntelliJ
@@ -29,6 +30,7 @@ public final class HostStore {
 
     private final Path path;
     private final List<SshHost> hosts = new ArrayList<>();
+    private final CopyOnWriteArrayList<Runnable> changeListeners = new CopyOnWriteArrayList<>();
 
     /**
      * No-arg constructor used by the IntelliJ application-service
@@ -62,10 +64,13 @@ public final class HostStore {
 
     public void addHost(@NotNull SshHost host) {
         hosts.add(host);
+        fireChanged();
     }
 
     public boolean removeHost(@NotNull UUID id) {
-        return hosts.removeIf(h -> h.id().equals(id));
+        boolean removed = hosts.removeIf(h -> h.id().equals(id));
+        if (removed) fireChanged();
+        return removed;
     }
 
     /**
@@ -77,6 +82,7 @@ public final class HostStore {
         for (int i = 0; i < hosts.size(); i++) {
             if (hosts.get(i).id().equals(updated.id())) {
                 hosts.set(i, updated);
+                fireChanged();
                 return true;
             }
         }
@@ -95,7 +101,9 @@ public final class HostStore {
     }
 
     public void clear() {
+        if (hosts.isEmpty()) return;
         hosts.clear();
+        fireChanged();
     }
 
     /**
@@ -118,6 +126,21 @@ public final class HostStore {
     public void reload() throws IOException {
         hosts.clear();
         hosts.addAll(HostsFile.load(path));
+        fireChanged();
+    }
+
+    public void addChangeListener(@NotNull Runnable listener) {
+        changeListeners.add(listener);
+    }
+
+    public void removeChangeListener(@NotNull Runnable listener) {
+        changeListeners.remove(listener);
+    }
+
+    private void fireChanged() {
+        for (Runnable listener : changeListeners) {
+            listener.run();
+        }
     }
 
     private static @NotNull List<SshHost> loadSilently(@NotNull Path path) {
