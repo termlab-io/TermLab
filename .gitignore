@@ -26,6 +26,7 @@ Thumbs.db
 # Editor scratch
 *.swp
 *~
+__pycache__/
 
 # Local perf harness artifacts
 perf-results/

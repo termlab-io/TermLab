@@ -163,6 +163,7 @@ class TermLabProperties(private val communityHomeDir: Path) : JetBrainsProductPr
   override fun createWindowsCustomizer(projectHome: Path): WindowsDistributionCustomizer =
     windowsCustomizer(projectHome) {
       icoPath = "termlab/customization/resources/termlab.ico"
+      installerImagesPath = "termlab/customization/resources/win"
       fullName { "TermLab" }
       fullNameAndVendor { "TermLab" }
     }
