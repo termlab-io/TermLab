@@ -208,6 +208,20 @@
                   topic="com.intellij.ide.AppLifecycleListener"/>
 
         <!--
+          Disables the platform's external file watcher integration
+          for TermLab. The native watcher is what triggers the
+          "External file changes sync might be slow" balloon when it
+          is missing or fails to start, but TermLab does not depend
+          on external file sync or indexing. We already bake
+          -Didea.filewatcher.disabled=true into launcher vmoptions;
+          this listener mirrors that at runtime for launch paths
+          that bypass those vmoptions, then eagerly initializes the
+          LocalFileSystem with the disabled flag in place.
+        -->
+        <listener class="com.termlab.core.TermLabFileWatcherDisabler"
+                  topic="com.intellij.ide.AppLifecycleListener"/>
+
+        <!--
           Flips the ide.check.windows.defender.rules registry key
           off at startup so the Windows Defender exclusion-check
           post-startup activity bails out via
