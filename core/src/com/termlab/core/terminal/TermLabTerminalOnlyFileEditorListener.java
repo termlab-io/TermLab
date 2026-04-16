@@ -12,6 +12,8 @@ import org.jetbrains.annotations.NotNull;
 public final class TermLabTerminalOnlyFileEditorListener implements FileEditorManagerListener {
     @Override
     public void fileOpened(@NotNull FileEditorManager source, @NotNull VirtualFile file) {
+        TermLabTabBarManager.applyPreferredTabSettings(source.getProject());
+
         if (file instanceof TermLabTerminalVirtualFile) {
             return;
         }
@@ -24,5 +26,10 @@ public final class TermLabTerminalOnlyFileEditorListener implements FileEditorMa
         ApplicationManager.getApplication().invokeLater(() -> {
             source.closeFile(file);
         });
+    }
+
+    @Override
+    public void fileClosed(@NotNull FileEditorManager source, @NotNull VirtualFile file) {
+        TermLabTabBarManager.applyPreferredTabSettings(source.getProject());
     }
 }

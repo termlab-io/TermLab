@@ -1,5 +1,6 @@
 package com.termlab.core;
 
+import com.termlab.core.terminal.TermLabTabBarManager;
 import com.termlab.core.workspace.WorkspaceManager;
 import com.intellij.ide.GeneralSettings;
 import com.intellij.openapi.project.Project;
@@ -37,6 +38,10 @@ public final class TermLabStartupActivity implements ProjectActivity {
 
         // Quit the app when the last project window is closed (don't show welcome screen)
         GeneralSettings.getInstance().setShowWelcomeScreen(false);
+
+        // Hide the tab bar when only one tab is open, but still allow tabs
+        // to appear in Distraction Free Mode once multiple tabs exist.
+        TermLabTabBarManager.applyPreferredTabSettings(project);
 
         return Unit.INSTANCE;
     }

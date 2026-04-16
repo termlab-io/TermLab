@@ -1,61 +1,45 @@
 package com.termlab.core.terminal;
 
 import com.intellij.ide.ui.UISettings;
+import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.fileEditor.FileEditorManager;
-import com.intellij.openapi.fileEditor.FileEditorManagerEvent;
-import com.intellij.openapi.fileEditor.FileEditorManagerListener;
 import com.intellij.openapi.project.Project;
-import com.intellij.openapi.vfs.VirtualFile;
-import org.jetbrains.annotations.NotNull;
 
 import javax.swing.*;
 
 /**
- * Hides the editor tab bar when only one tab is open.
- * Shows it when multiple tabs are open.
+ * Keeps the editor tab bar hidden for a single open tab and visible for
+ * multiple open tabs, including while distraction free mode is enabled.
  */
-public final class TermLabTabBarManager implements FileEditorManagerListener {
-    private final Project project;
+public final class TermLabTabBarManager {
 
-    public TermLabTabBarManager(@NotNull Project project) {
-        this.project = project;
+    private TermLabTabBarManager() {}
+
+    public static void applyPreferredTabSettings(Project project) {
+        if (project.isDisposed()) {
+            return;
+        }
+
+        if (ApplicationManager.getApplication().isDispatchThread()) {
+            applyPreferredTabSettingsOnEdt(project);
+            return;
+        }
+
+        ApplicationManager.getApplication().invokeLater(() -> {
+            if (!project.isDisposed()) {
+                applyPreferredTabSettingsOnEdt(project);
+            }
+        }, project.getDisposed());
     }
 
-    @Override
-    public void fileOpened(@NotNull FileEditorManager source, @NotNull VirtualFile file) {
-        updateTabBarVisibility(source);
-    }
-
-    @Override
-    public void fileClosed(@NotNull FileEditorManager source, @NotNull VirtualFile file) {
-        // Delay because the file count hasn't been updated yet when this fires
-        SwingUtilities.invokeLater(() -> updateTabBarVisibility(source));
-    }
-
-    @Override
-    public void selectionChanged(@NotNull FileEditorManagerEvent event) {
-        // no-op
-    }
-
-    private void updateTabBarVisibility(@NotNull FileEditorManager manager) {
-        int openCount = manager.getOpenFiles().length;
+    private static void applyPreferredTabSettingsOnEdt(Project project) {
         UISettings settings = UISettings.getInstance();
-        int current = settings.getEditorTabPlacement();
+        int openTabCount = FileEditorManager.getInstance(project).getOpenFiles().length;
+        int desiredPlacement = openTabCount > 1 ? SwingConstants.TOP : UISettings.TABS_NONE;
 
-        if (openCount <= 1 && current != UISettings.TABS_NONE) {
-            settings.setEditorTabPlacement(UISettings.TABS_NONE);
-            settings.fireUISettingsChanged();
-        } else if (openCount > 1 && current == UISettings.TABS_NONE) {
-            settings.setEditorTabPlacement(SwingConstants.TOP);
+        if (settings.getEditorTabPlacement() != desiredPlacement) {
+            settings.setEditorTabPlacement(desiredPlacement);
             settings.fireUISettingsChanged();
         }
-    }
-
-    /**
-     * Initial check — call after startup to set the correct state.
-     */
-    public void initialize() {
-        FileEditorManager manager = FileEditorManager.getInstance(project);
-        updateTabBarVisibility(manager);
     }
 }
