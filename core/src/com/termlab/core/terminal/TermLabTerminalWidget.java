@@ -1,5 +1,6 @@
 package com.termlab.core.terminal;
 
+import com.jediterm.terminal.CursorShape;
 import com.jediterm.terminal.TerminalDisplay;
 import com.jediterm.terminal.TerminalStarter;
 import com.jediterm.terminal.TtyBasedArrayDataStream;
@@ -26,7 +27,6 @@ import java.awt.event.MouseEvent;
  * the terminal background. Only visible when hovering or scrolling.
  */
 public class TermLabTerminalWidget extends JediTermWidget {
-
     private static final String BRACKETED_PASTE_PREFIX = "\u001b[200~";
     private static final String BRACKETED_PASTE_SUFFIX = "\u001b[201~";
     private StyleState styleState;
@@ -101,6 +101,15 @@ public class TermLabTerminalWidget extends JediTermWidget {
                           @NotNull TerminalTextBuffer buffer,
                           @NotNull StyleState styleState) {
             super(display, buffer, styleState);
+        }
+
+        @Override
+        public void cursorShape(@org.jetbrains.annotations.Nullable CursorShape shape) {
+            // Keep the user-configured cursor style authoritative.
+            // Shells and apps like tmux often emit DECSCUSR escapes
+            // (CSI Ps q) to switch cursor shape dynamically, but in
+            // TermLab that conflicts with the explicit Appearance
+            // setting and causes the cursor to drift back to block.
         }
 
         @Override

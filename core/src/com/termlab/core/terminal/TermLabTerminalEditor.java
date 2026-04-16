@@ -40,7 +40,6 @@ public final class TermLabTerminalEditor extends UserDataHolderBase implements F
         this.file = file;
         this.terminalWidget = new TermLabTerminalWidget(new TermLabTerminalSettings());
         this.messageBusConnection = ApplicationManager.getApplication().getMessageBus().connect();
-        applyCursorShape();
         installAppearanceListeners();
         initTerminalSession();
         installFileDropHandler();
@@ -68,6 +67,12 @@ public final class TermLabTerminalEditor extends UserDataHolderBase implements F
 
             terminalWidget.createTerminalSession(connector);
             terminalWidget.start();
+            applyTerminalAppearance();
+            ApplicationManager.getApplication().invokeLater(() -> {
+                if (!project.isDisposed()) {
+                    applyTerminalAppearance();
+                }
+            });
 
             // Watch for shell exit and close the tab automatically
             startExitWatcher();
@@ -134,11 +139,15 @@ public final class TermLabTerminalEditor extends UserDataHolderBase implements F
                     if (project.isDisposed()) {
                         return;
                     }
-                    terminalWidget.refreshAppearance();
-                    applyCursorShape();
+                    applyTerminalAppearance();
                 });
             }
         });
+    }
+
+    private void applyTerminalAppearance() {
+        terminalWidget.refreshAppearance();
+        applyCursorShape();
     }
 
     private void applyCursorShape() {
@@ -151,7 +160,9 @@ public final class TermLabTerminalEditor extends UserDataHolderBase implements F
             case "VERTICAL_BAR" -> CursorShape.STEADY_VERTICAL_BAR;
             default -> CursorShape.STEADY_BLOCK;
         };
+        terminalWidget.getTerminalPanel().setCursorShape(cursorShape);
         terminalWidget.getTerminalPanel().setDefaultCursorShape(cursorShape);
+        terminalWidget.getTerminalPanel().repaint();
     }
 
     public @NotNull TermLabTerminalVirtualFile getTerminalFile() { return file; }
