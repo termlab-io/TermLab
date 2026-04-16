@@ -17,8 +17,8 @@
   <essential-plugin>com.termlab.ssh</essential-plugin>
   <essential-plugin>com.termlab.vault</essential-plugin>
   <essential-plugin>com.termlab.tunnels</essential-plugin>
+  <essential-plugin>com.termlab.share</essential-plugin>
   <essential-plugin>com.termlab.sftp</essential-plugin>
+  <essential-plugin>com.termlab.runner</essential-plugin>
   <essential-plugin>com.intellij.modules.json</essential-plugin>
 </component>
-
-

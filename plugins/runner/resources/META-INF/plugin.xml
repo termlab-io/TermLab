@@ -1,0 +1,68 @@
+<idea-plugin>
+    <id>com.termlab.runner</id>
+    <name>TermLab Script Runner</name>
+    <version>0.1.0</version>
+    <vendor>TermLab</vendor>
+    <description>
+        Lightweight script execution for TermLab. Run scripts from the
+        light editor on local or remote hosts with live output streaming.
+    </description>
+
+    <depends>com.intellij.modules.platform</depends>
+    <depends>com.termlab.core</depends>
+    <depends>com.termlab.ssh</depends>
+    <depends>com.termlab.sftp</depends>
+    <depends>com.termlab.editor</depends>
+
+    <extensions defaultExtensionNs="com.intellij">
+        <notificationGroup
+            id="TermLab Script Runner"
+            displayType="BALLOON"/>
+
+        <applicationService
+            serviceImplementation="com.termlab.runner.config.RunConfigStore"/>
+
+        <applicationService
+            serviceImplementation="com.termlab.runner.config.FileConfigBinding"/>
+
+        <toolWindow
+            id="Script Output"
+            anchor="bottom"
+            icon="AllIcons.Actions.Execute"
+            factoryClass="com.termlab.runner.output.ScriptOutputToolWindowFactory"/>
+    </extensions>
+
+    <actions>
+        <action id="TermLab.Runner.ConfigDropdown"
+                class="com.termlab.runner.actions.ConfigDropdownAction"
+                text="Quick Run"
+                description="Show and edit the current file's run configuration">
+            <add-to-group group-id="MainToolBar" anchor="last"/>
+        </action>
+
+        <action id="TermLab.Runner.Run"
+                class="com.termlab.runner.actions.RunScriptAction"
+                text="Run Script"
+                icon="AllIcons.Actions.Execute"
+                description="Run the current file on a local or remote host">
+            <add-to-group group-id="FileMenu" anchor="after" relative-to-action="TermLab.Editor.SaveAs"/>
+            <add-to-group group-id="ToolsMenu" anchor="last"/>
+            <add-to-group group-id="MainToolBar" anchor="last"/>
+            <keyboard-shortcut keymap="$default" first-keystroke="control R"/>
+            <keyboard-shortcut keymap="Mac OS X 10.5+" first-keystroke="meta R" replace-all="true"/>
+            <keyboard-shortcut keymap="Mac OS X" first-keystroke="meta R" replace-all="true"/>
+        </action>
+
+        <action id="TermLab.Runner.EditConfig"
+                class="com.termlab.runner.actions.EditConfigAction"
+                text="Edit Run Configuration"
+                icon="AllIcons.General.Settings"
+                description="Edit the run configuration for the current file">
+            <add-to-group group-id="FileMenu" anchor="after" relative-to-action="TermLab.Runner.Run"/>
+            <add-to-group group-id="ToolsMenu" anchor="last"/>
+            <keyboard-shortcut keymap="$default" first-keystroke="control shift R"/>
+            <keyboard-shortcut keymap="Mac OS X 10.5+" first-keystroke="meta shift R" replace-all="true"/>
+            <keyboard-shortcut keymap="Mac OS X" first-keystroke="meta shift R" replace-all="true"/>
+        </action>
+    </actions>
+</idea-plugin>
