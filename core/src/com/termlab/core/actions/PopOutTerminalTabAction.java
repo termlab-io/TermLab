@@ -6,6 +6,7 @@ import com.intellij.openapi.actionSystem.AnAction;
 import com.intellij.openapi.actionSystem.AnActionEvent;
 import com.intellij.openapi.actionSystem.CommonDataKeys;
 import com.intellij.openapi.fileEditor.FileEditorManager;
+import com.intellij.openapi.fileEditor.FileEditorManagerKeys;
 import com.intellij.openapi.fileEditor.ex.FileEditorManagerEx;
 import com.intellij.openapi.fileEditor.ex.FileEditorOpenMode;
 import com.intellij.openapi.fileEditor.ex.FileEditorOpenRequest;
@@ -50,9 +51,14 @@ public final class PopOutTerminalTabAction extends AnAction {
             .withRequestFocus(true)
             .withSelectAsCurrent(true);
 
-        manager.openFile(termFile, request);
-        if (!sourceWindow.isDisposed()) {
-            manager.closeFile(termFile, sourceWindow);
+        termFile.putUserData(FileEditorManagerKeys.CLOSING_TO_REOPEN, true);
+        try {
+            manager.openFile(termFile, request);
+            if (!sourceWindow.isDisposed()) {
+                manager.closeFile(termFile, sourceWindow);
+            }
+        } finally {
+            termFile.putUserData(FileEditorManagerKeys.CLOSING_TO_REOPEN, null);
         }
     }
 

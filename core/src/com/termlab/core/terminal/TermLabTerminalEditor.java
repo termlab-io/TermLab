@@ -8,6 +8,7 @@ import com.intellij.openapi.editor.colors.EditorColorsManager;
 import com.intellij.openapi.editor.colors.EditorColorsScheme;
 import com.intellij.openapi.fileEditor.FileEditor;
 import com.intellij.openapi.fileEditor.FileEditorManager;
+import com.intellij.openapi.fileEditor.FileEditorManagerKeys;
 import com.intellij.openapi.fileEditor.FileEditorState;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.util.UserDataHolderBase;
@@ -33,6 +34,7 @@ public final class TermLabTerminalEditor extends UserDataHolderBase implements F
     private final TermLabTerminalWidget terminalWidget;
     private final com.intellij.util.messages.MessageBusConnection messageBusConnection;
     private TtyConnector connector;
+    private volatile boolean suppressExitClose;
 
     public TermLabTerminalEditor(@NotNull Project project,
                                 @NotNull TermLabTerminalVirtualFile file) {
@@ -80,15 +82,19 @@ public final class TermLabTerminalEditor extends UserDataHolderBase implements F
     }
 
     private void startExitWatcher() {
+        TtyConnector watchedConnector = connector;
         Thread watcher = new Thread(() -> {
             try {
-                connector.waitFor();
+                watchedConnector.waitFor();
             } catch (InterruptedException ignored) {
                 return;
             }
             // Shell exited — close this tab on the EDT
             ApplicationManager.getApplication().invokeLater(() -> {
-                if (!project.isDisposed()) {
+                if (!project.isDisposed()
+                    && !suppressExitClose
+                    && watchedConnector == connector
+                    && file.getUserData(FileEditorManagerKeys.CLOSING_TO_REOPEN) != Boolean.TRUE) {
                     FileEditorManager.getInstance(project).closeFile(file);
                 }
             });
@@ -126,6 +132,7 @@ public final class TermLabTerminalEditor extends UserDataHolderBase implements F
     @Override
     public void dispose() {
         messageBusConnection.disconnect();
+        suppressExitClose = true;
         if (connector != null) {
             try { connector.close(); } catch (Exception ignored) {}
         }
