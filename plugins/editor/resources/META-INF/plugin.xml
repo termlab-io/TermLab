@@ -33,6 +33,10 @@
         <remoteFileOpener implementation="com.termlab.editor.sftp.EditorRemoteFileOpener"/>
     </extensions>
 
+    <extensions defaultExtensionNs="com.intellij">
+        <editorFactoryListener implementation="com.termlab.editor.ui.LightEditorGutterCompactor"/>
+    </extensions>
+
     <actions>
         <action id="TermLab.Editor.SaveCurrentFile"
                 class="com.termlab.editor.scratch.SaveCurrentFileAction"

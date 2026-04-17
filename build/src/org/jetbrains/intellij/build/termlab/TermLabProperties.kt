@@ -1,7 +1,9 @@
 package org.jetbrains.intellij.build.termlab
 
 import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.plus
 import org.jetbrains.intellij.build.ApplicationInfoProperties
+import org.jetbrains.intellij.build.CommunityRepositoryModules
 import com.intellij.platform.pluginSystem.parser.impl.elements.ModuleLoadingRuleValue
 import org.jetbrains.intellij.build.JetBrainsProductProperties
 import org.jetbrains.intellij.build.LinuxDistributionCustomizer
@@ -37,6 +39,7 @@ class TermLabProperties(private val communityHomeDir: Path) : JetBrainsProductPr
       "intellij.termlab.share",
       "intellij.termlab.sftp",
       "intellij.termlab.editor",
+      "intellij.termlab.runner",
       "intellij.classic.ui",
       "intellij.sh.plugin",
       "intellij.textmate.plugin",
@@ -61,7 +64,12 @@ class TermLabProperties(private val communityHomeDir: Path) : JetBrainsProductPr
     //   - intellij.termlab.sdk           → core    (parent of everyone)
     //   - bouncy-castle-provider       → vault   (vault/ssh/tunnels need it)
     //   - sshd-osgi                    → ssh     (ssh/tunnels need it)
-    productLayout.pluginLayouts = persistentListOf(
+    // Keep the upstream community plugin layout rules for bundled JetBrains
+    // plugins like TextMate. TextMate relies on a custom layout hook that
+    // copies its built-in grammar bundles into `plugins/textmate/lib/bundles`;
+    // replacing the full pluginLayouts list drops that hook and installers
+    // ship without syntax bundles.
+    productLayout.pluginLayouts = CommunityRepositoryModules.COMMUNITY_REPOSITORY_PLUGINS + persistentListOf(
       PluginLayout.plugin(mainModuleName = "intellij.termlab.core", auto = true) { spec ->
         spec.withModule("intellij.termlab.sdk")
       },
