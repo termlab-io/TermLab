@@ -75,6 +75,8 @@ TERMLAB_MODULES=(
   "termlab/plugins/share/intellij.termlab.share.iml"
   "termlab/plugins/sftp/intellij.termlab.sftp.iml"
   "termlab/plugins/editor/intellij.termlab.editor.iml"
+  "termlab/plugins/runner/intellij.termlab.runner.iml"
+  "termlab/plugins/search/intellij.termlab.search.iml"
 )
 
 MISSING_MODULES=()
