@@ -43,16 +43,16 @@ final class SaveAsHelper {
      * {@link LightVirtualFile} its tab will be closed after a
      * successful save and the new file opened in its place.
      */
-    static void saveAs(@NotNull Project project, @NotNull VirtualFile file) {
+    static boolean saveAs(@NotNull Project project, @NotNull VirtualFile file) {
         Document doc = FileDocumentManager.getInstance().getDocument(file);
-        if (doc == null) return;
+        if (doc == null) return false;
 
         FilePickerResult result = UnifiedFilePickerDialog.showSaveDialog(
             project,
             "Save As",
             file.getName(),
             lastUsedSourceId());
-        if (result == null) return;
+        if (result == null) return false;
 
         byte[] bytes = doc.getText().getBytes(StandardCharsets.UTF_8);
         // Dialog released its source reference on dispose; re-acquire for the write.
@@ -62,13 +62,13 @@ final class SaveAsHelper {
             source.open(project, writeToken);
         } catch (IOException ioe) {
             notifyError(project, "Save failed: " + ioe.getMessage());
-            return;
+            return false;
         }
         try {
             source.writeFile(result.absolutePath(), bytes);
         } catch (IOException ioe) {
             notifyError(project, "Save failed: " + ioe.getMessage());
-            return;
+            return false;
         } finally {
             source.close(writeToken);
         }
@@ -81,7 +81,9 @@ final class SaveAsHelper {
             && lvf.getUserData(ScratchMarker.KEY) == Boolean.TRUE;
         if (saved != null) {
             if (isScratch) {
+                file.putUserData(ScratchMarker.SKIP_CLOSE_CONFIRMATION_KEY, Boolean.TRUE);
                 mgr.closeFile(file);
+                file.putUserData(ScratchMarker.SKIP_CLOSE_CONFIRMATION_KEY, null);
             }
             mgr.openFile(saved, true);
         }
@@ -89,6 +91,7 @@ final class SaveAsHelper {
         notify(project,
             "Saved to " + result.source().label() + ":" + result.absolutePath(),
             NotificationType.INFORMATION);
+        return true;
     }
 
     /** Last-used source id, used by callers that preload the picker. */

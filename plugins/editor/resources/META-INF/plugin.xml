@@ -28,6 +28,11 @@
                   topic="com.intellij.ide.AppLifecycleListener"/>
     </applicationListeners>
 
+    <projectListeners>
+        <listener class="com.termlab.editor.scratch.EditorCloseConfirmationListener"
+                  topic="com.intellij.openapi.fileEditor.FileEditorManagerListener$Before"/>
+    </projectListeners>
+
     <extensions defaultExtensionNs="com.termlab.sftp">
         <localFileOpener implementation="com.termlab.editor.sftp.EditorLocalFileOpener"/>
         <remoteFileOpener implementation="com.termlab.editor.sftp.EditorRemoteFileOpener"/>
