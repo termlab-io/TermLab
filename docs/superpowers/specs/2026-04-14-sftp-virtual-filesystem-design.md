@@ -480,7 +480,7 @@ Registered in `plugins/sftp/resources/META-INF/plugin.xml` under `<projectListen
 
 **No silent failures.** Every error path either propagates an `IOException` that the platform recognizes OR shows a notification with a descriptive message. Errors are logged at `WARN` level via `Logger.getInstance(SftpVirtualFileSystem.class).warn(...)` for diagnostics, including the host label and remote path.
 
-**Notification group.** Reuse the existing `"TermLab SFTP"` notification group registered in `plugins/sftp/resources/META-INF/plugin.xml`. Keeps SFTP operations under one notification banner.
+**Notification group.** Reuse the existing `"SFTP"` notification group registered in `plugins/sftp/resources/META-INF/plugin.xml`. Keeps SFTP operations under one notification banner.
 
 ## Testing
 

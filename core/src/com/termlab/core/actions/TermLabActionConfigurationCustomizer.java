@@ -91,6 +91,24 @@ public final class TermLabActionConfigurationCustomizer implements ActionConfigu
         "ActivateDebugToolWindow",
         "ActivateHierarchyToolWindow",
         "ActivateServicesToolWindow",
+        // Debugger actions. These action ids are still registered from
+        // platform action XML even though TermLab excludes the debugger
+        // implementation modules, so command-palette updates can probe
+        // missing debugger extension points unless we strip them here.
+        "Resume",
+        "Pause",
+        "StepOver",
+        "StepInto",
+        "ForceStepInto",
+        "SmartStepInto",
+        "StepOut",
+        "RunToCursor",
+        "ForceRunToCursor",
+        "EvaluateExpression",
+        "QuickEvaluateExpression",
+        "ShowExecutionPoint",
+        "ToggleLineBreakpoint",
+        "ViewBreakpoints",
     };
 
     /**

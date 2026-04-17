@@ -1,0 +1,27 @@
+<idea-plugin>
+    <id>com.termlab.search</id>
+    <name>File Search</name>
+    <version>0.1.0</version>
+    <vendor>TermLab</vendor>
+    <description>
+        Filename-only search across the active SFTP panes, surfaced
+        as a Files tab in Search Everywhere.
+    </description>
+
+    <depends>com.intellij.modules.platform</depends>
+    <depends>com.termlab.core</depends>
+    <depends>com.termlab.ssh</depends>
+    <depends>com.termlab.sftp</depends>
+
+    <extensions defaultExtensionNs="com.intellij">
+        <notificationGroup
+            id="TermLab File Search"
+            displayType="BALLOON"/>
+
+        <applicationService
+            serviceImplementation="com.termlab.search.FileSearchFilter"/>
+
+        <searchEverywhereContributor
+            implementation="com.termlab.search.FileSearchContributor$Factory"/>
+    </extensions>
+</idea-plugin>

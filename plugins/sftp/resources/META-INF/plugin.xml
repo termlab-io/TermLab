@@ -89,5 +89,23 @@
             <keyboard-shortcut keymap="$default" first-keystroke="meta shift K"/>
             <keyboard-shortcut keymap="$default" first-keystroke="ctrl shift K"/>
         </action>
+
+        <action id="TermLab.Sftp.FocusLocalPath"
+                class="com.termlab.sftp.actions.FocusLocalSftpPathAction"
+                text="Focus Local SFTP Path"
+                description="Focus the local path field in the SFTP pane">
+            <keyboard-shortcut keymap="$default" first-keystroke="control L"/>
+            <keyboard-shortcut keymap="Mac OS X 10.5+" first-keystroke="meta L" replace-all="true"/>
+            <keyboard-shortcut keymap="Mac OS X" first-keystroke="meta L" replace-all="true"/>
+        </action>
+
+        <action id="TermLab.Sftp.FocusRemotePath"
+                class="com.termlab.sftp.actions.FocusRemoteSftpPathAction"
+                text="Focus Remote SFTP Path"
+                description="Focus the remote path field in the SFTP pane">
+            <keyboard-shortcut keymap="$default" first-keystroke="control shift L"/>
+            <keyboard-shortcut keymap="Mac OS X 10.5+" first-keystroke="meta shift L" replace-all="true"/>
+            <keyboard-shortcut keymap="Mac OS X" first-keystroke="meta shift L" replace-all="true"/>
+        </action>
     </actions>
 </idea-plugin>

@@ -7,6 +7,7 @@ import com.termlab.core.filepicker.ui.SizeCellRenderer;
 import com.termlab.sftp.model.LocalFileEntry;
 import com.termlab.sftp.ops.LocalFileOps;
 import com.termlab.sftp.persistence.TermLabSftpConfig;
+import com.termlab.sftp.search.FileListCache;
 import com.termlab.sftp.spi.LocalFileOpener;
 import com.intellij.icons.AllIcons;
 import com.intellij.openapi.actionSystem.ActionManager;
@@ -56,6 +57,7 @@ public final class LocalFilePane extends JPanel {
     private final FileTableModel model = new FileTableModel();
     private final JBTable table = new JBTable(model);
     private final JTextField pathField = new JTextField();
+    private final FileListCache fileListCache = new FileListCache();
 
     private Path currentDir;
     private final CopyOnWriteArrayList<Runnable> directoryListeners = new CopyOnWriteArrayList<>();
@@ -359,6 +361,7 @@ public final class LocalFilePane extends JPanel {
     }
 
     private void reload(@NotNull Path dir) {
+        fileListCache.invalidate();
         pathField.setText(dir.toString());
         AppExecutorUtil.getAppExecutorService().submit(() -> {
             List<LocalFileEntry> entries = new ArrayList<>();
@@ -400,6 +403,15 @@ public final class LocalFilePane extends JPanel {
     /** Directory currently displayed, or {@code null} before the first reload. */
     public @org.jetbrains.annotations.Nullable Path currentDirectory() {
         return currentDir;
+    }
+
+    public void focusPathField() {
+        pathField.requestFocusInWindow();
+        pathField.selectAll();
+    }
+
+    public @NotNull FileListCache fileListCache() {
+        return fileListCache;
     }
 
     /** Files / directories the user has selected. Returned paths are absolute. */

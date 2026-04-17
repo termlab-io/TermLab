@@ -8,6 +8,7 @@ import com.termlab.sftp.client.SshSftpSession;
 import com.termlab.sftp.model.RemoteFileEntry;
 import com.termlab.sftp.ops.RemoteFileOps;
 import com.termlab.sftp.persistence.TermLabSftpConfig;
+import com.termlab.sftp.search.FileListCache;
 import com.termlab.sftp.session.SftpSessionManager;
 import com.termlab.sftp.spi.RemoteFileOpener;
 import com.termlab.ssh.client.SshConnectException;
@@ -67,6 +68,7 @@ public final class RemoteFilePane extends JPanel {
     private final JLabel statusLabel = new JLabel("Not connected");
     private final JButton connectButton = new JButton("Connect");
     private final JButton disconnectButton = new JButton("Disconnect");
+    private final FileListCache fileListCache = new FileListCache();
     private final HostStore hostStore;
     private final Runnable hostStoreListener;
 
@@ -280,6 +282,7 @@ public final class RemoteFilePane extends JPanel {
                     ApplicationManager.getApplication().invokeLater(() -> {
                         activeSession = session;
                         currentHost = host;
+                        fileListCache.invalidate();
                         TermLabSftpConfig.getInstance().setLastRemoteHostId(host.id().toString());
                         statusLabel.setText("Connected to " + host.host() + ":" + host.port());
                         setUiEnabled(true);
@@ -313,6 +316,7 @@ public final class RemoteFilePane extends JPanel {
     private void navigateRemote(@NotNull String path) {
         SshSftpSession session = activeSession;
         if (session == null) return;
+        fileListCache.invalidate();
         AppExecutorUtil.getAppExecutorService().submit(() -> {
             List<RemoteFileEntry> entries = new ArrayList<>();
             IOException error = null;
@@ -347,6 +351,7 @@ public final class RemoteFilePane extends JPanel {
         if (session == null || currentHost == null) return;
         UUID hostId = currentHost.id();
         SftpSessionManager.getInstance().release(hostId, this);
+        fileListCache.invalidate();
         activeSession = null;
         currentHost = null;
         currentRemotePath = null;
@@ -416,6 +421,15 @@ public final class RemoteFilePane extends JPanel {
     /** Currently-connected host, or {@code null} when disconnected. */
     public @org.jetbrains.annotations.Nullable com.termlab.ssh.model.SshHost currentHost() {
         return currentHost;
+    }
+
+    public void focusPathField() {
+        pathField.requestFocusInWindow();
+        pathField.selectAll();
+    }
+
+    public @NotNull FileListCache fileListCache() {
+        return fileListCache;
     }
 
     /**

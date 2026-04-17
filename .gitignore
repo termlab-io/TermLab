@@ -36,5 +36,9 @@ perf-results/
 /idea.log
 /exceptions
 
+# Local memory-investigation captures and reports. These are workstation
+# artifacts, not repository content.
+/docs/memory-investigation/
+
 # Icon source assets, mock-ups, and third-party DMG tooling — not shipped.
 /icons/

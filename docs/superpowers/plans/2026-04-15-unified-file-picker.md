@@ -2504,7 +2504,7 @@ import java.util.UUID;
  */
 public final class SaveScratchToRemoteAction extends AnAction {
 
-    private static final String NOTIFICATION_GROUP = "TermLab SFTP";
+    private static final String NOTIFICATION_GROUP = "SFTP";
     private static final String LAST_SOURCE_KEY = "termlab.editor.lastRemoteSourceId";
 
     @Override

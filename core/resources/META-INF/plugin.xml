@@ -194,13 +194,6 @@
                   topic="com.intellij.ide.AppLifecycleListener"/>
 
         <!--
-          Removes built-in Darcula / IntelliJ Light theme providers so only
-          TermLab themes appear in the theme picker.
-        -->
-        <listener class="com.termlab.core.TermLabBuiltInThemeStripper"
-                  topic="com.intellij.ide.AppLifecycleListener"/>
-
-        <!--
           Points OS theme sync to TermLab Light / TermLab Dark instead of
           IntelliJ defaults, and keeps first-launch fallback on TermLab Light.
         -->
@@ -302,6 +295,69 @@
             <keyboard-shortcut keymap="$default" first-keystroke="control shift P"/>
             <keyboard-shortcut keymap="Mac OS X 10.5+" first-keystroke="meta shift P" replace-all="true"/>
             <keyboard-shortcut keymap="Mac OS X" first-keystroke="meta shift P" replace-all="true"/>
+        </action>
+
+        <action id="TermLab.SearchEverywhere.ActionsTab"
+                class="com.termlab.core.palette.OpenSearchEverywhereTabAction$ActionsTab"
+                text="Search Everywhere: Actions Tab"
+                description="Open Search Everywhere on the Actions tab">
+            <keyboard-shortcut keymap="$default" first-keystroke="control shift P" second-keystroke="A"/>
+            <keyboard-shortcut keymap="Mac OS X 10.5+" first-keystroke="meta shift P" second-keystroke="A" replace-all="true"/>
+            <keyboard-shortcut keymap="Mac OS X" first-keystroke="meta shift P" second-keystroke="A" replace-all="true"/>
+        </action>
+
+        <action id="TermLab.SearchEverywhere.TerminalsTab"
+                class="com.termlab.core.palette.OpenSearchEverywhereTabAction$TerminalsTab"
+                text="Search Everywhere: Terminals Tab"
+                description="Open Search Everywhere on the Terminals tab">
+            <keyboard-shortcut keymap="$default" first-keystroke="control shift P" second-keystroke="T"/>
+            <keyboard-shortcut keymap="Mac OS X 10.5+" first-keystroke="meta shift P" second-keystroke="T" replace-all="true"/>
+            <keyboard-shortcut keymap="Mac OS X" first-keystroke="meta shift P" second-keystroke="T" replace-all="true"/>
+        </action>
+
+        <action id="TermLab.SearchEverywhere.HostsTab"
+                class="com.termlab.core.palette.OpenSearchEverywhereTabAction$HostsTab"
+                text="Search Everywhere: Hosts Tab"
+                description="Open Search Everywhere on the Hosts tab">
+            <keyboard-shortcut keymap="$default" first-keystroke="control shift P" second-keystroke="H"/>
+            <keyboard-shortcut keymap="Mac OS X 10.5+" first-keystroke="meta shift P" second-keystroke="H" replace-all="true"/>
+            <keyboard-shortcut keymap="Mac OS X" first-keystroke="meta shift P" second-keystroke="H" replace-all="true"/>
+        </action>
+
+        <action id="TermLab.SearchEverywhere.FilesTab"
+                class="com.termlab.core.palette.OpenSearchEverywhereTabAction$FilesTab"
+                text="Search Everywhere: Files Tab"
+                description="Open Search Everywhere on the Files tab">
+            <keyboard-shortcut keymap="$default" first-keystroke="control shift P" second-keystroke="F"/>
+            <keyboard-shortcut keymap="Mac OS X 10.5+" first-keystroke="meta shift P" second-keystroke="F" replace-all="true"/>
+            <keyboard-shortcut keymap="Mac OS X" first-keystroke="meta shift P" second-keystroke="F" replace-all="true"/>
+        </action>
+
+        <action id="TermLab.SearchEverywhere.VaultTab"
+                class="com.termlab.core.palette.OpenSearchEverywhereTabAction$VaultTab"
+                text="Search Everywhere: Vault Tab"
+                description="Open Search Everywhere on the Vault tab">
+            <keyboard-shortcut keymap="$default" first-keystroke="control shift P" second-keystroke="V"/>
+            <keyboard-shortcut keymap="Mac OS X 10.5+" first-keystroke="meta shift P" second-keystroke="V" replace-all="true"/>
+            <keyboard-shortcut keymap="Mac OS X" first-keystroke="meta shift P" second-keystroke="V" replace-all="true"/>
+        </action>
+
+        <action id="TermLab.SearchEverywhere.SftpTab"
+                class="com.termlab.core.palette.OpenSearchEverywhereTabAction$SftpTab"
+                text="Search Everywhere: SFTP Tab"
+                description="Open Search Everywhere on the SFTP tab">
+            <keyboard-shortcut keymap="$default" first-keystroke="control shift P" second-keystroke="S"/>
+            <keyboard-shortcut keymap="Mac OS X 10.5+" first-keystroke="meta shift P" second-keystroke="S" replace-all="true"/>
+            <keyboard-shortcut keymap="Mac OS X" first-keystroke="meta shift P" second-keystroke="S" replace-all="true"/>
+        </action>
+
+        <action id="TermLab.SearchEverywhere.TunnelsTab"
+                class="com.termlab.core.palette.OpenSearchEverywhereTabAction$TunnelsTab"
+                text="Search Everywhere: Tunnels Tab"
+                description="Open Search Everywhere on the Tunnels tab">
+            <keyboard-shortcut keymap="$default" first-keystroke="control shift P" second-keystroke="U"/>
+            <keyboard-shortcut keymap="Mac OS X 10.5+" first-keystroke="meta shift P" second-keystroke="U" replace-all="true"/>
+            <keyboard-shortcut keymap="Mac OS X" first-keystroke="meta shift P" second-keystroke="U" replace-all="true"/>
         </action>
 
         <!--

@@ -1,0 +1,75 @@
+load("@rules_java//java:defs.bzl", "java_binary")
+load("@rules_jvm//:jvm.bzl", "jvm_library", "resourcegroup")
+
+resourcegroup(
+    name = "search_resources",
+    srcs = glob(["resources/**/*"]),
+    strip_prefix = "resources",
+)
+
+jvm_library(
+    name = "search",
+    module_name = "intellij.termlab.search",
+    visibility = ["//visibility:public"],
+    srcs = glob(["src/**/*.java"], allow_empty = True),
+    resources = [":search_resources"],
+    deps = [
+        "//termlab/plugins/sftp/libs:sshd_sftp",
+        "//termlab/sdk",
+        "//termlab/core",
+        "//termlab/plugins/ssh",
+        "//termlab/plugins/sftp",
+        "//platform/analysis-api:analysis",
+        "//platform/core-api:core",
+        "//platform/core-ui",
+        "//platform/editor-ui-api:editor-ui",
+        "//platform/ide-core",
+        "//platform/lang-api:lang",
+        "//platform/platform-api:ide",
+        "//platform/platform-impl:ide-impl",
+        "//platform/projectModel-api:projectModel",
+        "//platform/util",
+        "//platform/util/text-matching",
+        "//platform/util:util-ui",
+        "//libraries/sshd-osgi",
+        "@lib//:jetbrains-annotations",
+        "@lib//:kotlin-stdlib",
+    ],
+)
+
+jvm_library(
+    name = "search_test_lib",
+    module_name = "intellij.termlab.search.tests",
+    visibility = ["//visibility:public"],
+    srcs = glob(["test/**/*.java"], allow_empty = True),
+    deps = [
+        ":search",
+        "//termlab/plugins/sftp/libs:sshd_sftp",
+        "//termlab/sdk",
+        "//termlab/plugins/ssh",
+        "//termlab/plugins/sftp",
+        "//libraries/junit5",
+        "//libraries/junit5-jupiter",
+        "//libraries/junit5-launcher",
+        "//platform/ide-core",
+        "//platform/platform-api:ide",
+        "//platform/projectModel-api:projectModel",
+        "//platform/util",
+        "//platform/util/text-matching",
+        "//platform/util:util-ui",
+        "@lib//:jetbrains-annotations",
+        "@lib//:kotlin-stdlib",
+    ],
+)
+
+java_binary(
+    name = "search_test_runner",
+    main_class = "com.termlab.search.TestRunner",
+    runtime_deps = [
+        ":search_test_lib",
+        "//libraries/junit5-jupiter",
+        "//libraries/junit5-launcher",
+    ],
+)
+
+exports_files(["intellij.termlab.search.iml"], visibility = ["//visibility:public"])

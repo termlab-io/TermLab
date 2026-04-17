@@ -27,7 +27,8 @@ public final class TermLabTabsCustomizationStrategy implements TabsCustomization
         "TermLabHosts",
         "TermLabVault",
         "TermLabTunnels",
-        "TermLabSftp"
+        "TermLabSftp",
+        "TermLabFiles"
     );
 
     @Override

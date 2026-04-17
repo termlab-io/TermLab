@@ -954,7 +954,7 @@ Append to `SftpSessionManager`:
     ) {
         com.intellij.openapi.wm.ToolWindow tw =
             com.intellij.openapi.wm.ToolWindowManager.getInstance(project)
-                .getToolWindow("TermLab SFTP");
+                .getToolWindow("SFTP");
         if (tw == null) return null;
         var contents = tw.getContentManager().getContents();
         for (var content : contents) {
@@ -1612,7 +1612,7 @@ import org.jetbrains.annotations.NotNull;
 public final class OpenGuards {
 
     public static final long SIZE_CAP_BYTES = 5L * 1024 * 1024;
-    private static final String NOTIFICATION_GROUP = "TermLab SFTP";
+    private static final String NOTIFICATION_GROUP = "SFTP";
 
     private OpenGuards() {}
 
@@ -1747,7 +1747,7 @@ import org.jetbrains.annotations.NotNull;
 
 public final class EditorRemoteFileOpener implements RemoteFileOpener {
 
-    private static final String NOTIFICATION_GROUP = "TermLab SFTP";
+    private static final String NOTIFICATION_GROUP = "SFTP";
 
     @Override
     public void open(
@@ -1776,7 +1776,7 @@ public final class EditorRemoteFileOpener implements RemoteFileOpener {
 
     private static void notifyError(@NotNull Project project, @NotNull String message) {
         Notifications.Bus.notify(
-            new Notification(NOTIFICATION_GROUP, "TermLab SFTP", message, NotificationType.ERROR),
+            new Notification(NOTIFICATION_GROUP, "SFTP", message, NotificationType.ERROR),
             project);
     }
 }
@@ -1826,7 +1826,7 @@ import org.jetbrains.annotations.NotNull;
 
 public final class EditorLocalFileOpener implements LocalFileOpener {
 
-    private static final String NOTIFICATION_GROUP = "TermLab SFTP";
+    private static final String NOTIFICATION_GROUP = "SFTP";
 
     @Override
     public void open(@NotNull Project project, @NotNull LocalFileEntry entry) {
@@ -1834,7 +1834,7 @@ public final class EditorLocalFileOpener implements LocalFileOpener {
         VirtualFile vf = LocalFileSystem.getInstance().refreshAndFindFileByNioFile(entry.path());
         if (vf == null) {
             Notifications.Bus.notify(
-                new Notification(NOTIFICATION_GROUP, "TermLab SFTP",
+                new Notification(NOTIFICATION_GROUP, "SFTP",
                     "Could not open " + entry.path(), NotificationType.ERROR),
                 project);
             return;
@@ -2086,7 +2086,7 @@ import java.util.UUID;
  */
 public final class SaveScratchToRemoteAction extends AnAction {
 
-    private static final String NOTIFICATION_GROUP = "TermLab SFTP";
+    private static final String NOTIFICATION_GROUP = "SFTP";
 
     @Override
     public void update(@NotNull AnActionEvent e) {

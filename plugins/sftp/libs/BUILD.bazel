@@ -23,6 +23,7 @@ java_import(
     jars = ["sshd-sftp-2.15.0.jar"],
     visibility = [
         "//termlab/plugins/sftp:__pkg__",
+        "//termlab/plugins/search:__pkg__",
         "//termlab/plugins/editor:__pkg__",
         "//termlab/plugins/runner:__pkg__",
     ],

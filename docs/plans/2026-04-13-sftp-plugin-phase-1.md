@@ -1,4 +1,4 @@
-# TermLab SFTP Plugin — Phase 1 Implementation Plan
+# SFTP Plugin — Phase 1 Implementation Plan
 
 > **For agentic workers:** Use `superpowers:subagent-driven-development` or
 > `superpowers:executing-plans` to execute this plan task-by-task. Steps use
@@ -102,7 +102,7 @@ plugins/sftp/
 ```xml
 <idea-plugin>
     <id>com.termlab.sftp</id>
-    <name>TermLab SFTP</name>
+    <name>SFTP</name>
     <version>0.1.0</version>
     <vendor>TermLab</vendor>
     <description>Dual-pane SFTP browser for TermLab.</description>
@@ -116,7 +116,7 @@ plugins/sftp/
             serviceImplementation="com.termlab.sftp.persistence.TermLabSftpConfig"/>
 
         <toolWindow
-            id="TermLab SFTP"
+            id="SFTP"
             anchor="bottom"
             icon="AllIcons.Nodes.ExtractedFolder"
             factoryClass="com.termlab.sftp.toolwindow.SftpToolWindowFactory"/>
@@ -184,7 +184,7 @@ make termlab-build
 
 Expected: `Target //termlab:termlab_run up-to-date`, no compile errors. At this
 point the plugin is registered, has no code, and does nothing but show a
-`TermLab SFTP` tool window stripe button at the bottom of the frame. The tool
+`SFTP` tool window stripe button at the bottom of the frame. The tool
 window itself will be empty until Task 6.
 
 ---
@@ -213,7 +213,7 @@ window itself will be empty until Task 6.
 ever runs, our addition disappears. Document a prominent comment near the
 edit: `# TermLab: do not remove — see docs/plans/2026-04-13-sftp-plugin-phase-1.md`.
 
-### Approach B — vendor the jar into the TermLab SFTP plugin (recommended)
+### Approach B — vendor the jar into the SFTP plugin (recommended)
 
 **Files:**
 - Create: `plugins/sftp/libs/sshd-sftp-2.15.0.jar` — downloaded from
@@ -417,7 +417,7 @@ public @NotNull SshSftpSession openSftpSession(
     try {
         SftpClientFactory factory = SftpClientFactory.instance();
         SftpClient client = factory.createSftpClient(session);
-        LOG.info("TermLab SFTP: session established host=" + host.host() + ":" + host.port()
+        LOG.info("SFTP: session established host=" + host.host() + ":" + host.port()
             + " user=" + credential.username());
         return new SshSftpSession(session, client);
     } catch (IOException e) {
@@ -1138,7 +1138,7 @@ Phase 1 scope for the SE tab: a single row per *connection action*:
 - One row per saved host: "Connect SFTP to <host.label()>"
 
 Selecting a row activates the tool window via
-`ToolWindowManager.getInstance(project).getToolWindow("TermLab SFTP").show()`,
+`ToolWindowManager.getInstance(project).getToolWindow("SFTP").show()`,
 and for the per-host rows, pre-selects that host in the remote pane's
 picker and fires `connect()`.
 
@@ -1150,9 +1150,9 @@ Copy and adapt.
 ## Task 11: End-to-end verification
 
 - [ ] **Step 11.1: make termlab-build** — clean compile, no new errors
-- [ ] **Step 11.2: make termlab** — launch the dev TermLab, TermLab SFTP tool
+- [ ] **Step 11.2: make termlab** — launch the dev TermLab, SFTP tool
   window button appears at the bottom of the frame
-- [ ] **Step 11.3: Click TermLab SFTP** — tool window opens. Local pane shows
+- [ ] **Step 11.3: Click SFTP** — tool window opens. Local pane shows
   current directory (last browsed or `$HOME`). Remote pane shows "Not
   connected" with host picker populated from HostStore.
 - [ ] **Step 11.4: Navigate local** — double-click a subdirectory,
