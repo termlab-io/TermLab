@@ -57,6 +57,7 @@ jobs:
         with:
           fetch-depth: 0
           token: ${{ secrets.RELEASE_TOKEN }}
+          ref: refs/heads/main
 
       - uses: actions/setup-python@v5
         with:
@@ -67,6 +68,12 @@ jobs:
           INTELLIJ_ROOT="$(dirname "$(pwd -P)")/intellij-community"
           echo "INTELLIJ_ROOT=$INTELLIJ_ROOT" >> "$GITHUB_ENV"
           ./scripts/ci/bootstrap_intellij.sh "$INTELLIJ_ROOT"
+
+      - name: Refresh local main from origin
+        run: |
+          git fetch origin main
+          git checkout main
+          git reset --hard origin/main
 
       - name: Stamp release metadata
         run: python3 scripts/generate_version.py
@@ -122,7 +129,20 @@ jobs:
 
       - name: Push release commit
         if: steps.commit.outputs.created == 'true'
-        run: git push origin HEAD:main
+        run: |
+          for attempt in 1 2 3; do
+            if git push origin HEAD:main; then
+              exit 0
+            fi
+
+            if [ "$attempt" -eq 3 ]; then
+              echo "::error::Failed to push release commit to main after 3 attempts."
+              exit 1
+            fi
+
+            git fetch origin main
+            git rebase origin/main
+          done
 
       - name: Replace existing release tag
         run: |
