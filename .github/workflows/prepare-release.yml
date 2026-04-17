@@ -20,7 +20,18 @@ permissions:
   contents: write
 
 jobs:
+  authorize:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Restrict manual release workflow to an0nn30
+        run: |
+          if [ "${GITHUB_ACTOR}" != "an0nn30" ]; then
+            echo "::error::Only GitHub user an0nn30 may run Prepare Release."
+            exit 1
+          fi
+
   prepare:
+    needs: authorize
     runs-on: ubuntu-24.04
     env:
       TERMLAB_VERSION_MODE: release
