@@ -8,6 +8,7 @@ import com.jediterm.terminal.TtyConnector;
 import com.jediterm.terminal.model.StyleState;
 import com.jediterm.terminal.emulator.mouse.MouseMode;
 import com.jediterm.terminal.model.JediTerminal;
+import com.jediterm.terminal.model.TerminalSelection;
 import com.jediterm.terminal.model.TerminalTextBuffer;
 import com.jediterm.terminal.ui.JediTermWidget;
 import com.jediterm.terminal.ui.TerminalAction;
@@ -21,6 +22,8 @@ import javax.swing.plaf.basic.BasicScrollBarUI;
 import java.awt.*;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
+import java.awt.event.KeyEvent;
+import java.lang.reflect.Method;
 
 /**
  * Custom JediTermWidget with a dark, auto-hiding scrollbar that matches
@@ -175,6 +178,7 @@ public class TermLabTerminalWidget extends JediTermWidget {
      * when a remote app asks for it with {@code CSI ? 1000 h} et al.
      */
     private static final class TermLabTerminalPanel extends TerminalPanel {
+        private static final Method UPDATE_SELECTION_METHOD = lookupUpdateSelectionMethod();
 
         private volatile MouseMode currentMouseMode = MouseMode.MOUSE_REPORTING_NONE;
         private volatile boolean bracketedPasteModeEnabled;
@@ -215,6 +219,50 @@ public class TermLabTerminalWidget extends JediTermWidget {
 
         boolean isBracketedPasteModeEnabled() {
             return bracketedPasteModeEnabled;
+        }
+
+        @Override
+        public void processKeyEvent(KeyEvent e) {
+            if (shouldClearSelectionOnKeyEvent(e)) {
+                clearSelectionHighlight();
+            }
+            super.processKeyEvent(e);
+        }
+
+        private static Method lookupUpdateSelectionMethod() {
+            try {
+                Method method = TerminalPanel.class.getDeclaredMethod("updateSelection", TerminalSelection.class);
+                method.setAccessible(true);
+                return method;
+            } catch (ReflectiveOperationException e) {
+                throw new IllegalStateException("Failed to access JediTerm selection updater", e);
+            }
+        }
+
+        private boolean shouldClearSelectionOnKeyEvent(@NotNull KeyEvent e) {
+            if (getSelection() == null) return false;
+            return switch (e.getID()) {
+                case KeyEvent.KEY_TYPED -> !Character.isISOControl(e.getKeyChar());
+                case KeyEvent.KEY_PRESSED -> !isModifierOnlyKey(e.getKeyCode());
+                default -> false;
+            };
+        }
+
+        private static boolean isModifierOnlyKey(int keyCode) {
+            return keyCode == KeyEvent.VK_SHIFT
+                || keyCode == KeyEvent.VK_CONTROL
+                || keyCode == KeyEvent.VK_ALT
+                || keyCode == KeyEvent.VK_ALT_GRAPH
+                || keyCode == KeyEvent.VK_META;
+        }
+
+        private void clearSelectionHighlight() {
+            try {
+                UPDATE_SELECTION_METHOD.invoke(this, new Object[]{null});
+                repaint();
+            } catch (ReflectiveOperationException e) {
+                throw new IllegalStateException("Failed to clear JediTerm selection", e);
+            }
         }
     }
 
