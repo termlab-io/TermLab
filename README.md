@@ -89,7 +89,7 @@ INTELLIJ_ROOT=~/some/other/path/intellij-community make termlab
 
 Releases are prepared in GitHub Actions with a two-stage flow:
 
-1. Run `Prepare Release` manually from `main` with `suffix`, `codename`, and `eap`.
+1. Run `Prepare Release` manually from `main` with `suffix`, `codename`, `eap`, and optional `skip_tests`.
 2. The workflow stamps `customization/resources/idea/TermLabApplicationInfo.xml` via `scripts/generate_version.py`, commits the version bump, and pushes a tag in the form `Codename-YYYY.M-suffix`.
 3. The tag triggers `Build Release`, which runs the test runners, builds platform-native installers for macOS, Linux, and Windows across `aarch64` and `amd64`, generates Windows MSI installers, and creates a draft GitHub release.
 
@@ -97,6 +97,7 @@ Repository setup note:
 
 - Add a `RELEASE_TOKEN` secret with `contents:write`. The prepare workflow uses it instead of `GITHUB_TOKEN` so the pushed tag will trigger the tag-based release build workflow.
 - Re-running `Prepare Release` for the same version replaces the existing tag first, then rebuilds the same draft release tag and refreshes its assets.
+- Set `skip_tests=true` when you want the release build to bypass the test-runner job and go straight to packaging.
 
 ## Getting Started in the App
 
