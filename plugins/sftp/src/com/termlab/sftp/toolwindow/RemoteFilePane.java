@@ -38,6 +38,8 @@ import javax.swing.table.TableRowSorter;
 import javax.swing.*;
 import java.awt.*;
 import java.awt.datatransfer.StringSelection;
+import java.awt.event.InputEvent;
+import java.awt.event.KeyEvent;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.io.IOException;
@@ -72,6 +74,7 @@ public final class RemoteFilePane extends JPanel {
     private @Nullable SshHost currentHost;
     private @Nullable String currentRemotePath;
     private final CopyOnWriteArrayList<Runnable> connectionStateListeners = new CopyOnWriteArrayList<>();
+    private TransferActions transferActions;
 
     public RemoteFilePane(@NotNull Project project) {
         super(new BorderLayout());
@@ -113,6 +116,7 @@ public final class RemoteFilePane extends JPanel {
             }
         });
         add(new JScrollPane(table), BorderLayout.CENTER);
+        installTransferShortcut();
 
         JPanel south = new JPanel(new BorderLayout());
         statusLabel.setBorder(JBUI.Borders.empty(4, 6));
@@ -445,6 +449,10 @@ public final class RemoteFilePane extends JPanel {
         connectionStateListeners.add(listener);
     }
 
+    public void setTransferActions(@NotNull TransferActions transferActions) {
+        this.transferActions = transferActions;
+    }
+
     private void fireConnectionStateChanged() {
         for (Runnable listener : connectionStateListeners) {
             listener.run();
@@ -498,6 +506,24 @@ public final class RemoteFilePane extends JPanel {
         copyPath.addActionListener(e -> copyPathsToClipboard(selection));
         menu.add(copyPath);
 
+        if (transferActions != null) {
+            menu.addSeparator();
+
+            JMenuItem download = new JMenuItem(
+                "Download to " + transferActions.downloadTargetLabel(),
+                AllIcons.Actions.Download);
+            download.setEnabled(transferActions.canDownload());
+            download.addActionListener(e -> transferActions.downloadSelection());
+            menu.add(download);
+
+            JMenuItem downloadToPath = new JMenuItem("Download to path…", AllIcons.Actions.MenuOpen);
+            downloadToPath.setEnabled(transferActions.canDownloadToPath());
+            downloadToPath.addActionListener(e -> transferActions.chooseAndDownloadSelectionToPath());
+            menu.add(downloadToPath);
+        }
+
+        menu.addSeparator();
+
         JMenuItem refreshItem = new JMenuItem("Refresh", AllIcons.Actions.Refresh);
         refreshItem.addActionListener(e -> refresh());
         menu.add(refreshItem);
@@ -540,6 +566,20 @@ public final class RemoteFilePane extends JPanel {
     private void copyPathsToClipboard(@NotNull List<String> selection) {
         String joined = selection.stream().collect(Collectors.joining(System.lineSeparator()));
         Toolkit.getDefaultToolkit().getSystemClipboard().setContents(new StringSelection(joined), null);
+    }
+
+    private void installTransferShortcut() {
+        int mask = Toolkit.getDefaultToolkit().getMenuShortcutKeyMaskEx() | InputEvent.SHIFT_DOWN_MASK;
+        KeyStroke key = KeyStroke.getKeyStroke(KeyEvent.VK_D, mask);
+        table.getInputMap(JComponent.WHEN_ANCESTOR_OF_FOCUSED_COMPONENT).put(key, "termlab.sftp.download");
+        table.getActionMap().put("termlab.sftp.download", new AbstractAction() {
+            @Override
+            public void actionPerformed(java.awt.event.ActionEvent e) {
+                if (transferActions != null && transferActions.canDownload()) {
+                    transferActions.downloadSelection();
+                }
+            }
+        });
     }
 
     private static @NotNull String baseName(@NotNull String path) {
@@ -595,5 +635,14 @@ public final class RemoteFilePane extends JPanel {
             }
             return c;
         }
+    }
+
+    public interface TransferActions {
+        boolean canDownload();
+        boolean canDownloadToPath();
+        @NotNull String downloadTargetLabel();
+        void downloadSelection();
+        void downloadSelectionTo(@NotNull java.nio.file.Path localPath);
+        void chooseAndDownloadSelectionToPath();
     }
 }

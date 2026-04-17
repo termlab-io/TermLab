@@ -38,8 +38,8 @@ import java.util.Objects;
  *
  * <p>When the vault is locked, {@link #fetchElements} returns
  * immediately without consuming anything — the tab is empty and the
- * user unlocks via {@code Cmd+Shift+V} or the "Open Vault" entry in
- * the Actions tab.
+ * user unlocks via {@code F8} or the "Open Vault" entry in
+ * {@code Tools -> Credential Vault}.
  */
 public final class VaultSearchEverywhereContributor implements SearchEverywhereContributor<Object> {
 

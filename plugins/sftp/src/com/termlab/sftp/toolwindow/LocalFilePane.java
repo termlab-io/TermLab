@@ -29,6 +29,8 @@ import javax.swing.*;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.awt.*;
 import java.awt.datatransfer.StringSelection;
+import java.awt.event.InputEvent;
+import java.awt.event.KeyEvent;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.io.IOException;
@@ -57,6 +59,7 @@ public final class LocalFilePane extends JPanel {
 
     private Path currentDir;
     private final CopyOnWriteArrayList<Runnable> directoryListeners = new CopyOnWriteArrayList<>();
+    private TransferActions transferActions;
 
     public LocalFilePane(@NotNull Project project) {
         super(new BorderLayout());
@@ -103,6 +106,7 @@ public final class LocalFilePane extends JPanel {
             }
         });
         add(new JScrollPane(table), BorderLayout.CENTER);
+        installTransferShortcut();
 
         reload(initialDirectory());
     }
@@ -145,6 +149,22 @@ public final class LocalFilePane extends JPanel {
         copyPath.setEnabled(!selection.isEmpty());
         copyPath.addActionListener(e -> copyPathsToClipboard(selection));
         menu.add(copyPath);
+
+        if (transferActions != null) {
+            menu.addSeparator();
+
+            JMenuItem upload = new JMenuItem("Upload to " + transferActions.uploadTargetLabel(), AllIcons.Actions.Upload);
+            upload.setEnabled(transferActions.canUpload());
+            upload.addActionListener(e -> transferActions.uploadSelection());
+            menu.add(upload);
+
+            JMenuItem uploadToPath = new JMenuItem("Upload to path…", AllIcons.Actions.MenuOpen);
+            uploadToPath.setEnabled(transferActions.canUploadToPath());
+            uploadToPath.addActionListener(e -> chooseUploadPath());
+            menu.add(uploadToPath);
+        }
+
+        menu.addSeparator();
 
         JMenuItem refresh = new JMenuItem("Refresh", AllIcons.Actions.Refresh);
         refresh.addActionListener(e -> refresh());
@@ -192,6 +212,26 @@ public final class LocalFilePane extends JPanel {
             .map(Path::toString)
             .collect(Collectors.joining(System.lineSeparator()));
         Toolkit.getDefaultToolkit().getSystemClipboard().setContents(new StringSelection(joined), null);
+    }
+
+    private void installTransferShortcut() {
+        int mask = Toolkit.getDefaultToolkit().getMenuShortcutKeyMaskEx() | InputEvent.SHIFT_DOWN_MASK;
+        KeyStroke key = KeyStroke.getKeyStroke(KeyEvent.VK_U, mask);
+        table.getInputMap(JComponent.WHEN_ANCESTOR_OF_FOCUSED_COMPONENT).put(key, "termlab.sftp.upload");
+        table.getActionMap().put("termlab.sftp.upload", new AbstractAction() {
+            @Override
+            public void actionPerformed(java.awt.event.ActionEvent e) {
+                if (transferActions != null && transferActions.canUpload()) {
+                    transferActions.uploadSelection();
+                }
+            }
+        });
+    }
+
+    private void chooseUploadPath() {
+        if (transferActions != null && transferActions.canUploadToPath()) {
+            transferActions.chooseAndUploadSelectionToPath();
+        }
     }
 
     /**
@@ -384,8 +424,21 @@ public final class LocalFilePane extends JPanel {
         directoryListeners.add(listener);
     }
 
+    public void setTransferActions(@NotNull TransferActions transferActions) {
+        this.transferActions = transferActions;
+    }
+
     /** Reload the currently displayed directory if there is one. */
     public void refresh() {
         if (currentDir != null) reload(currentDir);
+    }
+
+    public interface TransferActions {
+        boolean canUpload();
+        boolean canUploadToPath();
+        @NotNull String uploadTargetLabel();
+        void uploadSelection();
+        void uploadSelectionTo(@NotNull String remotePath);
+        void chooseAndUploadSelectionToPath();
     }
 }

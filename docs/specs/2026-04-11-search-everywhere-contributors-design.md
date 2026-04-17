@@ -42,7 +42,7 @@ Implements `SearchEverywhereContributor<Object>`. The `Object` type parameter is
 - `isEmptyPatternSupported()` → `true`
 - `fetchElements`:
   - Looks up `LockManager` via `ApplicationManager.getService(LockManager.class)`.
-  - If `lm == null` or `lm.getVault() == null` (locked / no vault), returns immediately without consuming anything. The empty tab is legitimate — the user unlocks via Cmd+Shift+V or the Actions tab entry for "Open Vault".
+  - If `lm == null` or `lm.getVault() == null` (locked / no vault), returns immediately without consuming anything. The empty tab is legitimate — the user unlocks via `F8` or `Tools -> Credential Vault -> Open Vault…`.
   - Otherwise iterates accounts and keys. Filters by case-insensitive substring match against `displayName` + `username` for accounts, and `name` + `algorithm` for keys.
   - Emits accounts first, then keys, both sorted by their display name within each group. No "Generate SSH Key" / "Lock Vault" palette entries — those become real AnActions (see below).
 - `processSelectedItem`:
@@ -95,7 +95,7 @@ No new unit tests. `SearchEverywhereContributor` implementations are thin glue o
 5. Click the Vault tab with the vault locked. Tab is empty (no error).
 6. Open the Actions tab. Type "lock vault" → `LockVaultAction` appears. Selecting it locks the vault (confirmed by the Vault tab going empty).
 7. Type "generate ssh key" in the Actions tab with the vault unlocked → `GenerateSshKeyAction` appears. Selecting it opens the key-gen dialog.
-8. Regression: `Cmd+Shift+V` still opens the vault (existing `OpenVaultAction`, untouched).
+8. Regression: `F8` still opens the vault (existing `OpenVaultAction`).
 
 ## Scope
 

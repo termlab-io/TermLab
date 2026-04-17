@@ -10,9 +10,12 @@ import com.intellij.openapi.progress.ProgressIndicator;
 import com.intellij.openapi.progress.ProgressManager;
 import com.intellij.openapi.progress.Task;
 import com.intellij.openapi.project.Project;
+import com.intellij.openapi.ui.Messages;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import java.io.IOException;
+import java.net.InetAddress;
 import java.nio.file.Path;
 import java.util.List;
 
@@ -54,13 +57,39 @@ public final class TransferCoordinator {
             && !remotePane.selectedRemotePaths().isEmpty();
     }
 
+    public boolean canUploadToRemotePath() {
+        return remotePane.activeSession() != null
+            && !localPane.selectedPaths().isEmpty();
+    }
+
+    public boolean canDownloadToLocalPath() {
+        return remotePane.activeSession() != null
+            && !remotePane.selectedRemotePaths().isEmpty();
+    }
+
+    public @Nullable String remoteHostLabel() {
+        return remotePane.currentHost() != null ? remotePane.currentHost().label() : null;
+    }
+
+    public @NotNull String localHostLabel() {
+        try {
+            return InetAddress.getLocalHost().getHostName();
+        } catch (Exception ignored) {
+            return "local machine";
+        }
+    }
+
     // -- Entry points --------------------------------------------------------
 
     public void upload() {
+        uploadTo(remotePane.currentRemotePath());
+    }
+
+    public void uploadTo(@Nullable String remoteDest) {
         SshSftpSession session = remotePane.activeSession();
-        String remoteDest = remotePane.currentRemotePath();
         List<Path> sources = localPane.selectedPaths();
         if (session == null || remoteDest == null || sources.isEmpty()) return;
+        if (!confirmUpload(sources, remoteDest)) return;
 
         runTransfer("Upload to " + remoteDest, indicator -> {
             CollisionResolver resolver = new CollisionResolver(
@@ -72,10 +101,14 @@ public final class TransferCoordinator {
     }
 
     public void download() {
+        downloadTo(localPane.currentDirectory());
+    }
+
+    public void downloadTo(@Nullable Path localDest) {
         SshSftpSession session = remotePane.activeSession();
-        Path localDest = localPane.currentDirectory();
         List<String> sources = remotePane.selectedRemotePaths();
         if (session == null || localDest == null || sources.isEmpty()) return;
+        if (!confirmDownload(sources, localDest)) return;
 
         runTransfer("Download to " + localDest, indicator -> {
             CollisionResolver resolver = new CollisionResolver(
@@ -84,6 +117,32 @@ public final class TransferCoordinator {
             TransferEngine engine = new TransferEngine(session.client(), resolver, indicator);
             return engine.download(sources, localDest);
         }, /* refreshRemote = */ false);
+    }
+
+    private boolean confirmUpload(@NotNull List<Path> sources, @NotNull String remoteDest) {
+        String target = remoteHostLabel();
+        String message = sources.size() == 1
+            ? "Upload \"" + sources.get(0).getFileName() + "\" to "
+                + (target != null ? target : "remote host") + "?\n\nDestination: " + remoteDest
+            : "Upload " + sources.size() + " items to "
+                + (target != null ? target : "remote host") + "?\n\nDestination: " + remoteDest;
+        return Messages.showYesNoDialog(project, message, "Confirm Upload", Messages.getQuestionIcon())
+            == Messages.YES;
+    }
+
+    private boolean confirmDownload(@NotNull List<String> sources, @NotNull Path localDest) {
+        String target = localHostLabel();
+        String message = sources.size() == 1
+            ? "Download \"" + baseName(sources.get(0)) + "\" to " + target + "?\n\nDestination: " + localDest
+            : "Download " + sources.size() + " items to " + target + "?\n\nDestination: " + localDest;
+        return Messages.showYesNoDialog(project, message, "Confirm Download", Messages.getQuestionIcon())
+            == Messages.YES;
+    }
+
+    private static @NotNull String baseName(@NotNull String path) {
+        int slash = path.lastIndexOf('/');
+        if (slash < 0 || slash == path.length() - 1) return path;
+        return path.substring(slash + 1);
     }
 
     // -- Plumbing ------------------------------------------------------------
