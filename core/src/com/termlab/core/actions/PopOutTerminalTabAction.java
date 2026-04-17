@@ -10,11 +10,16 @@ import com.intellij.openapi.fileEditor.FileEditorManagerKeys;
 import com.intellij.openapi.fileEditor.ex.FileEditorManagerEx;
 import com.intellij.openapi.fileEditor.ex.FileEditorOpenMode;
 import com.intellij.openapi.fileEditor.ex.FileEditorOpenRequest;
+import com.intellij.openapi.util.DimensionService;
+import com.intellij.openapi.util.Key;
 import com.intellij.openapi.fileEditor.impl.EditorWindow;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.vfs.VirtualFile;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+
+import java.awt.Dimension;
+import java.lang.ref.WeakReference;
 
 /**
  * Pops the current terminal tab out into its own editor window.
@@ -23,16 +28,31 @@ import org.jetbrains.annotations.Nullable;
  * TermLab a keyboard-first path for the same action.
  */
 public final class PopOutTerminalTabAction extends AnAction {
+    private static final String TERMINAL_POPOUT_DIMENSION_KEY = "termlab.terminal.popout";
+    private static final Dimension DEFAULT_TERMINAL_POPOUT_SIZE = new Dimension(1100, 760);
+    private static final Key<WeakReference<EditorWindow>> POP_OUT_SOURCE_WINDOW_KEY =
+        Key.create("termlab.pop.out.source.window");
 
     @Override
     public void update(@NotNull AnActionEvent e) {
         TermLabTerminalVirtualFile termFile = resolveTerminalFile(e);
-        boolean enabled = termFile != null && resolveSourceWindow(e) != null;
+        EditorWindow currentWindow = resolveSourceWindow(e);
+        EditorWindow sourceWindow = resolveStoredSourceWindow(termFile);
+        boolean restoreAvailable = termFile != null
+            && currentWindow != null
+            && sourceWindow != null
+            && sourceWindow != currentWindow;
+        boolean enabled = termFile != null && currentWindow != null;
         e.getPresentation().setVisible(enabled);
         e.getPresentation().setEnabled(enabled);
         if (enabled) {
-            e.getPresentation().setText("Pop Out Tab");
-            e.getPresentation().setDescription("Move this terminal tab into its own window");
+            if (restoreAvailable) {
+                e.getPresentation().setText("Return Tab");
+                e.getPresentation().setDescription("Move this terminal tab back to its previous split");
+            } else {
+                e.getPresentation().setText("Pop Out Tab");
+                e.getPresentation().setDescription("Move this terminal tab into its own window");
+            }
         }
     }
 
@@ -42,20 +62,28 @@ public final class PopOutTerminalTabAction extends AnAction {
         if (project == null) return;
 
         TermLabTerminalVirtualFile termFile = resolveTerminalFile(e);
-        EditorWindow sourceWindow = resolveSourceWindow(e);
-        if (termFile == null || sourceWindow == null) return;
+        EditorWindow currentWindow = resolveSourceWindow(e);
+        if (termFile == null || currentWindow == null) return;
 
         FileEditorManagerEx manager = FileEditorManagerEx.getInstanceEx(project);
+        EditorWindow previousWindow = resolveStoredSourceWindow(termFile);
+        if (previousWindow != null && previousWindow != currentWindow) {
+            restoreToPreviousWindow(termFile, currentWindow, previousWindow, manager);
+            return;
+        }
+
         FileEditorOpenRequest request = new FileEditorOpenRequest()
             .withOpenMode(FileEditorOpenMode.NEW_WINDOW)
             .withRequestFocus(true)
             .withSelectAsCurrent(true);
 
+        configurePopOutWindowSize(project, termFile);
+        storeSourceWindow(termFile, currentWindow);
         termFile.putUserData(FileEditorManagerKeys.CLOSING_TO_REOPEN, true);
         try {
             manager.openFile(termFile, request);
-            if (!sourceWindow.isDisposed()) {
-                manager.closeFile(termFile, sourceWindow);
+            if (!currentWindow.isDisposed()) {
+                manager.closeFile(termFile, currentWindow);
             }
         } finally {
             termFile.putUserData(FileEditorManagerKeys.CLOSING_TO_REOPEN, null);
@@ -85,5 +113,56 @@ public final class PopOutTerminalTabAction extends AnAction {
         }
         Project project = e.getProject();
         return project == null ? null : FileEditorManagerEx.getInstanceEx(project).getCurrentWindow();
+    }
+
+    private static void restoreToPreviousWindow(@NotNull TermLabTerminalVirtualFile termFile,
+                                                @NotNull EditorWindow currentWindow,
+                                                @NotNull EditorWindow previousWindow,
+                                                @NotNull FileEditorManagerEx manager) {
+        FileEditorOpenRequest request = new FileEditorOpenRequest()
+            .withTargetWindow(previousWindow)
+            .withRequestFocus(true)
+            .withSelectAsCurrent(true);
+
+        termFile.putUserData(FileEditorManagerKeys.CLOSING_TO_REOPEN, true);
+        try {
+            manager.openFile(termFile, request);
+            if (!currentWindow.isDisposed()) {
+                manager.closeFile(termFile, currentWindow);
+            }
+            clearStoredSourceWindow(termFile);
+        } finally {
+            termFile.putUserData(FileEditorManagerKeys.CLOSING_TO_REOPEN, null);
+        }
+    }
+
+    private static void storeSourceWindow(@NotNull TermLabTerminalVirtualFile termFile,
+                                          @NotNull EditorWindow sourceWindow) {
+        termFile.putUserData(POP_OUT_SOURCE_WINDOW_KEY, new WeakReference<>(sourceWindow));
+    }
+
+    private static void configurePopOutWindowSize(@NotNull Project project,
+                                                  @NotNull TermLabTerminalVirtualFile termFile) {
+        termFile.putUserData(FileEditorManagerKeys.WINDOW_DIMENSION_KEY, TERMINAL_POPOUT_DIMENSION_KEY);
+        DimensionService.getInstance().setSize(
+            TERMINAL_POPOUT_DIMENSION_KEY,
+            DEFAULT_TERMINAL_POPOUT_SIZE,
+            project
+        );
+    }
+
+    private static void clearStoredSourceWindow(@NotNull TermLabTerminalVirtualFile termFile) {
+        termFile.putUserData(POP_OUT_SOURCE_WINDOW_KEY, null);
+    }
+
+    private static @Nullable EditorWindow resolveStoredSourceWindow(@Nullable TermLabTerminalVirtualFile termFile) {
+        if (termFile == null) return null;
+        WeakReference<EditorWindow> ref = termFile.getUserData(POP_OUT_SOURCE_WINDOW_KEY);
+        EditorWindow sourceWindow = ref == null ? null : ref.get();
+        if (sourceWindow == null || sourceWindow.isDisposed()) {
+            clearStoredSourceWindow(termFile);
+            return null;
+        }
+        return sourceWindow;
     }
 }

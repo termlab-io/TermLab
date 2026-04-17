@@ -1,8 +1,12 @@
 package com.termlab.core.terminal;
 
 import com.termlab.sdk.TerminalSessionProvider;
+import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.fileEditor.FileEditorManagerKeys;
+import com.intellij.openapi.fileEditor.FileEditorManager;
+import com.intellij.openapi.project.Project;
 import com.intellij.testFramework.LightVirtualFile;
+import com.jediterm.terminal.TtyConnector;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -15,6 +19,7 @@ public final class TermLabTerminalVirtualFile extends LightVirtualFile {
     private volatile String terminalTitle;
     private volatile boolean manualTitleOverride;
     private volatile TerminalSessionProvider.SessionContext sessionContext;
+    private @Nullable SharedTerminalSession sharedSession;
 
     public TermLabTerminalVirtualFile(@NotNull String title,
                                      @NotNull TerminalSessionProvider provider) {
@@ -73,6 +78,22 @@ public final class TermLabTerminalVirtualFile extends LightVirtualFile {
         this.manualTitleOverride = manualTitleOverride;
     }
 
+    public synchronized @NotNull SharedTerminalSession acquireSession(@NotNull Project project) {
+        SharedTerminalSession session = sharedSession;
+        if (session == null || session.isDisposed()) {
+            session = new SharedTerminalSession(project, this);
+            sharedSession = session;
+        }
+        session.retain();
+        return session;
+    }
+
+    synchronized void clearSharedSession(@NotNull SharedTerminalSession session) {
+        if (sharedSession == session) {
+            sharedSession = null;
+        }
+    }
+
     @Override public boolean isWritable() { return false; }
 
     @Override
@@ -84,4 +105,140 @@ public final class TermLabTerminalVirtualFile extends LightVirtualFile {
 
     @Override
     public int hashCode() { return sessionId.hashCode(); }
+
+    public static final class SharedTerminalSession {
+        private final Project project;
+        private final TermLabTerminalVirtualFile file;
+        private final TermLabTerminalWidget widget;
+        private final TtyConnector connector;
+        private int retainCount;
+        private boolean disposed;
+        private boolean closeScheduled;
+
+        private SharedTerminalSession(@NotNull Project project, @NotNull TermLabTerminalVirtualFile file) {
+            this.project = project;
+            this.file = file;
+            this.widget = new TermLabTerminalWidget(new TermLabTerminalSettings());
+
+            TerminalSessionProvider.SessionContext context = file.getSessionContext();
+            TtyConnector rawConnector = file.getProvider().createSession(context);
+            if (rawConnector == null) {
+                throw new IllegalStateException("Terminal session provider returned null connector");
+            }
+
+            this.connector = new OscTrackingTtyConnector(
+                rawConnector,
+                file::setCurrentWorkingDirectory,
+                newTitle -> updateTabTitle(project, file, newTitle)
+            );
+
+            widget.createTerminalSession(connector);
+            widget.start();
+            startExitWatcher();
+        }
+
+        public @NotNull TermLabTerminalWidget getWidget() {
+            return widget;
+        }
+
+        public @NotNull TtyConnector getConnector() {
+            return connector;
+        }
+
+        public synchronized boolean isDisposed() {
+            return disposed;
+        }
+
+        private synchronized void retain() {
+            if (disposed) {
+                throw new IllegalStateException("Terminal session already disposed");
+            }
+            retainCount++;
+            closeScheduled = false;
+        }
+
+        public void release() {
+            boolean closeNow = false;
+            boolean deferClose = false;
+            synchronized (this) {
+                if (disposed) return;
+                if (retainCount > 0) {
+                    retainCount--;
+                }
+                if (retainCount > 0) {
+                    return;
+                }
+                if (file.getUserData(FileEditorManagerKeys.CLOSING_TO_REOPEN) == Boolean.TRUE) {
+                    if (!closeScheduled) {
+                        closeScheduled = true;
+                        deferClose = true;
+                    }
+                } else {
+                    closeNow = true;
+                }
+            }
+
+            if (deferClose) {
+                ApplicationManager.getApplication().invokeLater(this::closeIfUnused);
+            } else if (closeNow) {
+                disposeSession();
+            }
+        }
+
+        private void closeIfUnused() {
+            synchronized (this) {
+                if (disposed) return;
+                closeScheduled = false;
+                if (retainCount > 0 || file.getUserData(FileEditorManagerKeys.CLOSING_TO_REOPEN) == Boolean.TRUE) {
+                    return;
+                }
+            }
+            disposeSession();
+        }
+
+        private void disposeSession() {
+            synchronized (this) {
+                if (disposed) return;
+                disposed = true;
+            }
+            file.clearSharedSession(this);
+            try {
+                connector.close();
+            } catch (Exception ignored) {
+            }
+        }
+
+        private void startExitWatcher() {
+            Thread watcher = new Thread(() -> {
+                try {
+                    connector.waitFor();
+                } catch (InterruptedException ignored) {
+                    return;
+                }
+                ApplicationManager.getApplication().invokeLater(() -> {
+                    if (!project.isDisposed()
+                        && !isDisposed()
+                        && file.getUserData(FileEditorManagerKeys.CLOSING_TO_REOPEN) != Boolean.TRUE) {
+                        FileEditorManager.getInstance(project).closeFile(file);
+                    }
+                });
+            }, "TermLab-exit-watcher-" + file.getSessionId());
+            watcher.setDaemon(true);
+            watcher.start();
+        }
+
+        private static void updateTabTitle(@NotNull Project project,
+                                           @NotNull TermLabTerminalVirtualFile file,
+                                           @Nullable String newTitle) {
+            if (file.hasManualTitleOverride()) return;
+            if (newTitle == null || newTitle.isBlank()) return;
+
+            file.setTerminalTitle(newTitle);
+            ApplicationManager.getApplication().invokeLater(() -> {
+                if (!project.isDisposed()) {
+                    FileEditorManager.getInstance(project).updateFilePresentation(file);
+                }
+            });
+        }
+    }
 }
