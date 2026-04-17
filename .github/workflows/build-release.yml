@@ -21,6 +21,10 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Fetch release tag metadata
+        run: |
+          git fetch --force origin "refs/tags/${GITHUB_REF_NAME}:refs/tags/${GITHUB_REF_NAME}"
+
       - name: Validate tag against TermLabApplicationInfo.xml
         id: version
         run: |
@@ -47,6 +51,13 @@ jobs:
 
           if tag != expected:
               raise SystemExit(f"tag mismatch: expected {expected}, got {tag}")
+
+          tag_type = subprocess.check_output(
+              ["git", "cat-file", "-t", f"refs/tags/{tag}"],
+              text=True,
+          ).strip()
+          if tag_type != "tag":
+              raise SystemExit(f"refs/tags/{tag} is not an annotated tag (got {tag_type!r})")
 
           tag_message = subprocess.check_output(
               ["git", "for-each-ref", f"refs/tags/{tag}", "--format=%(contents)"],
