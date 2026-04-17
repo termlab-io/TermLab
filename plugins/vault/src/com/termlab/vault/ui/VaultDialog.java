@@ -5,6 +5,7 @@ import com.termlab.vault.lock.LockManager;
 import com.termlab.vault.model.Vault;
 import com.termlab.vault.model.VaultAccount;
 import com.termlab.vault.model.VaultKey;
+import com.intellij.icons.AllIcons;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.ui.DialogWrapper;
 import com.intellij.openapi.ui.Messages;
@@ -42,9 +43,9 @@ import java.util.stream.Collectors;
  *       double-click to rename.</li>
  * </ul>
  *
- * <p>A shared "Lock" button in the footer seals the vault and closes the
- * dialog. Edits persist immediately through {@link LockManager#save()} on
- * each action — no separate OK/Save.
+ * <p>Edits persist immediately through {@link LockManager#save()} on each
+ * action — there is no separate Save step. The footer simply dismisses the
+ * dialog, while each tab exposes a lock button in its action row.
  */
 public final class VaultDialog extends DialogWrapper {
 
@@ -67,6 +68,7 @@ public final class VaultDialog extends DialogWrapper {
         this.lockManager = lockManager;
         setTitle("Credential Vault");
         setModal(false);
+        setOKButtonText("Okay");
         init();
         reloadAccounts();
         reloadKeys();
@@ -85,19 +87,6 @@ public final class VaultDialog extends DialogWrapper {
         return root;
     }
 
-    @Override
-    protected @NotNull Action[] createActions() {
-        // Custom footer action: "Lock" seals the vault and closes.
-        Action lockAction = new AbstractAction("Lock") {
-            @Override
-            public void actionPerformed(java.awt.event.ActionEvent e) {
-                lockManager.lock();
-                close(OK_EXIT_CODE);
-            }
-        };
-        return new Action[]{ lockAction, getCancelAction() };
-    }
-
     // -- Accounts tab ---------------------------------------------------------
 
     private JComponent buildAccountsTab() {
@@ -111,9 +100,11 @@ public final class VaultDialog extends DialogWrapper {
         JButton addBtn = new JButton("+ Add");
         JButton editBtn = new JButton("Edit");
         JButton deleteBtn = new JButton("Delete");
+        JButton lockBtn = createLockButton();
         toolbar.add(addBtn);
         toolbar.add(editBtn);
         toolbar.add(deleteBtn);
+        toolbar.add(lockBtn);
         top.add(toolbar, BorderLayout.EAST);
         panel.add(top, BorderLayout.NORTH);
 
@@ -209,10 +200,12 @@ public final class VaultDialog extends DialogWrapper {
         JButton renameBtn = new JButton("Rename");
         JButton copyBtn = new JButton("Copy Public Key");
         JButton deleteBtn = new JButton("Delete");
+        JButton lockBtn = createLockButton();
         toolbar.add(genBtn);
         toolbar.add(renameBtn);
         toolbar.add(copyBtn);
         toolbar.add(deleteBtn);
+        toolbar.add(lockBtn);
         top.add(toolbar, BorderLayout.EAST);
         panel.add(top, BorderLayout.NORTH);
 
@@ -315,6 +308,18 @@ public final class VaultDialog extends DialogWrapper {
     }
 
     // -- shared ---------------------------------------------------------------
+
+    private JButton createLockButton() {
+        JButton lockBtn = new JButton(AllIcons.Ide.Readonly);
+        lockBtn.setToolTipText("Lock vault");
+        lockBtn.addActionListener(e -> lockAndClose());
+        return lockBtn;
+    }
+
+    private void lockAndClose() {
+        lockManager.lock();
+        close(OK_EXIT_CODE);
+    }
 
     private void persist() {
         try {

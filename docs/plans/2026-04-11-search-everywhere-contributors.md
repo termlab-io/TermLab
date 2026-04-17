@@ -311,8 +311,8 @@ import java.util.Objects;
  *
  * <p>When the vault is locked, {@link #fetchElements} returns
  * immediately without consuming anything — the tab is empty and the
- * user unlocks via {@code Cmd+Shift+V} or the "Open Vault" entry in
- * the Actions tab.
+ * user unlocks via {@code F8} or the "Open Vault" entry in
+ * {@code Tools -> Credential Vault}.
  */
 public final class VaultSearchEverywhereContributor implements SearchEverywhereContributor<Object> {
 
@@ -768,8 +768,8 @@ cd /Users/dustin/projects/termlab_workbench && make termlab
 6. Re-open the palette. Click the **Vault** tab with the vault **locked**. Tab is empty (no items, no error).
 7. Click the **Actions** tab. Type `lock vault` → `Lock Vault` action appears. Select it → status-bar vault widget flips to locked.
 8. Type `generate ssh key` in the Actions tab **with the vault locked** → `Generate SSH Key…` action appears but is disabled.
-9. Unlock the vault via `Cmd+Shift+V`. Reopen palette, Actions tab, type `generate ssh key` → now enabled. Select it → `KeyGenDialog` opens.
-10. Verify `Cmd+Shift+V` (`OpenVaultAction`) still works — regression check.
+9. Unlock the vault via `F8`. Reopen palette, Actions tab, type `generate ssh key` → now enabled. Select it → `KeyGenDialog` opens.
+10. Verify `F8` (`OpenVaultAction`) still works — regression check.
 
 If any step fails, stop and fix before merging.
 

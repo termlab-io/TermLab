@@ -70,7 +70,7 @@ plugins/vault/
     │   ├── KeyGenDialog.java                            # generate SSH key wizard
     │   └── VaultLockStatusBarWidget.java                # com.intellij.openapi.wm.StatusBarWidget
     ├── actions/
-    │   ├── OpenVaultAction.java                         # Cmd+Shift+V
+    │   ├── OpenVaultAction.java                         # F8
     │   ├── LockVaultAction.java
     │   └── UnlockVaultAction.java
     ├── palette/
@@ -1629,7 +1629,7 @@ git commit -m "feat(vault): VaultCredentialProvider — implements SDK Credentia
     <credentialProvider implementation="com.termlab.vault.credentials.VaultCredentialProvider"/>
   </extensions>
   ```
-- Action: `com.termlab.vault.OpenVaultAction` bound to `Cmd+Shift+V`
+- Action: `com.termlab.vault.OpenVaultAction` bound to `F8`
 - Status bar widget factory
 - Project listener to bridge "user activity" → `InactivityTimer.markActivity()`
 
@@ -1735,7 +1735,7 @@ Subscribes to `LockManager` listener for instant updates.
 - [ ] **Step 3:** Build, launch TermLab, verify the lock icon appears in the status bar.
 - [ ] **Step 4:** Commit.
 
-### Task 4.6 — OpenVaultAction (Cmd+Shift+V)
+### Task 4.6 — OpenVaultAction (F8)
 
 **Files:**
 - Create: `plugins/vault/src/com/termlab/vault/actions/OpenVaultAction.java`
@@ -1758,7 +1758,7 @@ public class OpenVaultAction extends AnAction {
 }
 ```
 
-Register in plugin.xml with keyboard shortcut `meta shift V` (macOS) and `ctrl shift V` (Linux/Windows).
+Register in plugin.xml with keyboard shortcut `F8`.
 
 - [ ] **Step 1:** Implement and register.
 - [ ] **Step 2:** Commit.
@@ -1866,7 +1866,7 @@ public final class AccountPickerDialog extends DialogWrapper {
 - [ ] **Step 3:** Smoke-test by hand: create a vault with two accounts, then from a Kotlin scratch buffer (or a temporary action) call `application.getService(VaultCredentialProvider.class).promptForCredential()` and verify the picker shows up and returns a non-null `Credential`.
 - [ ] **Step 4:** Commit.
 
-**Phase 4 milestone:** A user can create a vault, unlock it, add accounts, save, lock, unlock again, all from the UI. The status bar shows the lock state. Cmd+Shift+V opens the vault. Other plugins can both look up credentials by ID (`getCredential(uuid)`) AND ask the vault to show a picker (`promptForCredential()`). The full SDK contract is implemented.
+**Phase 4 milestone:** A user can create a vault, unlock it, add accounts, save, lock, unlock again, all from the UI. The status bar shows the lock state. `F8` opens the vault. Other plugins can both look up credentials by ID (`getCredential(uuid)`) AND ask the vault to show a picker (`promptForCredential()`). The full SDK contract is implemented.
 
 ---
 
@@ -1969,7 +1969,7 @@ public final class VaultPaletteContributor implements CommandPaletteContributor 
 
         // Always include the management actions, regardless of lock state.
         out.add(new PaletteItem(
-            "vault.open", "Open vault", "Cmd+Shift+V", null,
+            "vault.open", "Open vault", "F8", null,
             () -> /* trigger OpenVaultAction */ {}
         ));
         if (!lm.isLocked()) {
@@ -2094,13 +2094,13 @@ Tracked in `docs/plans/` as a future hardening pass once the vault is shipping.
 A user can:
 
 1. Launch TermLab on a fresh machine.
-2. Press `Cmd+Shift+V`.
+2. Press `F8`.
 3. Be prompted to set a master password (vault doesn't exist yet).
 4. Create the vault. Device secret is auto-generated and stored in macOS Keychain.
 5. Add three accounts: a password-only one, an SSH key one, a key+password one.
 6. Close TermLab.
 7. Reopen TermLab. Vault is locked.
-8. Press `Cmd+Shift+V`, enter the master password, see the three accounts.
+8. Press `F8`, enter the master password, see the three accounts.
 9. Wait 16 minutes without interacting with TermLab. Vault auto-locks. Status bar lock icon updates.
 10. Generate an Ed25519 SSH key from the vault dialog. New entry appears.
 11. Verify the generated public key is loadable via `ssh-keygen -l -f ~/.ssh/termlab_vault/id_ed25519_<id>.pub`.

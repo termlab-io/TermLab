@@ -1,13 +1,20 @@
 package com.termlab.sftp.toolwindow;
 
+import com.termlab.sftp.persistence.TermLabSftpConfig;
+import com.termlab.sftp.transfer.RemoteDirectoryPickerDialog;
 import com.termlab.sftp.transfer.TransferCoordinator;
+import com.intellij.openapi.fileChooser.FileChooser;
+import com.intellij.openapi.fileChooser.FileChooserDescriptorFactory;
 import com.intellij.openapi.project.Project;
+import com.intellij.openapi.vfs.LocalFileSystem;
+import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.ui.JBSplitter;
 import com.intellij.util.ui.JBUI;
 import org.jetbrains.annotations.NotNull;
 
 import javax.swing.*;
 import java.awt.*;
+import java.io.IOException;
 
 /**
  * Dual-pane SFTP browser. The left pane shows the local filesystem;
@@ -20,75 +27,173 @@ public final class SftpToolWindow extends JPanel {
     private final LocalFilePane local;
     private final RemoteFilePane remote;
     private final TransferCoordinator coordinator;
-    private final JButton uploadButton;
-    private final JButton downloadButton;
+    private final JPanel contentPanel;
+    private final JComboBox<ViewOption> viewModeCombo;
+    private TermLabSftpConfig.ViewMode viewMode;
 
     public SftpToolWindow(@NotNull Project project) {
         super(new BorderLayout());
         this.local = new LocalFilePane(project);
         this.remote = new RemoteFilePane(project);
         this.coordinator = new TransferCoordinator(project, local, remote);
+        this.viewMode = TermLabSftpConfig.getInstance().getViewMode();
 
-        this.uploadButton = new JButton("→");
-        uploadButton.setToolTipText("Upload selected local files to remote");
-        uploadButton.addActionListener(e -> coordinator.upload());
+        this.contentPanel = new JPanel(new BorderLayout());
+        this.viewModeCombo = new JComboBox<>(ViewOption.values());
 
-        this.downloadButton = new JButton("←");
-        downloadButton.setToolTipText("Download selected remote files to local");
-        downloadButton.addActionListener(e -> coordinator.download());
+        this.local.setTransferActions(new LocalFilePane.TransferActions() {
+            @Override
+            public boolean canUpload() {
+                return coordinator.canUpload();
+            }
 
-        JPanel leftWithUpload = new JPanel(new BorderLayout());
-        leftWithUpload.add(local, BorderLayout.CENTER);
-        leftWithUpload.add(buildUploadBar(), BorderLayout.EAST);
+            @Override
+            public boolean canUploadToPath() {
+                return coordinator.canUploadToRemotePath();
+            }
 
-        JPanel rightWithDownload = new JPanel(new BorderLayout());
-        rightWithDownload.add(buildDownloadBar(), BorderLayout.WEST);
-        rightWithDownload.add(remote, BorderLayout.CENTER);
+            @Override
+            public @NotNull String uploadTargetLabel() {
+                String label = coordinator.remoteHostLabel();
+                return label != null ? label : "remote host";
+            }
 
+            @Override
+            public void uploadSelection() {
+                coordinator.upload();
+            }
+
+            @Override
+            public void uploadSelectionTo(@NotNull String remotePath) {
+                coordinator.uploadTo(remotePath);
+            }
+
+            @Override
+            public void chooseAndUploadSelectionToPath() {
+                if (remote.activeSession() == null) return;
+                String initialPath = resolveInitialRemotePath();
+                String selection = new RemoteDirectoryPickerDialog(
+                    project,
+                    uploadTargetLabel(),
+                    remote.activeSession(),
+                    initialPath
+                ).showAndGetSelection();
+                if (selection != null) {
+                    coordinator.uploadTo(selection);
+                }
+            }
+        });
+
+        this.remote.setTransferActions(new RemoteFilePane.TransferActions() {
+            @Override
+            public boolean canDownload() {
+                return coordinator.canDownload();
+            }
+
+            @Override
+            public boolean canDownloadToPath() {
+                return coordinator.canDownloadToLocalPath();
+            }
+
+            @Override
+            public @NotNull String downloadTargetLabel() {
+                return coordinator.localHostLabel();
+            }
+
+            @Override
+            public void downloadSelection() {
+                coordinator.download();
+            }
+
+            @Override
+            public void downloadSelectionTo(@NotNull java.nio.file.Path localPath) {
+                coordinator.downloadTo(localPath);
+            }
+
+            @Override
+            public void chooseAndDownloadSelectionToPath() {
+                VirtualFile initial = null;
+                if (local.currentDirectory() != null) {
+                    initial = LocalFileSystem.getInstance().findFileByNioFile(local.currentDirectory());
+                }
+                VirtualFile chosen = FileChooser.chooseFile(
+                    FileChooserDescriptorFactory.createSingleFolderDescriptor(),
+                    project,
+                    initial
+                );
+                if (chosen != null) {
+                    coordinator.downloadTo(chosen.toNioPath());
+                }
+            }
+        });
+
+        add(buildHeader(), BorderLayout.NORTH);
+        add(contentPanel, BorderLayout.CENTER);
+        applyViewMode(viewMode);
+    }
+
+    private @NotNull JComponent buildHeader() {
+        JPanel header = new JPanel(new FlowLayout(FlowLayout.RIGHT, 6, 4));
+        header.setBorder(JBUI.Borders.empty(0, 4, 2, 4));
+
+        viewModeCombo.setToolTipText("Choose which SFTP panes are visible");
+        viewModeCombo.addActionListener(e -> {
+            ViewOption option = (ViewOption) viewModeCombo.getSelectedItem();
+            if (option != null) {
+                setViewMode(option.mode);
+            }
+        });
+
+        header.add(new JLabel("View:"));
+        header.add(viewModeCombo);
+        return header;
+    }
+
+    private void setViewMode(@NotNull TermLabSftpConfig.ViewMode mode) {
+        if (viewMode == mode) return;
+        applyViewMode(mode);
+        TermLabSftpConfig.getInstance().setViewMode(mode);
+    }
+
+    private void applyViewMode(@NotNull TermLabSftpConfig.ViewMode mode) {
+        this.viewMode = mode;
+        ViewOption selected = ViewOption.from(mode);
+        if (viewModeCombo.getSelectedItem() != selected) {
+            viewModeCombo.setSelectedItem(selected);
+        }
+
+        contentPanel.removeAll();
+        switch (mode) {
+            case BOTH -> contentPanel.add(buildDualPaneView(), BorderLayout.CENTER);
+            case LOCAL_ONLY -> contentPanel.add(local, BorderLayout.CENTER);
+            case REMOTE_ONLY -> contentPanel.add(remote, BorderLayout.CENTER);
+        }
+        contentPanel.revalidate();
+        contentPanel.repaint();
+    }
+
+    private @NotNull JComponent buildDualPaneView() {
         JBSplitter splitter = new JBSplitter(false, 0.5f);
-        splitter.setFirstComponent(leftWithUpload);
-        splitter.setSecondComponent(rightWithDownload);
-        add(splitter, BorderLayout.CENTER);
-
-        // Any change in either side's selection or connection state
-        // can flip button enablement — wire both panes' selection
-        // models into a shared refresh. Connection state changes
-        // already call refresh() on the remote pane which ripples
-        // through the selection listener we install here.
-        local.addSelectionListener(e -> refreshButtons());
-        remote.addSelectionListener(e -> refreshButtons());
-        local.addDirectoryChangeListener(this::refreshButtons);
-        remote.addConnectionStateListener(this::refreshButtons);
-        refreshButtons();
+        splitter.setFirstComponent(local);
+        splitter.setSecondComponent(remote);
+        return splitter;
     }
 
-    private @NotNull JComponent buildUploadBar() {
-        return buildButtonBar(uploadButton, "Upload");
-    }
-
-    private @NotNull JComponent buildDownloadBar() {
-        return buildButtonBar(downloadButton, "Download");
-    }
-
-    private static @NotNull JComponent buildButtonBar(@NotNull JButton button, @NotNull String hintText) {
-        JPanel panel = new JPanel();
-        panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
-        panel.setBorder(JBUI.Borders.empty(4, 2));
-        panel.add(Box.createVerticalGlue());
-        button.setAlignmentX(Component.CENTER_ALIGNMENT);
-        panel.add(button);
-        panel.add(Box.createVerticalStrut(6));
-        JLabel hint = new JLabel(hintText);
-        hint.setAlignmentX(Component.CENTER_ALIGNMENT);
-        hint.setFont(hint.getFont().deriveFont(hint.getFont().getSize2D() - 2f));
-        panel.add(hint);
-        panel.add(Box.createVerticalGlue());
-        return panel;
-    }
-
-    private void refreshButtons() {
-        uploadButton.setEnabled(coordinator.canUpload());
-        downloadButton.setEnabled(coordinator.canDownload());
+    private @NotNull String resolveInitialRemotePath() {
+        String current = remote.currentRemotePath();
+        if (current != null && !current.isBlank()) {
+            return current;
+        }
+        if (remote.activeSession() != null) {
+            try {
+                String canonical = remote.activeSession().client().canonicalPath(".");
+                if (canonical != null && !canonical.isBlank()) {
+                    return canonical;
+                }
+            } catch (IOException ignored) {
+            }
+        }
+        return "/";
     }
 
     public @NotNull LocalFilePane localPane() {
@@ -97,5 +202,33 @@ public final class SftpToolWindow extends JPanel {
 
     public @NotNull RemoteFilePane remotePane() {
         return remote;
+    }
+
+    private enum ViewOption {
+        LOCAL_ONLY("Local Only", TermLabSftpConfig.ViewMode.LOCAL_ONLY),
+        REMOTE_ONLY("Remote Only", TermLabSftpConfig.ViewMode.REMOTE_ONLY),
+        BOTH("Local + Remote", TermLabSftpConfig.ViewMode.BOTH);
+
+        private final String label;
+        private final TermLabSftpConfig.ViewMode mode;
+
+        ViewOption(@NotNull String label, @NotNull TermLabSftpConfig.ViewMode mode) {
+            this.label = label;
+            this.mode = mode;
+        }
+
+        static @NotNull ViewOption from(@NotNull TermLabSftpConfig.ViewMode mode) {
+            for (ViewOption option : values()) {
+                if (option.mode == mode) {
+                    return option;
+                }
+            }
+            return BOTH;
+        }
+
+        @Override
+        public @NotNull String toString() {
+            return label;
+        }
     }
 }

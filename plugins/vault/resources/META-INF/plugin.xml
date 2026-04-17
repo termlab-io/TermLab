@@ -43,13 +43,13 @@
     </extensions>
 
     <actions>
-        <!-- Cmd+Shift+V (macOS) / Ctrl+Shift+V (Linux, Windows) opens the vault. -->
         <action id="com.termlab.vault.OpenVault"
                 class="com.termlab.vault.actions.OpenVaultAction"
                 text="Open Vault…"
                 description="Open the TermLab credential vault">
-            <keyboard-shortcut keymap="$default" first-keystroke="meta shift V"/>
-            <keyboard-shortcut keymap="$default" first-keystroke="ctrl shift V"/>
+            <keyboard-shortcut keymap="$default" first-keystroke="F8"/>
+            <keyboard-shortcut keymap="Mac OS X 10.5+" first-keystroke="F8" replace-all="true"/>
+            <keyboard-shortcut keymap="Mac OS X" first-keystroke="F8" replace-all="true"/>
         </action>
 
         <action id="com.termlab.vault.LockVault"
@@ -61,5 +61,19 @@
                 class="com.termlab.vault.actions.GenerateSshKeyAction"
                 text="Generate SSH Key…"
                 description="Create a new Ed25519, ECDSA, or RSA key pair in the vault"/>
+
+        <group id="com.termlab.vault.ToolsGroup" text="Credential Vault" popup="true">
+            <add-to-group group-id="ToolsMenu" anchor="last"/>
+
+            <action id="com.termlab.vault.Tools.OpenVault"
+                    class="com.termlab.vault.actions.OpenVaultAction"
+                    text="Open Vault…"
+                    description="Open the TermLab credential vault"/>
+
+            <action id="com.termlab.vault.Tools.ToggleLock"
+                    class="com.termlab.vault.actions.LockVaultAction"
+                    text="Lock Vault"
+                    description="Lock or unlock the TermLab credential vault"/>
+        </group>
     </actions>
 </idea-plugin>

@@ -12,8 +12,8 @@ import com.intellij.openapi.project.Project;
 import org.jetbrains.annotations.NotNull;
 
 /**
- * Action invoked by the {@code Cmd+Shift+V} keybinding (or "Open Vault" from
- * the palette). Routes the user through the right dialog based on current
+ * Action invoked by the {@code F8} keybinding (or "Open Vault" from
+ * the Tools menu / palette). Routes the user through the right dialog based on current
  * vault state:
  *
  * <ul>

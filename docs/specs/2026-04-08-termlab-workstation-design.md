@@ -229,7 +229,7 @@ Each plugin gets its own classloader. Plugins can bundle conflicting library ver
 ### 5.3 Credential Vault
 
 - **Implements `CredentialProvider`**: the primary way other plugins obtain credentials
-- **Vault management dialog**: accessed via action (`Cmd+Shift+V`) or command palette — not a persistent dockable tool window, since vault management is infrequent. Opens a modal dialog for account CRUD (add, edit, delete credentials)
+- **Vault management dialog**: accessed via action (`F8`) or `Tools -> Credential Vault` / command palette — not a persistent dockable tool window, since vault management is infrequent. Opens a modal dialog for account CRUD (add, edit, delete credentials)
 - **Account model**: UUID, display name, username, auth method (password, SSH key + passphrase, or combined)
 - **Encryption**: AES-256-GCM with Argon2id key derivation (m=65536, t=3, p=4). Vault file always encrypted on disk at `~/.config/termlab/vault.enc`
 - **Device binding**: random 256-bit device secret stored in macOS Keychain (or platform equivalent). Key derivation: `Argon2(password + device_secret + salt)`. Vault is undecryptable on another machine without the device secret. Degraded mode (password-only) if no system keychain available, with user warning.

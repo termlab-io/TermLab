@@ -18,9 +18,16 @@ import org.jetbrains.annotations.Nullable;
 )
 public final class TermLabSftpConfig implements PersistentStateComponent<TermLabSftpConfig.State> {
 
+    public enum ViewMode {
+        BOTH,
+        LOCAL_ONLY,
+        REMOTE_ONLY
+    }
+
     public static final class State {
         public @Nullable String lastLocalPath;
         public @Nullable String lastRemoteHostId;
+        public @Nullable String viewMode;
     }
 
     private State state = new State();
@@ -43,6 +50,21 @@ public final class TermLabSftpConfig implements PersistentStateComponent<TermLab
 
     public void setLastRemoteHostId(@Nullable String hostId) {
         state.lastRemoteHostId = hostId;
+    }
+
+    public @NotNull ViewMode getViewMode() {
+        if (state.viewMode == null || state.viewMode.isBlank()) {
+            return ViewMode.BOTH;
+        }
+        try {
+            return ViewMode.valueOf(state.viewMode);
+        } catch (IllegalArgumentException ignored) {
+            return ViewMode.BOTH;
+        }
+    }
+
+    public void setViewMode(@NotNull ViewMode mode) {
+        state.viewMode = mode.name();
     }
 
     @Override
