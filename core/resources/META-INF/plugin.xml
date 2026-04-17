@@ -371,6 +371,15 @@
                 <keyboard-shortcut keymap="Mac OS X" first-keystroke="meta alt shift ENTER" replace-all="true"/>
             </action>
 
+            <action id="TermLab.NewTerminalPopOut"
+                    class="com.termlab.core.actions.NewTerminalPopOutAction"
+                    text="New Terminal Window"
+                    description="Open a new terminal directly in its own window">
+                <keyboard-shortcut keymap="$default" first-keystroke="control shift alt T"/>
+                <keyboard-shortcut keymap="Mac OS X 10.5+" first-keystroke="meta alt shift T" replace-all="true"/>
+                <keyboard-shortcut keymap="Mac OS X" first-keystroke="meta alt shift T" replace-all="true"/>
+            </action>
+
             <separator/>
 
             <action id="TermLab.FocusTerminalLeft"

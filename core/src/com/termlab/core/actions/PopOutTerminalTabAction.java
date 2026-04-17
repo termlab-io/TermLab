@@ -141,8 +141,8 @@ public final class PopOutTerminalTabAction extends AnAction {
         termFile.putUserData(POP_OUT_SOURCE_WINDOW_KEY, new WeakReference<>(sourceWindow));
     }
 
-    private static void configurePopOutWindowSize(@NotNull Project project,
-                                                  @NotNull TermLabTerminalVirtualFile termFile) {
+    static void configurePopOutWindowSize(@NotNull Project project,
+                                          @NotNull TermLabTerminalVirtualFile termFile) {
         termFile.putUserData(FileEditorManagerKeys.WINDOW_DIMENSION_KEY, TERMINAL_POPOUT_DIMENSION_KEY);
         DimensionService.getInstance().setSize(
             TERMINAL_POPOUT_DIMENSION_KEY,
