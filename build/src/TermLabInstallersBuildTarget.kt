@@ -34,11 +34,10 @@ object TermLabInstallersBuildTarget {
           // distributions are still valid for manual testing.
           BuildOptions.PROVIDED_MODULES_LIST_STEP,
           BuildOptions.SEARCHABLE_OPTIONS_INDEX_STEP,
-          // MAC_DMG_STEP is now enabled — TermLabProperties supplies a
-          // dmgImagePath, and hdiutil is macOS-native. We only skip
-          // Windows's .exe installer, which needs NSIS or WiX and
-          // isn't appropriate for an unsigned local dev artifact.
-          BuildOptions.WINDOWS_EXE_INSTALLER_STEP,
+          // MAC_DMG_STEP is enabled — TermLabProperties supplies a
+          // dmgImagePath, and hdiutil is macOS-native. We also leave
+          // the unsigned Windows .exe installer enabled so CI can
+          // publish full release artifacts for both Windows arches.
           // License-list generation requires every bundled third-party
           // library to have an entry in the platform's libraries list.
           // The libraries TermLab pulls in via plugin layouts (sshd-osgi,

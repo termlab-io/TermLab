@@ -1,26 +1,37 @@
 #!/usr/bin/env python3
 """
-generate_version.py — Stamp the product version and commit SHA into
+generate_version.py — Stamp TermLab version metadata into
 customization/resources/idea/TermLabApplicationInfo.xml in place.
 
-Three attributes on the <version> element are touched:
+The script always updates the platform-coupled attributes on <version>:
 
-    <version major="2026" minor="2" suffix="0.1.0 (abc1234)"/>
+    <version major="2026" minor="2" patch="0" suffix="0.1.0 (abc1234)"/>
 
 major and minor are derived from $(INTELLIJ_ROOT)/build.txt so the
-installer build's platform assertion passes. The product version and
-git SHA go into suffix, which the IDE displays in the About dialog and
-window title bar.
+installer build's platform assertion passes. patch is derived from the
+third segment of customization/version.properties' product.version.
+
+By default, the script writes a developer-facing suffix that includes
+the short git SHA. In release mode it writes the plain product version
+instead so tagged builds stay stable and reproducible.
+
+Optional release metadata can also be updated in place:
+
+    <version eap="false" codename="Uplink"/>
 
 Everything else — the <build> tag, motto, logos, themes, essential-plugin
 list, comments, whitespace — is preserved byte-for-byte.
 
 Inputs:
-    $VERSION        If set, persisted to customization/version.properties
-                    as product.version before the XML is rewritten.
-    $INTELLIJ_ROOT  Override for upstream build.txt location. Falls back
-                    to .intellij-root, then to a sibling
-                    intellij-community directory (matches Makefile).
+    $VERSION               If set, persisted to customization/version.properties
+                           as product.version before the XML is rewritten.
+    $INTELLIJ_ROOT         Override for upstream build.txt location. Falls back
+                           to .intellij-root, then to a sibling
+                           intellij-community directory (matches Makefile).
+    $TERMLAB_VERSION_MODE  'dev' (default) or 'release'. Release mode writes
+                           suffix=product.version without the git SHA.
+    $CODENAME              Optional override for the XML version@codename.
+    $EAP                   Optional boolean override for the XML version@eap.
 """
 from __future__ import annotations
 
@@ -92,6 +103,14 @@ def decode_platform_version(build_raw: str) -> tuple[str, str]:
     return f"20{prefix[:2]}", prefix[2:]
 
 
+def decode_product_version(version: str) -> tuple[str, str, str]:
+    parts = version.split(".")
+    if len(parts) > 3 or any(not part.isdigit() for part in parts):
+        die(f"product.version must look like X, X.Y, or X.Y.Z (got '{version}')")
+    padded = parts + ["0"] * (3 - len(parts))
+    return padded[0], padded[1], padded[2]
+
+
 def git_sha() -> str:
     try:
         sha = subprocess.check_output(
@@ -117,6 +136,16 @@ def _xml_attr_escape(value: str) -> str:
     )
 
 
+def get_attribute(text: str, tag: str, attr: str) -> str | None:
+    tag_re = re.compile(rf"<{re.escape(tag)}\b[^>]*?/?>", re.DOTALL)
+    m = tag_re.search(text)
+    if not m:
+        return None
+    attr_re = re.compile(rf'\b{re.escape(attr)}="([^"]*)"')
+    match = attr_re.search(m.group(0))
+    return match.group(1) if match else None
+
+
 def set_attribute(text: str, tag: str, attr: str, value: str) -> str:
     """Set `attr="value"` on the first <tag ...> / <tag .../> in `text`.
     Preserves other attributes and surrounding whitespace. Inserts the
@@ -140,6 +169,25 @@ def set_attribute(text: str, tag: str, attr: str, value: str) -> str:
     return text[: m.start()] + new_opening + text[m.end() :]
 
 
+def parse_bool(name: str) -> bool | None:
+    raw = os.environ.get(name)
+    if raw is None or not raw.strip():
+        return None
+    value = raw.strip().lower()
+    if value in {"1", "true", "yes", "on"}:
+        return True
+    if value in {"0", "false", "no", "off"}:
+        return False
+    die(f"{name} must be a boolean value (got '{raw}')")
+
+
+def resolve_version_mode() -> str:
+    mode = os.environ.get("TERMLAB_VERSION_MODE", "dev").strip().lower() or "dev"
+    if mode not in {"dev", "release"}:
+        die(f"TERMLAB_VERSION_MODE must be 'dev' or 'release' (got '{mode}')")
+    return mode
+
+
 def main() -> None:
     if not VERSION_PROPS.exists():
         die(f"{VERSION_PROPS} not found")
@@ -154,6 +202,7 @@ def main() -> None:
     product_version = props.get("product.version")
     if not product_version:
         die("product.version missing from version.properties")
+    _, _, patch = decode_product_version(product_version)
 
     intellij_root = resolve_intellij_root()
     build_txt = intellij_root / "build.txt"
@@ -162,20 +211,42 @@ def main() -> None:
     build_raw = build_txt.read_text(encoding="utf-8").strip()
     platform_major, platform_minor = decode_platform_version(build_raw)
 
-    sha = git_sha()
-    suffix = f"{product_version} ({sha})"
+    version_mode = resolve_version_mode()
+    suffix = product_version if version_mode == "release" else f"{product_version} ({git_sha()})"
+    codename = os.environ.get("CODENAME", "").strip() or None
+    eap = parse_bool("EAP")
 
     text = APP_INFO_XML.read_text(encoding="utf-8")
     text = set_attribute(text, "version", "major", platform_major)
     text = set_attribute(text, "version", "minor", platform_minor)
+    text = set_attribute(text, "version", "patch", patch)
     text = set_attribute(text, "version", "suffix", suffix)
+    if codename is not None:
+        text = set_attribute(text, "version", "codename", codename)
+    if eap is not None:
+        text = set_attribute(text, "version", "eap", "true" if eap else "false")
     APP_INFO_XML.write_text(text, encoding="utf-8")
+
+    final_codename = get_attribute(text, "version", "codename")
+    release_tag = (
+        f"{final_codename}-{platform_major}.{platform_minor}-{product_version}"
+        if final_codename
+        else None
+    )
 
     rel = APP_INFO_XML.relative_to(WORKBENCH)
     print(f"[generate_version] updated {rel}")
     print(f"  product version : {product_version}")
     print(f"  platform        : {platform_major}.{platform_minor}  (build.txt={build_raw})")
+    print(f"  patch          : {patch}")
+    print(f"  mode           : {version_mode}")
     print(f"  suffix          : {suffix}")
+    if final_codename:
+        print(f"  codename        : {final_codename}")
+    if eap is not None:
+        print(f"  eap             : {'true' if eap else 'false'}")
+    if release_tag:
+        print(f"  release tag     : {release_tag}")
 
 
 if __name__ == "__main__":

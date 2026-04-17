@@ -101,6 +101,13 @@ class TermLabProperties(private val communityHomeDir: Path) : JetBrainsProductPr
       // this property before starting fsnotifier.
       "-Didea.filewatcher.disabled=true",
     )
+
+    // Ship the product license text in the distribution's standard
+    // license directory so every packaged format, including the MSI
+    // we build in CI, carries the Apache 2.0 terms.
+    additionalDirectoriesWithLicenses = listOf(
+      communityHomeDir.resolve("termlab/customization/licenses"),
+    )
   }
 
   override val baseFileName: String

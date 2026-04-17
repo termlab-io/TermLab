@@ -1,0 +1,249 @@
+name: Build Release
+
+on:
+  push:
+    tags:
+      - "*-*-*"
+
+permissions:
+  contents: write
+
+jobs:
+  metadata:
+    runs-on: ubuntu-24.04
+    outputs:
+      tag: ${{ steps.version.outputs.tag }}
+      prerelease: ${{ steps.version.outputs.prerelease }}
+      suffix: ${{ steps.version.outputs.suffix }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate tag against TermLabApplicationInfo.xml
+        id: version
+        run: |
+          python3 - <<'PY'
+          import os
+          import xml.etree.ElementTree as ET
+          from pathlib import Path
+
+          tag = os.environ["GITHUB_REF_NAME"]
+          app_info = Path("customization/resources/idea/TermLabApplicationInfo.xml")
+          root = ET.parse(app_info).getroot()
+          ns = {"app": "http://jetbrains.org/intellij/schema/application-info"}
+          version = root.find("app:version", ns)
+          if version is None:
+              raise SystemExit("version element missing")
+
+          codename = version.get("codename") or ""
+          major = version.get("major") or ""
+          minor = version.get("minor") or ""
+          suffix = version.get("suffix") or ""
+          prerelease = "true" if (version.get("eap") or "").lower() == "true" else "false"
+          expected = f"{codename}-{major}.{minor}-{suffix}"
+
+          if tag != expected:
+              raise SystemExit(f"tag mismatch: expected {expected}, got {tag}")
+
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as fh:
+              fh.write(f"tag={tag}\n")
+              fh.write(f"prerelease={prerelease}\n")
+              fh.write(f"suffix={suffix}\n")
+          PY
+
+  tests:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    needs: metadata
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+
+      - name: Bootstrap IntelliJ checkout
+        run: |
+          INTELLIJ_ROOT="$(dirname "$(pwd -P)")/intellij-community"
+          echo "INTELLIJ_ROOT=$INTELLIJ_ROOT" >> "$GITHUB_ENV"
+          ./scripts/ci/bootstrap_intellij.sh "$INTELLIJ_ROOT"
+
+      - name: Run core tests
+        working-directory: ${{ env.INTELLIJ_ROOT }}
+        run: bash bazel.cmd run //termlab/core:core_test_runner
+
+      - name: Run editor tests
+        working-directory: ${{ env.INTELLIJ_ROOT }}
+        run: bash bazel.cmd run //termlab/plugins/editor:editor_test_runner
+
+      - name: Run runner tests
+        working-directory: ${{ env.INTELLIJ_ROOT }}
+        run: bash bazel.cmd run //termlab/plugins/runner:runner_test_runner
+
+      - name: Run SFTP tests
+        working-directory: ${{ env.INTELLIJ_ROOT }}
+        run: bash bazel.cmd run //termlab/plugins/sftp:sftp_test_runner
+
+      - name: Run share tests
+        working-directory: ${{ env.INTELLIJ_ROOT }}
+        run: bash bazel.cmd run //termlab/plugins/share:share_test_runner
+
+      - name: Run SSH tests
+        working-directory: ${{ env.INTELLIJ_ROOT }}
+        run: bash bazel.cmd run //termlab/plugins/ssh:ssh_test_runner
+
+      - name: Run tunnels tests
+        working-directory: ${{ env.INTELLIJ_ROOT }}
+        run: bash bazel.cmd run //termlab/plugins/tunnels:tunnels_test_runner
+
+      - name: Run vault tests
+        working-directory: ${{ env.INTELLIJ_ROOT }}
+        run: bash bazel.cmd run //termlab/plugins/vault:vault_test_runner
+
+  build:
+    needs: [metadata, tests]
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos
+            arch: aarch64
+            runner: macos-15
+            make_target: termlab-installers-mac
+          - os: macos
+            arch: amd64
+            runner: macos-15-intel
+            make_target: termlab-installers-mac
+          - os: linux
+            arch: aarch64
+            runner: ubuntu-24.04-arm
+            make_target: termlab-installers-linux
+          - os: linux
+            arch: amd64
+            runner: ubuntu-24.04
+            make_target: termlab-installers-linux
+          - os: windows
+            arch: aarch64
+            runner: windows-11-arm
+            make_target: termlab-installers-windows
+            wix_arch: arm64
+          - os: windows
+            arch: amd64
+            runner: windows-2025
+            make_target: termlab-installers-windows
+            wix_arch: x64
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 180
+    env:
+      TERMLAB_VERSION_MODE: release
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+
+      - uses: actions/setup-dotnet@v4
+        if: matrix.os == 'windows'
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Bootstrap IntelliJ checkout
+        shell: bash
+        run: |
+          INTELLIJ_ROOT="$(dirname "$(pwd -P)")/intellij-community"
+          echo "INTELLIJ_ROOT=$INTELLIJ_ROOT" >> "$GITHUB_ENV"
+          ./scripts/ci/bootstrap_intellij.sh "$INTELLIJ_ROOT"
+
+      - name: Build installers
+        shell: bash
+        run: make "${{ matrix.make_target }}"
+
+      - name: Build MSI
+        if: matrix.os == 'windows'
+        shell: pwsh
+        run: |
+          ./scripts/ci/build_windows_msi.ps1 `
+            -ArtifactDir "$env:INTELLIJ_ROOT/out/termlab/artifacts" `
+            -Arch "${{ matrix.wix_arch }}" `
+            -Version "${{ needs.metadata.outputs.suffix }}" `
+            -WorkspaceRoot "$env:GITHUB_WORKSPACE"
+
+      - name: Collect release artifacts
+        shell: bash
+        run: |
+          ARTIFACT_DIR="$INTELLIJ_ROOT/out/termlab/artifacts"
+          DEST_DIR="$GITHUB_WORKSPACE/release-artifacts"
+          mkdir -p "$DEST_DIR"
+
+          count=0
+          while IFS= read -r -d '' file; do
+            cp "$file" "$DEST_DIR/"
+            count=$((count + 1))
+          done < <(find "$ARTIFACT_DIR" -maxdepth 1 -type f -print0)
+
+          if [ "$count" -eq 0 ]; then
+            echo "::error::No artifacts found in $ARTIFACT_DIR"
+            exit 1
+          fi
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-${{ matrix.os }}-${{ matrix.arch }}
+          path: release-artifacts/*
+          if-no-files-found: error
+
+  publish:
+    needs: [metadata, build]
+    runs-on: ubuntu-24.04
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          pattern: release-*
+          merge-multiple: true
+
+      - name: Create or update draft release
+        shell: bash
+        run: |
+          TAG="${{ needs.metadata.outputs.tag }}"
+          PRERELEASE="${{ needs.metadata.outputs.prerelease }}"
+
+          mapfile -t assets < <(find dist -maxdepth 1 -type f | sort)
+          if [ "${#assets[@]}" -eq 0 ]; then
+            echo "::error::No release assets were downloaded."
+            exit 1
+          fi
+
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            mapfile -t existing_assets < <(gh release view "$TAG" --json assets --jq '.assets[].name')
+            for asset in "${existing_assets[@]}"; do
+              gh release delete-asset "$TAG" "$asset" --yes
+            done
+            edit_args=(release edit "$TAG" --draft --title "$TAG" --latest=false)
+            if [ "$PRERELEASE" = "true" ]; then
+              edit_args+=(--prerelease)
+            else
+              edit_args+=(--prerelease=false)
+            fi
+            gh "${edit_args[@]}"
+            gh release upload "$TAG" "${assets[@]}" --clobber
+            exit 0
+          fi
+
+          args=(release create "$TAG" --draft --title "$TAG" --latest=false --notes "Automated release for $TAG.")
+          if [ "$PRERELEASE" = "true" ]; then
+            args+=(--prerelease)
+          fi
+          gh "${args[@]}" "${assets[@]}"

@@ -4,7 +4,7 @@ load("//build:intellij_dev.bzl", "INTELLIJ_ADD_OPENS")
 load("@jps_dynamic_deps_community//:targets.bzl", "ALL_LIBRARY_COMMUNITY_TARGETS", "ALL_PRODUCTION_COMMUNITY_TARGETS", "BAZEL_TARGETS_JSON_COMMUNITY")
 
 # TermLab installers build — produces cross-platform distributions
-# (.dmg/.sit for macOS, .win.zip for Windows, .tar.gz for Linux) by
+# (.dmg/.sit for macOS, .win.zip/.exe for Windows, .tar.gz for Linux) by
 # delegating to the JetBrains platform build pipeline with TermLabProperties.
 #
 # Mirrors //build:i_build_target (OpenSourceCommunityInstallersBuildTarget).

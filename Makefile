@@ -11,7 +11,7 @@
 #   make termlab-installers         — build all-platform distributions
 #   make termlab-installers-mac     — build macOS distributions only (.sit)
 #   make termlab-installers-linux   — build Linux distributions only (.tar.gz)
-#   make termlab-installers-windows — build Windows distributions only (.win.zip)
+#   make termlab-installers-windows — build Windows distributions only (.win.zip, .exe)
 #   make termlab-version            — regenerate TermLabApplicationInfo.xml
 #
 # Product version: pass VERSION=X.Y.Z on any build/run target to override and
