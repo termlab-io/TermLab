@@ -60,6 +60,23 @@
     </projectListeners>
 
     <actions>
+        <group id="TermLab.Sftp.ViewMenu"
+               text="SFTP"
+               description="SFTP tool window view options"
+               popup="true">
+            <add-to-group group-id="ViewMenu" anchor="last"/>
+
+            <action id="TermLab.Sftp.View.Local"
+                    class="com.termlab.sftp.actions.ShowLocalSftpPaneAction"
+                    text="Local"/>
+            <action id="TermLab.Sftp.View.Remote"
+                    class="com.termlab.sftp.actions.ShowRemoteSftpPaneAction"
+                    text="Remote"/>
+            <action id="TermLab.Sftp.View.Both"
+                    class="com.termlab.sftp.actions.ShowLocalAndRemoteSftpPanesAction"
+                    text="Local + Remote"/>
+        </group>
+
         <!--
           "New SFTP Session…" — Cmd+Shift+K on macOS, Ctrl+Shift+K on
           Linux/Windows. Mirrors the SSH plugin's Cmd+K popup: pick a

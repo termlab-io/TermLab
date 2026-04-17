@@ -28,7 +28,6 @@ public final class SftpToolWindow extends JPanel {
     private final RemoteFilePane remote;
     private final TransferCoordinator coordinator;
     private final JPanel contentPanel;
-    private final JComboBox<ViewOption> viewModeCombo;
     private TermLabSftpConfig.ViewMode viewMode;
 
     public SftpToolWindow(@NotNull Project project) {
@@ -39,7 +38,6 @@ public final class SftpToolWindow extends JPanel {
         this.viewMode = TermLabSftpConfig.getInstance().getViewMode();
 
         this.contentPanel = new JPanel(new BorderLayout());
-        this.viewModeCombo = new JComboBox<>(ViewOption.values());
 
         this.local.setTransferActions(new LocalFilePane.TransferActions() {
             @Override
@@ -127,40 +125,22 @@ public final class SftpToolWindow extends JPanel {
             }
         });
 
-        add(buildHeader(), BorderLayout.NORTH);
         add(contentPanel, BorderLayout.CENTER);
         applyViewMode(viewMode);
     }
 
-    private @NotNull JComponent buildHeader() {
-        JPanel header = new JPanel(new FlowLayout(FlowLayout.RIGHT, 6, 4));
-        header.setBorder(JBUI.Borders.empty(0, 4, 2, 4));
-
-        viewModeCombo.setToolTipText("Choose which SFTP panes are visible");
-        viewModeCombo.addActionListener(e -> {
-            ViewOption option = (ViewOption) viewModeCombo.getSelectedItem();
-            if (option != null) {
-                setViewMode(option.mode);
-            }
-        });
-
-        header.add(new JLabel("View:"));
-        header.add(viewModeCombo);
-        return header;
-    }
-
-    private void setViewMode(@NotNull TermLabSftpConfig.ViewMode mode) {
+    public void setViewMode(@NotNull TermLabSftpConfig.ViewMode mode) {
         if (viewMode == mode) return;
         applyViewMode(mode);
         TermLabSftpConfig.getInstance().setViewMode(mode);
     }
 
+    public @NotNull TermLabSftpConfig.ViewMode getViewMode() {
+        return viewMode;
+    }
+
     private void applyViewMode(@NotNull TermLabSftpConfig.ViewMode mode) {
         this.viewMode = mode;
-        ViewOption selected = ViewOption.from(mode);
-        if (viewModeCombo.getSelectedItem() != selected) {
-            viewModeCombo.setSelectedItem(selected);
-        }
 
         contentPanel.removeAll();
         switch (mode) {
@@ -204,31 +184,4 @@ public final class SftpToolWindow extends JPanel {
         return remote;
     }
 
-    private enum ViewOption {
-        LOCAL_ONLY("Local Only", TermLabSftpConfig.ViewMode.LOCAL_ONLY),
-        REMOTE_ONLY("Remote Only", TermLabSftpConfig.ViewMode.REMOTE_ONLY),
-        BOTH("Local + Remote", TermLabSftpConfig.ViewMode.BOTH);
-
-        private final String label;
-        private final TermLabSftpConfig.ViewMode mode;
-
-        ViewOption(@NotNull String label, @NotNull TermLabSftpConfig.ViewMode mode) {
-            this.label = label;
-            this.mode = mode;
-        }
-
-        static @NotNull ViewOption from(@NotNull TermLabSftpConfig.ViewMode mode) {
-            for (ViewOption option : values()) {
-                if (option.mode == mode) {
-                    return option;
-                }
-            }
-            return BOTH;
-        }
-
-        @Override
-        public @NotNull String toString() {
-            return label;
-        }
-    }
 }

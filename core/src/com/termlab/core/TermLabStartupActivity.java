@@ -1,8 +1,8 @@
 package com.termlab.core;
-
 import com.termlab.core.terminal.TermLabTabBarManager;
 import com.termlab.core.workspace.WorkspaceManager;
 import com.intellij.ide.GeneralSettings;
+import com.intellij.openapi.editor.ex.EditorSettingsExternalizable;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.project.UnindexedFilesScannerExecutor;
 import com.intellij.openapi.startup.ProjectActivity;
@@ -35,6 +35,10 @@ public final class TermLabStartupActivity implements ProjectActivity {
         UnindexedFilesScannerExecutor scannerExecutor = UnindexedFilesScannerExecutor.getInstance(project);
         scannerExecutor.cancelAllTasksAndWait();
         scannerExecutor.suspendQueue();
+
+        // TermLab has no code analysis workflow, so hide the editor's
+        // inspection widget/traffic-light status chip globally.
+        EditorSettingsExternalizable.getInstance().setShowInspectionWidget(false);
 
         // Quit the app when the last project window is closed (don't show welcome screen)
         GeneralSettings.getInstance().setShowWelcomeScreen(false);
