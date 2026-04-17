@@ -5,7 +5,6 @@ import com.termlab.ssh.model.HostStore;
 import com.termlab.ssh.model.SshHost;
 import com.termlab.ssh.ui.HostEditDialog;
 import com.intellij.icons.AllIcons;
-import com.intellij.openapi.actionSystem.ActionManager;
 import com.intellij.openapi.actionSystem.ActionToolbar;
 import com.intellij.openapi.actionSystem.AnAction;
 import com.intellij.openapi.actionSystem.AnActionEvent;
@@ -123,14 +122,9 @@ public final class HostsToolWindow extends JPanel {
         group.add(new EditHostAction());
         group.add(new DeleteHostAction());
         group.addSeparator();
-        AnAction exportAction = ActionManager.getInstance().getAction("TermLab.Share.Export.Hosts");
-        AnAction importAction = ActionManager.getInstance().getAction("TermLab.Share.Import.Hosts");
-        if (exportAction != null) group.add(exportAction);
-        if (importAction != null) group.add(importAction);
-        group.addSeparator();
         group.add(new RefreshAction());
 
-        ActionToolbar toolbar = ActionManager.getInstance()
+        ActionToolbar toolbar = com.intellij.openapi.actionSystem.ActionManager.getInstance()
             .createActionToolbar("HostsToolbar", group, true);
         toolbar.setTargetComponent(this);
         return toolbar;

@@ -1,6 +1,7 @@
 package com.termlab.share.actions;
 
 import com.termlab.share.ui.ExportDialog;
+import com.intellij.icons.AllIcons;
 import com.intellij.openapi.actionSystem.ActionUpdateThread;
 import com.intellij.openapi.actionSystem.AnAction;
 import com.intellij.openapi.actionSystem.AnActionEvent;
@@ -15,7 +16,7 @@ public class ExportAction extends AnAction {
     }
 
     public ExportAction(ExportDialog.EntryPoint entryPoint) {
-        super("Export TermLab Bundle...", "Export SSH hosts and tunnels as an encrypted bundle", null);
+        super("Export TermLab Bundle...", "Export SSH hosts and tunnels as an encrypted bundle", AllIcons.Actions.Upload);
         this.entryPoint = entryPoint;
     }
 

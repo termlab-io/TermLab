@@ -142,11 +142,6 @@ public final class TunnelsToolWindow extends JPanel {
         group.add(new EditTunnelAction());
         group.add(new DeleteTunnelAction());
         group.addSeparator();
-        AnAction exportAction = ActionManager.getInstance().getAction("TermLab.Share.Export.Tunnels");
-        AnAction importAction = ActionManager.getInstance().getAction("TermLab.Share.Import.Tunnels");
-        if (exportAction != null) group.add(exportAction);
-        if (importAction != null) group.add(importAction);
-        group.addSeparator();
         group.add(new RefreshAction());
 
         ActionToolbar toolbar = ActionManager.getInstance()

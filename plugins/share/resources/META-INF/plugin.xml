@@ -32,12 +32,14 @@
                 text="Export TermLab Bundle..."
                 description="Export SSH hosts and tunnels as an encrypted share bundle">
             <add-to-group group-id="ToolsMenu" anchor="last"/>
+            <add-to-group group-id="MainToolBar" anchor="last"/>
         </action>
         <action id="TermLab.Share.Import.Menu"
                 class="com.termlab.share.actions.ImportAction"
                 text="Import TermLab Bundle..."
                 description="Import SSH hosts, tunnels, and credentials from a share bundle">
             <add-to-group group-id="ToolsMenu" anchor="last"/>
+            <add-to-group group-id="MainToolBar" anchor="last"/>
         </action>
     </actions>
 </idea-plugin>
