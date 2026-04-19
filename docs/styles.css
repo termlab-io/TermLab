@@ -1,0 +1,144 @@
+/* ---------- Tokens ---------- */
+:root {
+  --bg-0: #0a1120;
+  --bg-1: #0d1524;
+  --bg-2: #121e31;
+  --panel: rgba(12, 20, 35, 0.72);
+  --stroke: rgba(167, 186, 216, 0.18);
+  --text: #ecf0f3;
+  --muted: #aeb8c7;
+  --term: #dedfdf;
+  --lab: #5e7293;
+  --lab-bright: #7d91b6;
+  --glow: rgba(125, 145, 182, 0.24);
+  --shadow-lg: 0 30px 80px rgba(4, 8, 16, 0.42);
+  --shadow-md: 0 18px 40px rgba(2, 5, 11, 0.22);
+  --radius-lg: 20px;
+  --radius-md: 14px;
+  --content-max: 1200px;
+  --gutter: clamp(20px, 4vw, 48px);
+  --font-display: "Space Grotesk", system-ui, sans-serif;
+  --font-body: "Manrope", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+/* ---------- Reset ---------- */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  color: var(--text);
+  font-family: var(--font-body);
+  font-size: 16px;
+  line-height: 1.6;
+  background:
+    radial-gradient(circle at 15% 10%, rgba(125, 145, 182, 0.18), transparent 30%),
+    radial-gradient(circle at 85% 5%, rgba(222, 223, 223, 0.06), transparent 22%),
+    linear-gradient(135deg, var(--bg-0) 0%, var(--bg-1) 52%, var(--bg-2) 100%);
+}
+
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+  background-size: 80px 80px;
+  mask-image: radial-gradient(circle at center, black 40%, transparent 85%);
+}
+
+img {
+  max-width: 100%;
+  display: block;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+main,
+footer {
+  position: relative;
+  z-index: 1;
+}
+
+/* ---------- Utilities ---------- */
+.container {
+  width: min(calc(100% - (var(--gutter) * 2)), var(--content-max));
+  margin-inline: auto;
+}
+
+.eyebrow-mono {
+  display: inline-block;
+  margin: 0 0 18px;
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  color: var(--lab-bright);
+  text-transform: lowercase;
+}
+
+/* ---------- Topbar (skeleton) ---------- */
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 16px var(--gutter);
+  background: rgba(10, 17, 32, 0.72);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border-bottom: 1px solid var(--stroke);
+}
+
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.brand img {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+}
+
+.brand span {
+  font-family: var(--font-display);
+  font-size: 1.1rem;
+  letter-spacing: -0.04em;
+}
+
+.brand em {
+  color: var(--term);
+  font-style: normal;
+  font-weight: 500;
+}
+
+.brand strong {
+  color: var(--lab-bright);
+  font-weight: 700;
+}
+
+/* ---------- Section placeholders (temporary) ---------- */
+main > section,
+main > section:empty {
+  min-height: 10vh;
+}
