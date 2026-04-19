@@ -65,6 +65,7 @@ fi
 # relative to intellij-community.
 
 TERMLAB_MODULES=(
+  "termlab/build/intellij.termlab.build.iml"
   "termlab/core/intellij.termlab.core.iml"
   "termlab/customization/intellij.termlab.customization.iml"
   "termlab/intellij.termlab.main.iml"
