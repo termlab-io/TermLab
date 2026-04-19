@@ -137,12 +137,6 @@ footer {
   font-weight: 700;
 }
 
-/* ---------- Section placeholders (temporary) ---------- */
-main > section,
-main > section:empty {
-  min-height: 10vh;
-}
-
 .topbar-actions {
   display: flex;
   align-items: center;
