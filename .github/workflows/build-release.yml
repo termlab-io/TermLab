@@ -134,12 +134,59 @@ jobs:
         working-directory: ${{ env.INTELLIJ_ROOT }}
         run: bash bazel.cmd run //termlab/plugins/vault:vault_test_runner
 
-  build:
+  compiled-classes:
     needs: [metadata, tests]
     if: |
       always() &&
       needs.metadata.result == 'success' &&
       (needs.tests.result == 'success' || needs.tests.result == 'skipped')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    env:
+      TERMLAB_VERSION_MODE: release
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+
+      - name: Bootstrap IntelliJ checkout
+        shell: bash
+        run: |
+          INTELLIJ_ROOT="$(dirname "$(pwd -P)")/intellij-community"
+          echo "INTELLIJ_ROOT=$INTELLIJ_ROOT" >> "$GITHUB_ENV"
+          ./scripts/ci/bootstrap_intellij.sh "$INTELLIJ_ROOT"
+
+      - name: Build shared compiled classes archive
+        shell: bash
+        run: make termlab-compiled-classes
+
+      - name: Stage shared compiled classes archive
+        shell: bash
+        run: |
+          mkdir -p compiled-classes
+          cp "$INTELLIJ_ROOT/out/termlab/artifacts/termlab-compiled-classes.zip" \
+            compiled-classes/termlab-compiled-classes.zip
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: compiled-classes
+          path: compiled-classes/termlab-compiled-classes.zip
+          if-no-files-found: error
+
+  build:
+    needs: [metadata, tests, compiled-classes]
+    if: |
+      always() &&
+      needs.metadata.result == 'success' &&
+      (needs.tests.result == 'success' || needs.tests.result == 'skipped') &&
+      needs.compiled-classes.result == 'success'
     strategy:
       fail-fast: false
       matrix:
@@ -198,8 +245,15 @@ jobs:
           echo "INTELLIJ_ROOT=$INTELLIJ_ROOT" >> "$GITHUB_ENV"
           ./scripts/ci/bootstrap_intellij.sh "$INTELLIJ_ROOT"
 
+      - uses: actions/download-artifact@v4
+        with:
+          name: compiled-classes
+          path: compiled-classes
+
       - name: Build installers
         shell: bash
+        env:
+          TERMLAB_COMPILED_CLASSES_ARCHIVE: ${{ github.workspace }}/compiled-classes/termlab-compiled-classes.zip
         run: make "${{ matrix.make_target }}"
 
       - name: Build MSI

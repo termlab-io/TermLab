@@ -7,6 +7,7 @@ import org.jetbrains.intellij.build.BuildPaths.Companion.COMMUNITY_ROOT
 import org.jetbrains.intellij.build.impl.buildDistributions
 import org.jetbrains.intellij.build.impl.createBuildContext
 import org.jetbrains.intellij.build.termlab.TermLabProperties
+import java.nio.file.Path
 
 object TermLabInstallersBuildTarget {
   @JvmStatic
@@ -17,10 +18,22 @@ object TermLabInstallersBuildTarget {
     System.getenv("TERMLAB_TARGET_OS")?.let {
       System.setProperty("intellij.build.target.os", it)
     }
+    val reuseCompiledClasses = (System.getenv("TERMLAB_REUSE_COMPILED_CLASSES") ?: "false").toBoolean()
+    val compiledClassesArchive = System.getenv("TERMLAB_COMPILED_CLASSES_ARCHIVE")
+      ?.takeIf { it.isNotBlank() }
+      ?.let { Path.of(it) }
     runBlocking(Dispatchers.Default) {
-      val options = BuildOptions().apply {
-        incrementalCompilation = true
-        useCompiledClassesFromProjectOutput = false
+      // Reusing existing project output is much faster for local
+      // iteration, but it is mutually exclusive with incremental JPS
+      // compilation in the build scripts. CI should keep the default
+      // isolated compile path; local "fast" packaging can opt in via
+      // TERMLAB_REUSE_COMPILED_CLASSES=true after an IDE/Build Project.
+      val useArchive = compiledClassesArchive != null
+      val options = BuildOptions(
+        incrementalCompilation = !(reuseCompiledClasses || useArchive),
+        useCompiledClassesFromProjectOutput = reuseCompiledClasses,
+        pathToCompiledClassesArchive = compiledClassesArchive,
+      ).apply {
         buildStepsToSkip += listOf(
           BuildOptions.MAC_SIGN_STEP,
           BuildOptions.WIN_SIGN_STEP,

@@ -10,6 +10,8 @@
 #   make termlab-test               — run the full TermLab unit/integration test suite
 #   make termlab-clean              — clean build artifacts
 #   make termlab-installers         — build all-platform distributions
+#   make termlab-installers-fast    — build all-platform distributions reusing existing compiled IDE output
+#   make termlab-compiled-classes   — compile production classes once and archive them for reuse
 #   make termlab-installers-mac     — build macOS distributions only (.sit)
 #   make termlab-installers-linux   — build Linux distributions only (.tar.gz)
 #   make termlab-installers-windows — build Windows distributions only (.win.zip, .exe)
@@ -76,7 +78,7 @@ TERMLAB_TEST_TARGETS := \
 	//termlab/plugins/sftp:sftp_test_runner \
 	//termlab/plugins/search:search_test_runner
 
-.PHONY: termlab termlab-build termlab-test termlab-clean termlab-installers termlab-installers-mac termlab-installers-linux termlab-installers-windows check-intellij termlab-version termlab-perf-benchmark termlab-perf-budget
+.PHONY: termlab termlab-build termlab-test termlab-clean termlab-installers termlab-installers-fast termlab-compiled-classes termlab-installers-mac termlab-installers-linux termlab-installers-windows check-intellij termlab-version termlab-perf-benchmark termlab-perf-budget
 
 check-intellij:
 	@test -f "$(INTELLIJ_ROOT)/bazel.cmd" || { \
@@ -115,6 +117,16 @@ termlab-clean: check-intellij
 termlab-installers: check-intellij termlab-version
 	$(BAZEL) run //termlab/build:termlab_installers
 	@echo "→ Installer artifacts in $(INTELLIJ_ROOT)/out/termlab/artifacts/"
+
+termlab-installers-fast: check-intellij termlab-version
+	@echo "→ Building installers from existing compiled IDE output"
+	@echo "  Run 'Build Project' in IntelliJ first if outputs are stale or missing."
+	TERMLAB_REUSE_COMPILED_CLASSES=true $(BAZEL) run //termlab/build:termlab_installers
+	@echo "→ Installer artifacts in $(INTELLIJ_ROOT)/out/termlab/artifacts/"
+
+termlab-compiled-classes: check-intellij termlab-version
+	$(BAZEL) run //termlab/build:termlab_compiled_classes_archive
+	@echo "→ Compiled classes archive in $(INTELLIJ_ROOT)/out/termlab/artifacts/"
 
 termlab-installers-mac: check-intellij termlab-version
 	TERMLAB_TARGET_OS=mac $(BAZEL) run //termlab/build:termlab_installers
