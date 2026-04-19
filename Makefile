@@ -42,7 +42,16 @@ ifeq ($(origin INTELLIJ_ROOT), undefined)
   endif
 endif
 
-BAZEL := cd $(INTELLIJ_ROOT) && bash bazel.cmd
+ifeq ($(OS),Windows_NT)
+  # On Git Bash / GitHub Actions Windows runners, invoking `bash bazel.cmd`
+  # executes the Unix shim in bazel.cmd, which sees `uname` values like
+  # MINGW64_NT-* and exits as unsupported. Use the native cmd.exe entrypoint
+  # so bazel.cmd follows its Windows code path and downloads the correct
+  # bazelisk binary.
+  BAZEL := cd "$(INTELLIJ_ROOT)" && cmd.exe //c bazel.cmd
+else
+  BAZEL := cd $(INTELLIJ_ROOT) && bash bazel.cmd
+endif
 
 # Default workspace root for TermLab. Override with:
 #   make termlab TERMLAB_WORKSPACE=/path/to/workspace
