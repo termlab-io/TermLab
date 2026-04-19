@@ -538,3 +538,55 @@ main > section:empty {
     order: -1;
   }
 }
+
+/* ---------- Inside TermLab ---------- */
+.inside {
+  padding: clamp(56px, 9vw, 120px) 0;
+  border-top: 1px solid var(--stroke);
+}
+
+.inside-header {
+  max-width: 52ch;
+  margin-bottom: clamp(28px, 4vw, 48px);
+}
+
+.inside-headline {
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: 500;
+  letter-spacing: -0.025em;
+  font-size: clamp(1.3rem, 2.2vw, 1.8rem);
+  line-height: 1.25;
+  color: var(--text);
+}
+
+.inside-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: clamp(20px, 3vw, 36px);
+}
+
+.inside-card {
+  margin: 0;
+  display: grid;
+  gap: 12px;
+}
+
+.inside-card .window-chrome {
+  box-shadow: var(--shadow-md);
+}
+
+.inside-card figcaption {
+  font-family: var(--font-mono);
+  font-size: 0.82rem;
+  color: var(--muted);
+  letter-spacing: 0.02em;
+  text-align: left;
+}
+
+@media (max-width: 860px) {
+  .inside-grid {
+    grid-template-columns: 1fr;
+    gap: 28px;
+  }
+}
