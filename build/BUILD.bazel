@@ -3,6 +3,8 @@ load("@rules_jvm//:jvm.bzl", "jvm_library")
 load("//build:intellij_dev.bzl", "INTELLIJ_ADD_OPENS")
 load("@jps_dynamic_deps_community//:targets.bzl", "ALL_LIBRARY_COMMUNITY_TARGETS", "ALL_PRODUCTION_COMMUNITY_TARGETS", "BAZEL_TARGETS_JSON_COMMUNITY")
 
+exports_files(["intellij.termlab.build.iml"])
+
 # TermLab installers build — produces cross-platform distributions
 # (.dmg/.sit for macOS, .win.zip/.exe for Windows, .tar.gz for Linux) by
 # delegating to the JetBrains platform build pipeline with TermLabProperties.
@@ -10,7 +12,7 @@ load("@jps_dynamic_deps_community//:targets.bzl", "ALL_LIBRARY_COMMUNITY_TARGETS
 # Mirrors //build:i_build_target (OpenSourceCommunityInstallersBuildTarget).
 
 jvm_library(
-    name = "termlab_build_lib",
+    name = "build",
     module_name = "intellij.termlab.build",
     visibility = ["//visibility:public"],
     srcs = glob(["src/**/*.kt", "src/**/*.java"], allow_empty = True),
@@ -29,7 +31,7 @@ jvm_library(
 
 java_binary(
     name = "termlab_installers",
-    runtime_deps = [":termlab_build_lib"],
+    runtime_deps = [":build"],
     main_class = "TermLabInstallersBuildTarget",
     add_opens = INTELLIJ_ADD_OPENS,
     jvm_flags = [
@@ -40,7 +42,7 @@ java_binary(
 
 java_binary(
     name = "termlab_compiled_classes_archive",
-    runtime_deps = [":termlab_build_lib"],
+    runtime_deps = [":build"],
     main_class = "TermLabCompiledClassesArchiveBuildTarget",
     add_opens = INTELLIJ_ADD_OPENS,
     jvm_flags = [

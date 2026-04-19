@@ -7,7 +7,6 @@ INTELLIJ_DIR="${1:-$(dirname "$WORKBENCH_DIR")/intellij-community}"
 INTELLIJ_REPO="https://github.com/JetBrains/intellij-community.git"
 ANDROID_DIR="$INTELLIJ_DIR/android"
 ANDROID_REPO="https://github.com/JetBrains/android.git"
-ANDROID_REF="${ANDROID_REF:-master}"
 
 if [ ! -f "$WORKBENCH_DIR/INTELLIJ_REF" ]; then
   echo "ERROR: INTELLIJ_REF not found at $WORKBENCH_DIR/INTELLIJ_REF" >&2
@@ -15,6 +14,14 @@ if [ ! -f "$WORKBENCH_DIR/INTELLIJ_REF" ]; then
 fi
 
 INTELLIJ_REF="$(tr -d '[:space:]' < "$WORKBENCH_DIR/INTELLIJ_REF")"
+
+if [ -z "${ANDROID_REF:-}" ]; then
+  if [ -f "$WORKBENCH_DIR/ANDROID_REF" ]; then
+    ANDROID_REF="$(tr -d '[:space:]' < "$WORKBENCH_DIR/ANDROID_REF")"
+  else
+    ANDROID_REF="master"
+  fi
+fi
 
 git_enable_longpaths() {
   if [[ "${OS:-}" == "Windows_NT" ]]; then
