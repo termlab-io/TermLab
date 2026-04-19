@@ -7,6 +7,7 @@
 # Usage:
 #   make termlab                    — build and run TermLab
 #   make termlab-build              — build only (no run)
+#   make termlab-test               — run the full TermLab unit/integration test suite
 #   make termlab-clean              — clean build artifacts
 #   make termlab-installers         — build all-platform distributions
 #   make termlab-installers-mac     — build macOS distributions only (.sit)
@@ -55,7 +56,18 @@ TERMLAB_PERF_WARMUP_SEC ?= 90
 TERMLAB_PERF_SAMPLE_SEC ?= 5
 TERMLAB_PERF_DURATION_SEC ?= 300
 
-.PHONY: termlab termlab-build termlab-clean termlab-installers termlab-installers-mac termlab-installers-linux termlab-installers-windows check-intellij termlab-version termlab-perf-benchmark termlab-perf-budget
+TERMLAB_TEST_TARGETS := \
+	//termlab/core:core_test_runner \
+	//termlab/plugins/vault:vault_test_runner \
+	//termlab/plugins/ssh:ssh_test_runner \
+	//termlab/plugins/tunnels:tunnels_test_runner \
+	//termlab/plugins/share:share_test_runner \
+	//termlab/plugins/editor:editor_test_runner \
+	//termlab/plugins/runner:runner_test_runner \
+	//termlab/plugins/sftp:sftp_test_runner \
+	//termlab/plugins/search:search_test_runner
+
+.PHONY: termlab termlab-build termlab-test termlab-clean termlab-installers termlab-installers-mac termlab-installers-linux termlab-installers-windows check-intellij termlab-version termlab-perf-benchmark termlab-perf-budget
 
 check-intellij:
 	@test -f "$(INTELLIJ_ROOT)/bazel.cmd" || { \
@@ -78,6 +90,15 @@ termlab: check-intellij termlab-version
 
 termlab-build: check-intellij termlab-version
 	$(BAZEL) build //termlab:termlab_run
+
+termlab-test: check-intellij termlab-version
+	@echo "→ Running full TermLab test suite"
+	@set -e; \
+	for target in $(TERMLAB_TEST_TARGETS); do \
+		echo ""; \
+		echo "--- $$target"; \
+		$(BAZEL) run $$target; \
+	done
 
 termlab-clean: check-intellij
 	$(BAZEL) clean

@@ -137,6 +137,7 @@ jobs:
   build:
     needs: [metadata, tests]
     if: |
+      always() &&
       needs.metadata.result == 'success' &&
       (needs.tests.result == 'success' || needs.tests.result == 'skipped')
     strategy:
