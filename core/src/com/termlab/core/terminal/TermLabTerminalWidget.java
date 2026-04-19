@@ -7,6 +7,9 @@ import com.jediterm.terminal.TtyBasedArrayDataStream;
 import com.jediterm.terminal.TtyConnector;
 import com.jediterm.terminal.model.StyleState;
 import com.jediterm.terminal.emulator.mouse.MouseMode;
+import com.jediterm.terminal.emulator.mouse.MouseButtonCodes;
+import com.jediterm.terminal.emulator.mouse.MouseButtonModifierFlags;
+import com.jediterm.terminal.emulator.mouse.TerminalMouseListener;
 import com.jediterm.terminal.model.JediTerminal;
 import com.jediterm.terminal.model.TerminalSelection;
 import com.jediterm.terminal.model.TerminalTextBuffer;
@@ -14,15 +17,21 @@ import com.jediterm.terminal.ui.JediTermWidget;
 import com.jediterm.terminal.ui.TerminalAction;
 import com.jediterm.terminal.ui.TerminalActionProvider;
 import com.jediterm.terminal.ui.TerminalPanel;
+import com.jediterm.terminal.ui.input.AwtMouseEvent;
+import com.jediterm.terminal.ui.input.AwtMouseWheelEvent;
 import com.jediterm.terminal.ui.settings.SettingsProvider;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import javax.swing.*;
 import javax.swing.plaf.basic.BasicScrollBarUI;
 import java.awt.*;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
+import java.awt.event.MouseMotionAdapter;
+import java.awt.event.MouseWheelEvent;
 import java.awt.event.KeyEvent;
+import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 
 /**
@@ -88,10 +97,6 @@ public class TermLabTerminalWidget extends JediTermWidget {
      * that rely on button-3 reporting (context menus, pane resize,
      * visual selection) see nothing.
      *
-     * <p>Fix: remap {@code buttonCode == -1} to {@code 2} — xterm's
-     * right-button code — for press/release/drag before delegating to
-     * the parent. Motion events keep their original button code.
-     *
      * <p>Additionally, suppress out-of-bounds mouse coordinates.
      * During frame drags/resizes AWT can transiently report negative
      * terminal cells; emitting those in SGR mode produces malformed
@@ -118,13 +123,13 @@ public class TermLabTerminalWidget extends JediTermWidget {
         @Override
         public void mousePressed(int x, int y, @NotNull com.jediterm.core.input.MouseEvent event) {
             if (isOutOfBoundsCell(x, y)) return;
-            super.mousePressed(x, y, remapRightButton(event));
+            super.mousePressed(x, y, event);
         }
 
         @Override
         public void mouseReleased(int x, int y, @NotNull com.jediterm.core.input.MouseEvent event) {
             if (isOutOfBoundsCell(x, y)) return;
-            super.mouseReleased(x, y, remapRightButton(event));
+            super.mouseReleased(x, y, event);
         }
 
         @Override
@@ -136,23 +141,11 @@ public class TermLabTerminalWidget extends JediTermWidget {
         @Override
         public void mouseDragged(int x, int y, @NotNull com.jediterm.core.input.MouseEvent event) {
             if (isOutOfBoundsCell(x, y)) return;
-            super.mouseDragged(x, y, remapRightButton(event));
+            super.mouseDragged(x, y, event);
         }
 
         private static boolean isOutOfBoundsCell(int x, int y) {
             return x < 0 || y < 0;
-        }
-
-        private static @NotNull com.jediterm.core.input.MouseEvent remapRightButton(
-            @NotNull com.jediterm.core.input.MouseEvent event
-        ) {
-            if (event.getButtonCode() != -1) return event;
-            // JediTerm's AwtMouseEvent.createButtonCode returns -1 on a
-            // right-click press/release/drag. xterm mouse button code 2
-            // is right-button. Rebuild the event so
-            // JediTerminal.mousePressed's `if (btnCode == -1) return`
-            // doesn't short-circuit the report.
-            return new com.jediterm.core.input.MouseEvent(2, event.getModifierKeys());
         }
     }
 
@@ -178,8 +171,11 @@ public class TermLabTerminalWidget extends JediTermWidget {
      * when a remote app asks for it with {@code CSI ? 1000 h} et al.
      */
     private static final class TermLabTerminalPanel extends TerminalPanel {
+        private static final Method PANEL_TO_CHAR_COORDS_METHOD = lookupPanelToCharCoordsMethod();
         private static final Method UPDATE_SELECTION_METHOD = lookupUpdateSelectionMethod();
+        private static final Field TERMINAL_STARTER_FIELD = lookupTerminalStarterField();
 
+        private final SettingsProvider settingsProvider;
         private volatile MouseMode currentMouseMode = MouseMode.MOUSE_REPORTING_NONE;
         private volatile boolean bracketedPasteModeEnabled;
 
@@ -187,12 +183,76 @@ public class TermLabTerminalWidget extends JediTermWidget {
                            @NotNull TerminalTextBuffer buffer,
                            @NotNull StyleState styleState) {
             super(settings, buffer, styleState);
+            this.settingsProvider = settings;
         }
 
         @Override
         public void terminalMouseModeSet(MouseMode mode) {
             this.currentMouseMode = mode;
             super.terminalMouseModeSet(mode);
+        }
+
+        @Override
+        public void addTerminalMouseListener(final TerminalMouseListener listener) {
+            RemoteMouseGestureRouter router = new RemoteMouseGestureRouter(listener);
+
+            addMouseListener(new MouseAdapter() {
+                @Override
+                public void mousePressed(MouseEvent e) {
+                    if (!settingsProvider.enableMouseReporting() || !isRemoteMouseAction(e)) return;
+                    router.mousePressed(toCharCoords(e), e);
+                }
+
+                @Override
+                public void mouseReleased(MouseEvent e) {
+                    if (!settingsProvider.enableMouseReporting() || !isRemoteMouseAction(e)) return;
+                    router.mouseReleased(toCharCoords(e), e);
+                }
+            });
+
+            addMouseWheelListener(e -> {
+                if (settingsProvider.enableMouseReporting() && isRemoteMouseAction(e)) {
+                    clearSelection();
+                    router.mouseWheelMoved(toCharCoords(e), e);
+                }
+                else if (getTerminalTextBuffer().isUsingAlternateBuffer() &&
+                    settingsProvider.simulateMouseScrollWithArrowKeysInAlternativeScreen() &&
+                    !e.isShiftDown()
+                ) {
+                    Integer key;
+                    if (e.getWheelRotation() < 0) {
+                        key = KeyEvent.VK_UP;
+                    }
+                    else if (e.getWheelRotation() > 0) {
+                        key = KeyEvent.VK_DOWN;
+                    }
+                    else {
+                        key = null;
+                    }
+                    if (key != null) {
+                        TerminalStarter starter = getTerminalStarterReflect();
+                        byte[] arrowKeys = starter.getTerminal().getCodeForKey(key, 0);
+                        for (int i = 0; i < Math.abs(e.getUnitsToScroll()); i++) {
+                            starter.sendBytes(arrowKeys, false);
+                        }
+                        e.consume();
+                    }
+                }
+            });
+
+            addMouseMotionListener(new MouseMotionAdapter() {
+                @Override
+                public void mouseMoved(MouseEvent e) {
+                    if (!settingsProvider.enableMouseReporting() || !isRemoteMouseAction(e)) return;
+                    router.mouseMoved(toCharCoords(e), e);
+                }
+
+                @Override
+                public void mouseDragged(MouseEvent e) {
+                    if (!settingsProvider.enableMouseReporting() || !isRemoteMouseAction(e)) return;
+                    router.mouseDragged(toCharCoords(e), e);
+                }
+            });
         }
 
         @Override
@@ -239,6 +299,26 @@ public class TermLabTerminalWidget extends JediTermWidget {
             }
         }
 
+        private static Method lookupPanelToCharCoordsMethod() {
+            try {
+                Method method = TerminalPanel.class.getDeclaredMethod("panelToCharCoords", java.awt.Point.class);
+                method.setAccessible(true);
+                return method;
+            } catch (ReflectiveOperationException e) {
+                throw new IllegalStateException("Failed to access JediTerm coordinate mapper", e);
+            }
+        }
+
+        private static Field lookupTerminalStarterField() {
+            try {
+                Field field = TerminalPanel.class.getDeclaredField("myTerminalStarter");
+                field.setAccessible(true);
+                return field;
+            } catch (ReflectiveOperationException e) {
+                throw new IllegalStateException("Failed to access JediTerm terminal starter", e);
+            }
+        }
+
         private boolean shouldClearSelectionOnKeyEvent(@NotNull KeyEvent e) {
             if (getSelection() == null) return false;
             return switch (e.getID()) {
@@ -256,12 +336,144 @@ public class TermLabTerminalWidget extends JediTermWidget {
                 || keyCode == KeyEvent.VK_META;
         }
 
-        private void clearSelectionHighlight() {
+        private @NotNull com.jediterm.core.compatibility.Point toCharCoords(@NotNull MouseEvent event) {
+            try {
+                return (com.jediterm.core.compatibility.Point) PANEL_TO_CHAR_COORDS_METHOD.invoke(this, event.getPoint());
+            } catch (ReflectiveOperationException exception) {
+                throw new IllegalStateException("Failed to map mouse event to terminal cell", exception);
+            }
+        }
+
+        private @NotNull TerminalStarter getTerminalStarterReflect() {
+            try {
+                return (TerminalStarter) TERMINAL_STARTER_FIELD.get(this);
+            } catch (ReflectiveOperationException e) {
+                throw new IllegalStateException("Failed to access JediTerm terminal starter", e);
+            }
+        }
+
+        private void clearSelection() {
             try {
                 UPDATE_SELECTION_METHOD.invoke(this, new Object[]{null});
-                repaint();
             } catch (ReflectiveOperationException e) {
                 throw new IllegalStateException("Failed to clear JediTerm selection", e);
+            }
+        }
+
+        private void clearSelectionHighlight() {
+            clearSelection();
+            repaint();
+        }
+    }
+
+    public static final class RemoteMouseGestureRouter {
+        private final TerminalMouseListener listener;
+        private @Nullable PendingSecondaryPress pendingSecondaryPress;
+        private boolean secondaryButtonDragActive;
+
+        public RemoteMouseGestureRouter(@NotNull TerminalMouseListener listener) {
+            this.listener = listener;
+        }
+
+        public void mousePressed(@NotNull com.jediterm.core.compatibility.Point point, @NotNull MouseEvent event) {
+            if (event.getButton() == MouseEvent.BUTTON3) {
+                pendingSecondaryPress = new PendingSecondaryPress(point.x, point.y, getModifierKeys(event));
+                secondaryButtonDragActive = false;
+                return;
+            }
+            dispatchPressed(point, new AwtMouseEvent(event));
+        }
+
+        public void mouseReleased(@NotNull com.jediterm.core.compatibility.Point point, @NotNull MouseEvent event) {
+            if (event.getButton() == MouseEvent.BUTTON3) {
+                flushPendingSecondaryPress();
+                if (pendingSecondaryPress == null && !secondaryButtonDragActive) return;
+                listener.mouseReleased(point.x, point.y, rightButtonEvent(event));
+                secondaryButtonDragActive = false;
+                pendingSecondaryPress = null;
+                return;
+            }
+            dispatchReleased(point, new AwtMouseEvent(event));
+        }
+
+        public void mouseMoved(@NotNull com.jediterm.core.compatibility.Point point, @NotNull MouseEvent event) {
+            listener.mouseMoved(point.x, point.y, new AwtMouseEvent(event));
+        }
+
+        public void mouseDragged(@NotNull com.jediterm.core.compatibility.Point point, @NotNull MouseEvent event) {
+            if (pendingSecondaryPress != null || secondaryButtonDragActive) {
+                flushPendingSecondaryPress();
+                listener.mouseDragged(point.x, point.y, rightButtonEvent(event));
+                return;
+            }
+            dispatchDragged(point, new AwtMouseEvent(event));
+        }
+
+        public void mouseWheelMoved(@NotNull com.jediterm.core.compatibility.Point point, @NotNull MouseWheelEvent event) {
+            pendingSecondaryPress = null;
+            listener.mouseWheelMoved(point.x, point.y, new AwtMouseWheelEvent(event));
+        }
+
+        private void flushPendingSecondaryPress() {
+            if (pendingSecondaryPress == null) return;
+            listener.mousePressed(
+                pendingSecondaryPress.x,
+                pendingSecondaryPress.y,
+                rightButtonEvent(pendingSecondaryPress.modifierKeys)
+            );
+            secondaryButtonDragActive = true;
+            pendingSecondaryPress = null;
+        }
+
+        private void dispatchPressed(
+            @NotNull com.jediterm.core.compatibility.Point point,
+            @NotNull com.jediterm.core.input.MouseEvent event
+        ) {
+            if (event.getButtonCode() == MouseButtonCodes.NONE) return;
+            listener.mousePressed(point.x, point.y, event);
+        }
+
+        private void dispatchReleased(
+            @NotNull com.jediterm.core.compatibility.Point point,
+            @NotNull com.jediterm.core.input.MouseEvent event
+        ) {
+            if (event.getButtonCode() == MouseButtonCodes.NONE) return;
+            listener.mouseReleased(point.x, point.y, event);
+        }
+
+        private void dispatchDragged(
+            @NotNull com.jediterm.core.compatibility.Point point,
+            @NotNull com.jediterm.core.input.MouseEvent event
+        ) {
+            if (event.getButtonCode() == MouseButtonCodes.NONE) return;
+            listener.mouseDragged(point.x, point.y, event);
+        }
+
+        private static @NotNull com.jediterm.core.input.MouseEvent rightButtonEvent(@NotNull MouseEvent event) {
+            return rightButtonEvent(getModifierKeys(event));
+        }
+
+        private static @NotNull com.jediterm.core.input.MouseEvent rightButtonEvent(int modifierKeys) {
+            return new com.jediterm.core.input.MouseEvent(MouseButtonCodes.RIGHT, modifierKeys);
+        }
+
+        private static int getModifierKeys(@NotNull MouseEvent awtMouseEvent) {
+            int modifier = 0;
+            if (awtMouseEvent.isControlDown()) modifier |= MouseButtonModifierFlags.MOUSE_BUTTON_CTRL_FLAG;
+            if (awtMouseEvent.isShiftDown()) modifier |= MouseButtonModifierFlags.MOUSE_BUTTON_SHIFT_FLAG;
+            if (awtMouseEvent.isMetaDown()) modifier |= MouseButtonModifierFlags.MOUSE_BUTTON_META_FLAG;
+            return modifier;
+        }
+
+        private static final class PendingSecondaryPress {
+            private final int x;
+            private final int y;
+            private final int modifierKeys;
+
+            private PendingSecondaryPress(int x, int y, int modifierKeys) {
+                this.x = x;
+                this.y = y;
+                this.modifierKeys = modifierKeys;
             }
         }
     }

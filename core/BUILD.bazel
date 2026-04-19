@@ -48,6 +48,8 @@ jvm_library(
     deps = [
         ":core",
         "//termlab/sdk",
+        "//libraries/jediterm-core:jediterm-core",
+        "//libraries/jediterm-ui:jediterm-ui",
         "//libraries/junit5",
         "//libraries/junit5-jupiter",
         "//libraries/junit5-launcher",
