@@ -6,7 +6,7 @@ WORKBENCH_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd -P)"
 INTELLIJ_DIR="${1:-$(dirname "$WORKBENCH_DIR")/intellij-community}"
 INTELLIJ_REPO="https://github.com/JetBrains/intellij-community.git"
 ANDROID_DIR="$INTELLIJ_DIR/android"
-ANDROID_REPO="https://github.com/JetBrains/android.git"
+ANDROID_REPO="git://git.jetbrains.org/idea/android.git"
 
 if [ ! -f "$WORKBENCH_DIR/INTELLIJ_REF" ]; then
   echo "ERROR: INTELLIJ_REF not found at $WORKBENCH_DIR/INTELLIJ_REF" >&2
