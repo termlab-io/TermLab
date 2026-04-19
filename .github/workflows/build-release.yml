@@ -134,72 +134,12 @@ jobs:
         working-directory: ${{ env.INTELLIJ_ROOT }}
         run: bash bazel.cmd run //termlab/plugins/vault:vault_test_runner
 
-  compiled-classes:
+  build:
     needs: [metadata, tests]
     if: |
       always() &&
       needs.metadata.result == 'success' &&
       (needs.tests.result == 'success' || needs.tests.result == 'skipped')
-    runs-on: ubuntu-24.04
-    timeout-minutes: 180
-    env:
-      TERMLAB_VERSION_MODE: release
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: "21"
-
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.x"
-
-      - name: Bootstrap IntelliJ checkout
-        shell: bash
-        run: |
-          INTELLIJ_ROOT="$(dirname "$(pwd -P)")/intellij-community"
-          echo "INTELLIJ_ROOT=$INTELLIJ_ROOT" >> "$GITHUB_ENV"
-          ./scripts/ci/bootstrap_intellij.sh "$INTELLIJ_ROOT"
-
-      - name: Restore compiled classes cache
-        id: compiled-classes-cache
-        uses: actions/cache@v4
-        with:
-          path: compiled-classes-cache/termlab-compiled-classes.zip
-          key: compiled-classes-${{ hashFiles('INTELLIJ_REF', 'ANDROID_REF', '.bazeliskversion', 'build/BUILD.bazel', 'build/src/**/*.kt', 'build/src/**/*.java', 'core/**/*', 'plugins/**/*', 'customization/**/*', 'scripts/generate_version.py', 'scripts/install-idea-config.sh', 'scripts/ci/bootstrap_intellij.sh', 'Makefile', 'BUILD.bazel') }}
-
-      - name: Build shared compiled classes archive
-        if: steps.compiled-classes-cache.outputs.cache-hit != 'true'
-        shell: bash
-        env:
-          TERMLAB_COMPILED_CLASSES_ARCHIVE_OUTPUT: ${{ github.workspace }}/compiled-classes-cache/termlab-compiled-classes.zip
-        run: |
-          bash ./scripts/install-idea-config.sh "$INTELLIJ_ROOT"
-          cd "$INTELLIJ_ROOT"
-          ./platform/jps-bootstrap/jps-bootstrap.sh . intellij.termlab.build TermLabCompiledClassesArchiveBuildTarget
-
-      - name: Stage shared compiled classes archive
-        shell: bash
-        run: |
-          mkdir -p compiled-classes
-          cp "$GITHUB_WORKSPACE/compiled-classes-cache/termlab-compiled-classes.zip" \
-            compiled-classes/termlab-compiled-classes.zip
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: compiled-classes
-          path: compiled-classes/termlab-compiled-classes.zip
-          if-no-files-found: error
-
-  build:
-    needs: [metadata, tests, compiled-classes]
-    if: |
-      always() &&
-      needs.metadata.result == 'success' &&
-      (needs.tests.result == 'success' || needs.tests.result == 'skipped') &&
-      needs.compiled-classes.result == 'success'
     strategy:
       fail-fast: false
       matrix:
@@ -258,15 +198,8 @@ jobs:
           echo "INTELLIJ_ROOT=$INTELLIJ_ROOT" >> "$GITHUB_ENV"
           ./scripts/ci/bootstrap_intellij.sh "$INTELLIJ_ROOT"
 
-      - uses: actions/download-artifact@v4
-        with:
-          name: compiled-classes
-          path: compiled-classes
-
       - name: Build installers
         shell: bash
-        env:
-          TERMLAB_COMPILED_CLASSES_ARCHIVE: ${{ github.workspace }}/compiled-classes/termlab-compiled-classes.zip
         run: make "${{ matrix.make_target }}"
 
       - name: Build MSI
