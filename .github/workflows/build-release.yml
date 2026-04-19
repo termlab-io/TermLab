@@ -168,21 +168,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: compiled-classes-cache/termlab-compiled-classes.zip
-          key: compiled-classes-${{ hashFiles(
-            'INTELLIJ_REF',
-            '.bazeliskversion',
-            'build/BUILD.bazel',
-            'build/src/**/*.kt',
-            'build/src/**/*.java',
-            'core/**/*',
-            'plugins/**/*',
-            'customization/**/*',
-            'scripts/generate_version.py',
-            'scripts/install-idea-config.sh',
-            'scripts/ci/bootstrap_intellij.sh',
-            'Makefile',
-            'BUILD.bazel'
-          ) }}
+          key: compiled-classes-${{ hashFiles('INTELLIJ_REF', '.bazeliskversion', 'build/BUILD.bazel', 'build/src/**/*.kt', 'build/src/**/*.java', 'core/**/*', 'plugins/**/*', 'customization/**/*', 'scripts/generate_version.py', 'scripts/install-idea-config.sh', 'scripts/ci/bootstrap_intellij.sh', 'Makefile', 'BUILD.bazel') }}
 
       - name: Build shared compiled classes archive
         if: steps.compiled-classes-cache.outputs.cache-hit != 'true'
