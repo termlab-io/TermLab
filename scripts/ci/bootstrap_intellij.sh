@@ -72,7 +72,11 @@ elif [ -e "$ANDROID_DIR" ]; then
   exit 1
 else
   echo "==> Shallow-cloning Android modules at $ANDROID_REF"
-  git clone --depth 1 --branch "$ANDROID_REF" "$ANDROID_REPO" "$ANDROID_DIR"
+  mkdir -p "$ANDROID_DIR"
+  git -C "$ANDROID_DIR" init --quiet
+  git -C "$ANDROID_DIR" config core.longpaths true
+  git -C "$ANDROID_DIR" remote add origin "$ANDROID_REPO"
+  checkout_git_ref "$ANDROID_DIR" "$ANDROID_REF"
 fi
 
 TERMLAB_LINK="$INTELLIJ_DIR/termlab"
