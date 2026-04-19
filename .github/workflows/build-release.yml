@@ -189,7 +189,10 @@ jobs:
         shell: bash
         env:
           TERMLAB_COMPILED_CLASSES_ARCHIVE_OUTPUT: ${{ github.workspace }}/compiled-classes-cache/termlab-compiled-classes.zip
-        run: make termlab-compiled-classes
+        run: |
+          bash ./scripts/install-idea-config.sh "$INTELLIJ_ROOT"
+          cd "$INTELLIJ_ROOT"
+          ./platform/jps-bootstrap/jps-bootstrap.sh . intellij.termlab.build TermLabCompiledClassesArchiveBuildTarget
 
       - name: Stage shared compiled classes archive
         shell: bash
