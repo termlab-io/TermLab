@@ -28,6 +28,8 @@ public final class TermLabSftpConfig implements PersistentStateComponent<TermLab
         public @Nullable String lastLocalPath;
         public @Nullable String lastRemoteHostId;
         public @Nullable String viewMode;
+        public boolean showHiddenLocalFiles;
+        public boolean showHiddenRemoteFiles;
     }
 
     private State state = new State();
@@ -65,6 +67,22 @@ public final class TermLabSftpConfig implements PersistentStateComponent<TermLab
 
     public void setViewMode(@NotNull ViewMode mode) {
         state.viewMode = mode.name();
+    }
+
+    public boolean isShowHiddenLocalFiles() {
+        return state.showHiddenLocalFiles;
+    }
+
+    public void setShowHiddenLocalFiles(boolean showHiddenLocalFiles) {
+        state.showHiddenLocalFiles = showHiddenLocalFiles;
+    }
+
+    public boolean isShowHiddenRemoteFiles() {
+        return state.showHiddenRemoteFiles;
+    }
+
+    public void setShowHiddenRemoteFiles(boolean showHiddenRemoteFiles) {
+        state.showHiddenRemoteFiles = showHiddenRemoteFiles;
     }
 
     @Override

@@ -35,7 +35,8 @@ public final class SftpToolWindow extends JPanel {
         this.local = new LocalFilePane(project);
         this.remote = new RemoteFilePane(project);
         this.coordinator = new TransferCoordinator(project, local, remote);
-        this.viewMode = TermLabSftpConfig.getInstance().getViewMode();
+        TermLabSftpConfig config = TermLabSftpConfig.getInstance();
+        this.viewMode = config.getViewMode();
 
         this.contentPanel = new JPanel(new BorderLayout());
 

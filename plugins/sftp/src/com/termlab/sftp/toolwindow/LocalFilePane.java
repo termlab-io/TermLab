@@ -16,9 +16,11 @@ import com.intellij.openapi.actionSystem.ActionUpdateThread;
 import com.intellij.openapi.actionSystem.AnAction;
 import com.intellij.openapi.actionSystem.AnActionEvent;
 import com.intellij.openapi.actionSystem.DefaultActionGroup;
+import com.intellij.openapi.actionSystem.ToggleAction;
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.ui.Messages;
+import com.intellij.openapi.wm.IdeFocusManager;
 import com.intellij.ui.table.JBTable;
 import com.intellij.util.concurrency.AppExecutorUtil;
 import com.intellij.util.ui.JBUI;
@@ -52,12 +54,12 @@ import java.util.stream.Stream;
  * the EDT.
  */
 public final class LocalFilePane extends JPanel {
-
     private final Project project;
     private final FileTableModel model = new FileTableModel();
     private final JBTable table = new JBTable(model);
     private final JTextField pathField = new JTextField();
     private final FileListCache fileListCache = new FileListCache();
+    private volatile boolean showHiddenFiles = TermLabSftpConfig.getInstance().isShowHiddenLocalFiles();
 
     private Path currentDir;
     private final CopyOnWriteArrayList<Runnable> directoryListeners = new CopyOnWriteArrayList<>();
@@ -302,6 +304,26 @@ public final class LocalFilePane extends JPanel {
                 return ActionUpdateThread.EDT;
             }
         });
+        group.add(new ToggleAction(
+            "Show Hidden Files",
+            "Show or hide hidden files and folders in the local pane",
+            AllIcons.Actions.ToggleVisibility
+        ) {
+            @Override
+            public boolean isSelected(@NotNull AnActionEvent e) {
+                return showHiddenFiles;
+            }
+
+            @Override
+            public void setSelected(@NotNull AnActionEvent e, boolean state) {
+                setShowHiddenFiles(state);
+            }
+
+            @Override
+            public @NotNull ActionUpdateThread getActionUpdateThread() {
+                return ActionUpdateThread.EDT;
+            }
+        });
         ActionToolbar toolbar = ActionManager.getInstance()
             .createActionToolbar("TermLabSftpLocal", group, true);
         toolbar.setTargetComponent(this);
@@ -370,7 +392,9 @@ public final class LocalFilePane extends JPanel {
                 Iterator<Path> it = stream.iterator();
                 while (it.hasNext()) {
                     try {
-                        entries.add(LocalFileEntry.of(it.next()));
+                        Path path = it.next();
+                        if (!SftpVisibilityFilters.shouldShowLocal(path, showHiddenFiles)) continue;
+                        entries.add(LocalFileEntry.of(path));
                     } catch (IOException ignored) {
                         // skip unreadable entry but keep going
                     }
@@ -438,6 +462,14 @@ public final class LocalFilePane extends JPanel {
 
     public void setTransferActions(@NotNull TransferActions transferActions) {
         this.transferActions = transferActions;
+    }
+
+    public void setShowHiddenFiles(boolean showHiddenFiles) {
+        if (this.showHiddenFiles == showHiddenFiles) return;
+        this.showHiddenFiles = showHiddenFiles;
+        TermLabSftpConfig.getInstance().setShowHiddenLocalFiles(showHiddenFiles);
+        refresh();
+        IdeFocusManager.getInstance(project).requestFocus(table, true);
     }
 
     /** Reload the currently displayed directory if there is one. */

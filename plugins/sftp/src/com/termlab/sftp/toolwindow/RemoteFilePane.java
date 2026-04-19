@@ -21,12 +21,14 @@ import com.intellij.openapi.actionSystem.ActionUpdateThread;
 import com.intellij.openapi.actionSystem.AnAction;
 import com.intellij.openapi.actionSystem.AnActionEvent;
 import com.intellij.openapi.actionSystem.DefaultActionGroup;
+import com.intellij.openapi.actionSystem.ToggleAction;
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.progress.ProgressIndicator;
 import com.intellij.openapi.progress.ProgressManager;
 import com.intellij.openapi.progress.Task;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.ui.Messages;
+import com.intellij.openapi.wm.IdeFocusManager;
 import com.intellij.ui.table.JBTable;
 import com.intellij.util.concurrency.AppExecutorUtil;
 import com.intellij.util.ui.JBUI;
@@ -59,7 +61,6 @@ import java.util.stream.Collectors;
  * filesystem but doesn't transfer, delete, rename, or chmod anything.
  */
 public final class RemoteFilePane extends JPanel {
-
     private final Project project;
     private final FileTableModel model = new FileTableModel();
     private final JBTable table = new JBTable(model);
@@ -71,6 +72,7 @@ public final class RemoteFilePane extends JPanel {
     private final FileListCache fileListCache = new FileListCache();
     private final HostStore hostStore;
     private final Runnable hostStoreListener;
+    private volatile boolean showHiddenFiles = TermLabSftpConfig.getInstance().isShowHiddenRemoteFiles();
 
     private @Nullable SshSftpSession activeSession;
     private @Nullable SshHost currentHost;
@@ -192,6 +194,26 @@ public final class RemoteFilePane extends JPanel {
             @Override
             public void actionPerformed(@NotNull AnActionEvent e) {
                 if (currentRemotePath != null) navigateRemote(currentRemotePath);
+            }
+
+            @Override
+            public @NotNull ActionUpdateThread getActionUpdateThread() {
+                return ActionUpdateThread.EDT;
+            }
+        });
+        group.add(new ToggleAction(
+            "Show Hidden Files",
+            "Show or hide hidden files and folders in the remote pane",
+            AllIcons.Actions.ToggleVisibility
+        ) {
+            @Override
+            public boolean isSelected(@NotNull AnActionEvent e) {
+                return showHiddenFiles;
+            }
+
+            @Override
+            public void setSelected(@NotNull AnActionEvent e, boolean state) {
+                setShowHiddenFiles(state);
             }
 
             @Override
@@ -324,6 +346,7 @@ public final class RemoteFilePane extends JPanel {
                 for (SftpClient.DirEntry dirEntry : session.client().readDir(path)) {
                     String name = dirEntry.getFilename();
                     if (".".equals(name) || "..".equals(name)) continue;
+                    if (!SftpVisibilityFilters.shouldShowRemote(name, showHiddenFiles)) continue;
                     entries.add(RemoteFileEntry.of(dirEntry));
                 }
             } catch (IOException e) {
@@ -465,6 +488,14 @@ public final class RemoteFilePane extends JPanel {
 
     public void setTransferActions(@NotNull TransferActions transferActions) {
         this.transferActions = transferActions;
+    }
+
+    public void setShowHiddenFiles(boolean showHiddenFiles) {
+        if (this.showHiddenFiles == showHiddenFiles) return;
+        this.showHiddenFiles = showHiddenFiles;
+        TermLabSftpConfig.getInstance().setShowHiddenRemoteFiles(showHiddenFiles);
+        refresh();
+        IdeFocusManager.getInstance(project).requestFocus(table, true);
     }
 
     private void fireConnectionStateChanged() {
