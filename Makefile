@@ -66,6 +66,8 @@ TERMLAB_PERF_WORKSPACE ?= $(WORKBENCH_DIR)/.perf-workspace
 TERMLAB_PERF_WARMUP_SEC ?= 90
 TERMLAB_PERF_SAMPLE_SEC ?= 5
 TERMLAB_PERF_DURATION_SEC ?= 300
+TERMLAB_CI_ARTIFACT_DIR ?= $(WORKBENCH_DIR)/.ci-artifacts
+TERMLAB_CI_COMPILED_CLASSES_ARCHIVE ?= $(TERMLAB_CI_ARTIFACT_DIR)/compiled-classes-cache/termlab-compiled-classes.zip
 
 TERMLAB_TEST_TARGETS := \
 	//termlab/core:core_test_runner \
@@ -78,7 +80,7 @@ TERMLAB_TEST_TARGETS := \
 	//termlab/plugins/sftp:sftp_test_runner \
 	//termlab/plugins/search:search_test_runner
 
-.PHONY: termlab termlab-build termlab-test termlab-clean termlab-installers termlab-installers-fast termlab-compiled-classes termlab-installers-mac termlab-installers-linux termlab-installers-windows check-intellij termlab-version termlab-perf-benchmark termlab-perf-budget
+.PHONY: termlab termlab-build termlab-test termlab-clean termlab-installers termlab-installers-fast termlab-compiled-classes termlab-ci-compiled-classes termlab-ci-compiled-classes-clean termlab-ci-installer termlab-installers-mac termlab-installers-linux termlab-installers-windows check-intellij termlab-version termlab-sync-idea-config termlab-perf-benchmark termlab-perf-budget
 
 check-intellij:
 	@test -f "$(INTELLIJ_ROOT)/bazel.cmd" || { \
@@ -86,6 +88,13 @@ check-intellij:
 		echo "       Run ./setup.sh first, or set INTELLIJ_ROOT explicitly."; \
 		exit 1; \
 	}
+
+# Keep IntelliJ project module registration in sync with TermLab modules.
+# The installer build loads the JPS project model from intellij-community/.idea,
+# so stale modules.xml entries can make newly added plugins look "missing"
+# even though their Bazel targets and .iml files exist.
+termlab-sync-idea-config: check-intellij
+	@bash "$(WORKBENCH_DIR)/scripts/install-idea-config.sh" "$(INTELLIJ_ROOT)"
 
 # Stamp version attributes into customization/resources/idea/TermLabApplicationInfo.xml
 # in place. Only <version major/minor/patch suffix> are touched; other
@@ -114,29 +123,55 @@ termlab-test: check-intellij termlab-version
 termlab-clean: check-intellij
 	$(BAZEL) clean
 
-termlab-installers: check-intellij termlab-version
+termlab-installers: check-intellij termlab-version termlab-sync-idea-config
 	$(BAZEL) run //termlab/build:termlab_installers
 	@echo "→ Installer artifacts in $(INTELLIJ_ROOT)/out/termlab/artifacts/"
 
-termlab-installers-fast: check-intellij termlab-version
+termlab-installers-fast: check-intellij termlab-version termlab-sync-idea-config
 	@echo "→ Building installers from existing compiled IDE output"
 	@echo "  Run 'Build Project' in IntelliJ first if outputs are stale or missing."
 	TERMLAB_REUSE_COMPILED_CLASSES=true $(BAZEL) run //termlab/build:termlab_installers
 	@echo "→ Installer artifacts in $(INTELLIJ_ROOT)/out/termlab/artifacts/"
 
-termlab-compiled-classes: check-intellij termlab-version
+termlab-compiled-classes: check-intellij termlab-version termlab-sync-idea-config
 	$(BAZEL) run //termlab/build:termlab_compiled_classes_archive
 	@echo "→ Compiled classes archive in $(INTELLIJ_ROOT)/out/termlab/artifacts/"
 
-termlab-installers-mac: check-intellij termlab-version
+# Emulate the GitHub Actions compiled-classes job locally:
+#   1. bootstrap / refresh intellij-community at INTELLIJ_REF
+#   2. register all TermLab .iml modules into intellij-community/.idea/modules.xml
+#   3. run the same jps-bootstrap entrypoint CI uses
+# This is the fastest way to catch JPS/module wiring issues before pushing.
+termlab-ci-compiled-classes: check-intellij termlab-version
+	@mkdir -p "$(dir $(TERMLAB_CI_COMPILED_CLASSES_ARCHIVE))"
+	@bash "$(WORKBENCH_DIR)/scripts/ci/bootstrap_intellij.sh" "$(INTELLIJ_ROOT)"
+	@bash "$(WORKBENCH_DIR)/scripts/install-idea-config.sh" "$(INTELLIJ_ROOT)"
+	cd "$(INTELLIJ_ROOT)" && \
+		TERMLAB_VERSION_MODE=release \
+		TERMLAB_COMPILED_CLASSES_ARCHIVE_OUTPUT="$(TERMLAB_CI_COMPILED_CLASSES_ARCHIVE)" \
+		./platform/jps-bootstrap/jps-bootstrap.sh . intellij.termlab.build TermLabCompiledClassesArchiveBuildTarget
+	@echo "→ CI-style compiled classes archive: $(TERMLAB_CI_COMPILED_CLASSES_ARCHIVE)"
+
+# Reset the local JPS incremental cache used by the CI-emulation build.
+termlab-ci-compiled-classes-clean: check-intellij
+	rm -rf "$(INTELLIJ_ROOT)/out/termlab/jps-build-data"
+	@echo "→ Removed $(INTELLIJ_ROOT)/out/termlab/jps-build-data"
+
+# Emulate a same-host installer job after the shared compiled-classes step.
+# This reuses the CI-style archive above, but only for the current machine's OS.
+termlab-ci-installer: check-intellij termlab-version termlab-sync-idea-config termlab-ci-compiled-classes
+	TERMLAB_VERSION_MODE=release TERMLAB_COMPILED_CLASSES_ARCHIVE="$(TERMLAB_CI_COMPILED_CLASSES_ARCHIVE)" $(BAZEL) run //termlab/build:termlab_installers
+	@echo "→ Installer artifacts in $(INTELLIJ_ROOT)/out/termlab/artifacts/"
+
+termlab-installers-mac: check-intellij termlab-version termlab-sync-idea-config
 	TERMLAB_TARGET_OS=mac $(BAZEL) run //termlab/build:termlab_installers
 	@echo "→ Installer artifacts in $(INTELLIJ_ROOT)/out/termlab/artifacts/"
 
-termlab-installers-linux: check-intellij termlab-version
+termlab-installers-linux: check-intellij termlab-version termlab-sync-idea-config
 	TERMLAB_TARGET_OS=linux $(BAZEL) run //termlab/build:termlab_installers
 	@echo "→ Installer artifacts in $(INTELLIJ_ROOT)/out/termlab/artifacts/"
 
-termlab-installers-windows: check-intellij termlab-version
+termlab-installers-windows: check-intellij termlab-version termlab-sync-idea-config
 	TERMLAB_TARGET_OS=windows $(BAZEL) run //termlab/build:termlab_installers
 	@echo "→ Installer artifacts in $(INTELLIJ_ROOT)/out/termlab/artifacts/"
 
