@@ -5,7 +5,6 @@
 
   const GH_REPO_API = "https://api.github.com/repos/termlab-io/termlab";
   const GH_RELEASES_LATEST_API = GH_REPO_API + "/releases/latest";
-  const RELEASES_LATEST_PAGE = "https://github.com/termlab-io/termlab/releases/latest";
 
   // ---------- Platform detection ----------
   const PLATFORM_LABELS = {
@@ -75,7 +74,7 @@
   }
 
   function formatStars(n) {
-    if (typeof n !== "number") return null;
+    if (!Number.isFinite(n)) return null;
     if (n >= 1000) return (n / 1000).toFixed(n >= 10000 ? 0 : 1) + "k";
     return String(n);
   }
