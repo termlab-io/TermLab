@@ -35,11 +35,20 @@ object TermLabInstallersBuildTarget {
         incrementalCompilation = !reuseCompiledClasses,
         useCompiledClassesFromProjectOutput = reuseCompiledClasses,
       ).apply {
+        // Installer builds should behave like release packaging rather than
+        // local IDE dev builds. In particular, the macOS launcher UUID patcher
+        // ad-hoc re-signs the launcher in development mode, which leaves the
+        // app bundle in a malformed half-signed state for unsigned DMGs.
+        isInDevelopmentMode = false
         if (macSigningEnabled) {
           buildStepsToSkip -= BuildOptions.MAC_SIGN_STEP
         }
         if (macNotarizationEnabled) {
           buildStepsToSkip -= BuildOptions.MAC_NOTARIZE_STEP
+        }
+        else {
+          buildStepsToSkip += BuildOptions.MAC_SIGN_STEP
+          buildStepsToSkip += BuildOptions.MAC_NOTARIZE_STEP
         }
         buildStepsToSkip += listOf(
           BuildOptions.WIN_SIGN_STEP,
