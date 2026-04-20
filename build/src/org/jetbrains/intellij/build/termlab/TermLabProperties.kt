@@ -17,6 +17,7 @@ import org.jetbrains.intellij.build.productLayout.ProductModulesContentSpec
 import org.jetbrains.intellij.build.productLayout.productModules
 import org.jetbrains.intellij.build.windowsCustomizer
 import java.nio.file.Path
+import kotlin.io.path.exists
 
 class TermLabProperties(private val communityHomeDir: Path) : JetBrainsProductProperties() {
   init {
@@ -200,6 +201,12 @@ class TermLabProperties(private val communityHomeDir: Path) : JetBrainsProductPr
       // MAC_DMG_STEP — without it the DMG build fails with
       // "Path to background image for DMG is not specified".
       dmgImagePath = "termlab/customization/resources/mac/dmg_background.tiff"
+      copyAdditionalFiles { targetDir, _, context ->
+        if (!context.isMacCodeSignEnabled) {
+          val launcher = targetDir.resolve("MacOS/${context.productProperties.baseFileName}")
+          removeMacSignatureIfPresent(launcher)
+        }
+      }
     }
 
   override fun getSystemSelector(appInfo: ApplicationInfoProperties, buildNumber: String): String {
@@ -211,4 +218,19 @@ class TermLabProperties(private val communityHomeDir: Path) : JetBrainsProductPr
   }
 
   override fun getOutputDirectoryName(appInfo: ApplicationInfoProperties): String = "termlab"
+}
+
+private fun removeMacSignatureIfPresent(path: Path) {
+  if (!path.exists()) {
+    return
+  }
+
+  val process = ProcessBuilder("codesign", "--remove-signature", path.toString())
+    .redirectErrorStream(true)
+    .start()
+  val output = process.inputStream.bufferedReader().readText()
+  val exitCode = process.waitFor()
+  if (exitCode != 0 && !output.contains("is not signed at all")) {
+    error("Failed to remove macOS signature from $path:\n$output")
+  }
 }

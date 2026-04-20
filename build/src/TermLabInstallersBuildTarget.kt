@@ -4,6 +4,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
 import org.jetbrains.intellij.build.BuildOptions
 import org.jetbrains.intellij.build.BuildPaths.Companion.COMMUNITY_ROOT
+import org.jetbrains.intellij.build.SignNativeFileMode
 import org.jetbrains.intellij.build.impl.buildDistributions
 import org.jetbrains.intellij.build.impl.createBuildContext
 import org.jetbrains.intellij.build.termlab.TermLabProperties
@@ -18,6 +19,12 @@ object TermLabInstallersBuildTarget {
       System.setProperty("intellij.build.target.os", it)
     }
     val reuseCompiledClasses = (System.getenv("TERMLAB_REUSE_COMPILED_CLASSES") ?: "false").toBoolean()
+    val proprietaryBuildTools = createTermLabProprietaryBuildTools()
+    val macSigningEnabled = proprietaryBuildTools.signTool.signNativeFileMode != SignNativeFileMode.DISABLED
+    val macNotarizationEnabled = macSigningEnabled &&
+      !System.getenv("APPLE_ISSUER_ID").isNullOrBlank() &&
+      !System.getenv("APPLE_KEY_ID").isNullOrBlank() &&
+      !System.getenv("APPLE_PRIVATE_KEY").isNullOrBlank()
     runBlocking(Dispatchers.Default) {
       // Reusing existing project output is much faster for local
       // iteration, but it is mutually exclusive with incremental JPS
@@ -28,8 +35,13 @@ object TermLabInstallersBuildTarget {
         incrementalCompilation = !reuseCompiledClasses,
         useCompiledClassesFromProjectOutput = reuseCompiledClasses,
       ).apply {
+        if (macSigningEnabled) {
+          buildStepsToSkip -= BuildOptions.MAC_SIGN_STEP
+        }
+        if (macNotarizationEnabled) {
+          buildStepsToSkip -= BuildOptions.MAC_NOTARIZE_STEP
+        }
         buildStepsToSkip += listOf(
-          BuildOptions.MAC_SIGN_STEP,
           BuildOptions.WIN_SIGN_STEP,
           BuildOptions.CROSS_PLATFORM_DISTRIBUTION_STEP,
           BuildOptions.SOURCES_ARCHIVE_STEP,
@@ -60,6 +72,7 @@ object TermLabInstallersBuildTarget {
       val context = createBuildContext(
         projectHome = COMMUNITY_ROOT.communityRoot,
         productProperties = TermLabProperties(COMMUNITY_ROOT.communityRoot),
+        proprietaryBuildTools = proprietaryBuildTools,
         options = options,
       )
       buildDistributions(context)
