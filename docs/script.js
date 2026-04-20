@@ -170,12 +170,57 @@
     els.forEach((el) => io.observe(el));
   }
 
+  // ---------- Video tour ----------
+  function setupVideoTour() {
+    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const hasIO = "IntersectionObserver" in window;
+    const hero = document.querySelector(".hero-video");
+    const tourVideos = Array.from(document.querySelectorAll(".tour-video video"));
+
+    // Fallback path: reduced-motion OR no IntersectionObserver support.
+    // Both cases mean "don't autoplay, let the user drive."
+    if (reduced || !hasIO) {
+      if (hero) {
+        // script.js is deferred, so the hero may already be playing —
+        // pausing + rewinding is the correct cleanup, not attribute removal.
+        hero.pause();
+        hero.currentTime = 0;
+        hero.setAttribute("controls", "");
+        hero.removeAttribute("autoplay");
+      }
+      tourVideos.forEach((v) => v.setAttribute("controls", ""));
+      return;
+    }
+
+    if (!tourVideos.length) return;
+
+    const io = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          const video = entry.target;
+          if (entry.isIntersecting) {
+            // play() returns a Promise that rejects if autoplay is blocked.
+            // Swallow the rejection — the user can still click to play.
+            const p = video.play();
+            if (p && typeof p.catch === "function") p.catch(() => {});
+          } else {
+            video.pause();
+          }
+        });
+      },
+      { threshold: 0.35 }
+    );
+
+    tourVideos.forEach((v) => io.observe(v));
+  }
+
   // ---------- Boot ----------
   function boot() {
     applyPlatform(detectPlatform());
     fetchRepo().then(applyRepo);
     fetchRelease().then(applyRelease);
     setupReveal();
+    setupVideoTour();
   }
 
   if (document.readyState === "loading") {
