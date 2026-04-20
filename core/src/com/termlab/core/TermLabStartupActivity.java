@@ -1,6 +1,8 @@
 package com.termlab.core;
+import com.intellij.ide.ProjectWindowCustomizerService;
 import com.termlab.core.terminal.TermLabTabBarManager;
 import com.termlab.core.workspace.WorkspaceManager;
+import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.ide.GeneralSettings;
 import com.intellij.openapi.editor.ex.EditorSettingsExternalizable;
 import com.intellij.openapi.project.Project;
@@ -12,7 +14,10 @@ import kotlin.coroutines.Continuation;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+import java.awt.Color;
+
 public final class TermLabStartupActivity implements ProjectActivity {
+    private static final Color TERMLAB_PROJECT_COLOR = new Color(0x51, 0x64, 0x82);
 
     @Override
     public @Nullable Object execute(@NotNull Project project,
@@ -51,6 +56,15 @@ public final class TermLabStartupActivity implements ProjectActivity {
         // Hide the tab bar when only one tab is open, but still allow tabs
         // to appear in Distraction Free Mode once multiple tabs exist.
         TermLabTabBarManager.schedulePreferredTabSettings(project);
+
+        // Keep the project/window accent stable across TermLab workspaces.
+        ProjectWindowCustomizerService customizer =
+            ApplicationManager.getApplication().getService(ProjectWindowCustomizerService.class);
+        if (customizer != null) {
+            ApplicationManager.getApplication().invokeLater(() ->
+                customizer.setCustomProjectColor(project, TERMLAB_PROJECT_COLOR)
+            );
+        }
 
         return Unit.INSTANCE;
     }

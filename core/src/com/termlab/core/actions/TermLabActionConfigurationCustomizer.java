@@ -81,6 +81,8 @@ public final class TermLabActionConfigurationCustomizer implements ActionConfigu
         "DeleteRunConfiguration",
         "ShowLiveRunConfigurations",
         "AllRunConfigurationsToggle",
+        // Run Anything
+        "RunAnything",
         // Run toolbar (new UI)
         "NewUiRunWidget",
         "RunToolbarMainActionGroup",

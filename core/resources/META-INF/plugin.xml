@@ -179,6 +179,16 @@
                   topic="com.intellij.ide.AppLifecycleListener"/>
 
         <!--
+          Disables the platform Run Anything feature itself by stripping
+          its execution providers and unregistering the double-Ctrl
+          shortcut hook. The RunAnything action id is also pruned during
+          action customization so it never appears in menus, keymaps, or
+          the command palette.
+        -->
+        <listener class="com.termlab.core.TermLabRunAnythingStripper"
+                  topic="com.intellij.ide.AppLifecycleListener"/>
+
+        <!--
           Strips IDE-oriented Settings pages under Editor/ that don't affect
           the terminal view. Keeps Font, Console Font, Color Scheme, and
           General/Appearance, while pruning Language Defaults, Diff & Merge,
@@ -204,6 +214,21 @@
           IntelliJ defaults, and keeps first-launch fallback on TermLab Dark.
         -->
         <listener class="com.termlab.core.TermLabThemeSyncCustomizer"
+                  topic="com.intellij.ide.AppLifecycleListener"/>
+
+        <!--
+          Makes fresh-install Console Font defaults independent from Editor
+          Font so TermLab can start with console line spacing at 0.8 while
+          preserving any user-saved console-font.xml settings.
+        -->
+        <listener class="com.termlab.core.TermLabConsoleFontCustomizer"
+                  topic="com.intellij.ide.AppLifecycleListener"/>
+
+        <!--
+          Enables Compact Mode for fresh installs while preserving any
+          existing ui.lnf.xml density choice.
+        -->
+        <listener class="com.termlab.core.TermLabCompactModeCustomizer"
                   topic="com.intellij.ide.AppLifecycleListener"/>
 
         <!--
