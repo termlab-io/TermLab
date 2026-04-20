@@ -104,6 +104,11 @@ ask() {
 
 command -v gh >/dev/null 2>&1 || { echo "$(red "gh (GitHub CLI) not found on PATH.")"; exit 1; }
 
+FALLBACK_ANDROID_REF=""
+if [ -f "$WORKBENCH_DIR/ANDROID_REF" ]; then
+  FALLBACK_ANDROID_REF="$(tr -d '[:space:]' < "$WORKBENCH_DIR/ANDROID_REF")"
+fi
+
 # --- 1. Require clean tree ---------------------------------------------------
 
 STASHED=0
@@ -215,6 +220,8 @@ fi
 PINNED_INTELLIJ="$(tr -d '[:space:]' < "$WORKBENCH_DIR/INTELLIJ_REF")"
 if [ -f "$WORKBENCH_DIR/ANDROID_REF" ]; then
   PINNED_ANDROID="$(tr -d '[:space:]' < "$WORKBENCH_DIR/ANDROID_REF")"
+elif [ -n "$FALLBACK_ANDROID_REF" ]; then
+  PINNED_ANDROID="$FALLBACK_ANDROID_REF"
 else
   PINNED_ANDROID="master"
 fi
@@ -255,7 +262,7 @@ check_dirty "$INTELLIJ_ROOT/android" "android"
 
 echo ""
 echo "$(bold "Syncing intellij-community + android to pinned SHAs...")"
-bash "$WORKBENCH_DIR/scripts/ci/bootstrap_intellij.sh" "$INTELLIJ_ROOT"
+ANDROID_REF="$PINNED_ANDROID" bash "$WORKBENCH_DIR/scripts/ci/bootstrap_intellij.sh" "$INTELLIJ_ROOT"
 sync_termlab_idea_config "$INTELLIJ_ROOT"
 
 # --- 6. Build ----------------------------------------------------------------
