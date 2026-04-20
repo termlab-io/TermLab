@@ -121,22 +121,28 @@
           terminals feel native because they are.
         </p>
       </div>
-      <figure class="window-chrome tour-image">
-        <img
-          src="./assets/example_ssh_server_connect.png"
-          alt="TermLab with an SSH session open to a remote host, showing neofetch output in the terminal."
-          loading="lazy"
-        />
+      <figure class="window-chrome tour-image tour-video">
+        <video
+          src="./assets/connect_to_server.mp4"
+          muted
+          loop
+          playsinline
+          preload="metadata"
+          aria-label="Demo: every host, one keystroke away."
+        ></video>
       </figure>
     </article>
 
     <article class="tour-step tour-step--img-left reveal">
-      <figure class="window-chrome tour-image">
-        <img
-          src="./assets/creating_new_credential_in_vault.png"
-          alt="Add Credential dialog in TermLab's encrypted vault, with options for password, SSH key, and key plus password."
-          loading="lazy"
-        />
+      <figure class="window-chrome tour-image tour-video">
+        <video
+          src="./assets/credential_vault.mp4"
+          muted
+          loop
+          playsinline
+          preload="metadata"
+          aria-label="Demo: one vault for everything."
+        ></video>
       </figure>
       <div class="tour-copy">
         <p class="eyebrow-mono">&gt; 02 &middot; secure</p>
@@ -154,39 +160,64 @@
         <h2 class="tour-headline">Move files without switching tools.</h2>
         <p class="tour-caption">
           Dual-pane SFTP sits inside the same window as your terminal.
-          Drag, drop, right-click upload — no separate app.
+          Drag, drop, right-click upload &mdash; no separate app.
         </p>
       </div>
-      <figure class="window-chrome tour-image">
-        <img
-          src="./assets/example_sftp_server_upload.png"
-          alt="TermLab's dual-pane SFTP view with a right-click context menu uploading a file to a remote server."
-          loading="lazy"
-        />
+      <figure class="window-chrome tour-image tour-video">
+        <video
+          src="./assets/sftp_upload.mp4"
+          muted
+          loop
+          playsinline
+          preload="metadata"
+          aria-label="Demo: move files without switching tools."
+        ></video>
       </figure>
     </article>
 
     <article class="tour-step tour-step--img-left reveal">
-      <figure class="window-chrome tour-image">
-        <img
-          src="./assets/export_connections_example.png"
-          alt="Export TermLab Bundle dialog with SSH host and tunnel lists and a bundle password field."
-          loading="lazy"
-        />
+      <figure class="window-chrome tour-image tour-video">
+        <video
+          src="./assets/running_script_remotely.mp4"
+          muted
+          loop
+          playsinline
+          preload="metadata"
+          aria-label="Demo: run local scripts on remote boxes."
+        ></video>
       </figure>
       <div class="tour-copy">
-        <p class="eyebrow-mono">&gt; 04 &middot; share</p>
-        <h2 class="tour-headline">
-          Hand off your whole setup as one encrypted file.
-        </h2>
+        <p class="eyebrow-mono">&gt; 04 &middot; automate</p>
+        <h2 class="tour-headline">Run local scripts on remote boxes.</h2>
         <p class="tour-caption">
-          Export hosts, tunnels, keys, and credentials into a
-          password-protected bundle. Your teammate imports it and they're in.
-        </p>
-        <p class="tour-note">
-          .termlab &middot; password-protected &middot; nobody else does this
+          Write a script once, execute it on any saved host. No SSH
+          gymnastics, no copy-paste dance.
         </p>
       </div>
+    </article>
+
+    <article class="tour-step tour-step--img-right reveal">
+      <div class="tour-copy">
+        <p class="eyebrow-mono">&gt; 05 &middot; share</p>
+        <h2 class="tour-headline">
+          Import a teammate's whole setup in one click.
+        </h2>
+        <p class="tour-caption">
+          Open an encrypted <code>.termlab</code> bundle and their hosts,
+          tunnels, keys, and credentials land in your app &mdash; ready to
+          connect. No setup guide, no shared doc, no rebuild.
+        </p>
+      </div>
+      <figure class="window-chrome tour-image tour-video">
+        <video
+          src="./assets/importing_shared_bundle.mp4"
+          muted
+          loop
+          playsinline
+          preload="metadata"
+          aria-label="Demo: import a teammate's whole setup in one click."
+        ></video>
+      </figure>
     </article>
   </div>
 </section>
