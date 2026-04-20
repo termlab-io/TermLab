@@ -383,7 +383,7 @@ footer {
   position: absolute;
   bottom: 0;
   right: 0;
-  width: 55%;
+  width: 68%;
   transform: rotate(-1deg);
   transform-origin: center center;
   z-index: 2;
@@ -449,7 +449,7 @@ footer {
 
 .tour-step {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr);
+  grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.4fr);
   gap: clamp(32px, 5vw, 72px);
   align-items: center;
 }
