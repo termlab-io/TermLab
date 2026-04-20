@@ -24,6 +24,72 @@ bold() { printf '\033[1m%s\033[0m' "$*"; }
 red()  { printf '\033[31m%s\033[0m' "$*"; }
 dim()  { printf '\033[2m%s\033[0m' "$*"; }
 
+sync_termlab_idea_config() {
+  local intellij_dir="$1"
+  local modules_xml="$intellij_dir/.idea/modules.xml"
+  local run_config_dir="$intellij_dir/.idea/runConfigurations"
+  local run_config_src="$WORKBENCH_DIR/scripts/idea/TermLab.run.xml"
+  local run_config_dest="$run_config_dir/TermLab.xml"
+  local anchor='intellij.compose.ide.plugin.shared.tests.iml'
+
+  mkdir -p "$run_config_dir"
+  cp "$run_config_src" "$run_config_dest"
+
+  if [ ! -f "$modules_xml" ]; then
+    echo "$(red "Missing IntelliJ modules.xml at $modules_xml")"
+    exit 1
+  fi
+
+  mapfile -t termlab_modules < <(python3 - "$WORKBENCH_DIR" <<'PYEOF'
+import os
+import sys
+
+root = sys.argv[1]
+modules = []
+
+for dirpath, dirnames, filenames in os.walk(root):
+    dirnames[:] = [d for d in dirnames if d not in {".git", ".idea", "out"}]
+    for filename in filenames:
+        if not filename.startswith("intellij.termlab") or not filename.endswith(".iml"):
+            continue
+        rel_path = os.path.relpath(os.path.join(dirpath, filename), root).replace(os.sep, "/")
+        modules.append(f"termlab/{rel_path}")
+
+for module in sorted(modules):
+    print(module)
+PYEOF
+  )
+
+  python3 - "$modules_xml" "$anchor" "${termlab_modules[@]}" <<'PYEOF'
+import sys
+
+path, anchor, *modules = sys.argv[1:]
+desired_lines = [
+    f'      <module fileurl="file://$PROJECT_DIR$/{module}" filepath="$PROJECT_DIR$/{module}" />\n'
+    for module in modules
+]
+
+with open(path, encoding="utf-8") as fh:
+    lines = fh.readlines()
+
+filtered = []
+anchor_index = None
+for line in lines:
+    if 'fileurl="file://$PROJECT_DIR$/termlab/' in line:
+        continue
+    filtered.append(line)
+    if anchor in line and anchor_index is None:
+        anchor_index = len(filtered)
+
+if anchor_index is None:
+    sys.exit("anchor not found")
+
+updated = filtered[:anchor_index] + desired_lines + filtered[anchor_index:]
+with open(path, "w", encoding="utf-8") as fh:
+    fh.writelines(updated)
+PYEOF
+}
+
 ask() {
   local prompt="$1" ans
   while true; do
@@ -65,6 +131,7 @@ cleanup() {
   local ec=$?
   echo ""
   echo "Restoring original ref: $(bold "$ORIGINAL_REF")"
+  git restore --source=HEAD --staged --worktree customization/resources/idea/TermLabApplicationInfo.xml 2>/dev/null || true
   git checkout --quiet "$ORIGINAL_REF" 2>/dev/null || \
     echo "$(red "Could not restore to $ORIGINAL_REF — check 'git status'.")"
   if [ "$STASHED" -eq 1 ]; then
@@ -146,7 +213,11 @@ else
 fi
 
 PINNED_INTELLIJ="$(tr -d '[:space:]' < "$WORKBENCH_DIR/INTELLIJ_REF")"
-PINNED_ANDROID="$(tr -d '[:space:]' < "$WORKBENCH_DIR/ANDROID_REF" 2>/dev/null || echo 'master')"
+if [ -f "$WORKBENCH_DIR/ANDROID_REF" ]; then
+  PINNED_ANDROID="$(tr -d '[:space:]' < "$WORKBENCH_DIR/ANDROID_REF")"
+else
+  PINNED_ANDROID="master"
+fi
 
 echo ""
 echo "$(bold "Pinned SHAs for $TAG:")"
@@ -185,6 +256,7 @@ check_dirty "$INTELLIJ_ROOT/android" "android"
 echo ""
 echo "$(bold "Syncing intellij-community + android to pinned SHAs...")"
 bash "$WORKBENCH_DIR/scripts/ci/bootstrap_intellij.sh" "$INTELLIJ_ROOT"
+sync_termlab_idea_config "$INTELLIJ_ROOT"
 
 # --- 6. Build ----------------------------------------------------------------
 

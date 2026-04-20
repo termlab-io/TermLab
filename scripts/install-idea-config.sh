@@ -56,84 +56,81 @@ else
   echo "==> Installed run configuration: $RUN_CONFIG_DEST"
 fi
 
-# --- 2. Register termlab modules in modules.xml --------------------------------
+# --- 2. Sync TermLab modules in modules.xml -----------------------------------
 #
-# We insert four <module .../> entries pointing at the symlinked termlab tree
-# (intellij-community/termlab → termlab_workbench). They go just after the existing
-# 'compose.ide.plugin.shared.tests.iml' entry, alphabetically near 'configurationScript'
-# where 'termlab' belongs. The entries use $PROJECT_DIR$ so IntelliJ resolves them
-# relative to intellij-community.
+# Keep the registered TermLab modules aligned with the current checkout rather
+# than only appending new ones. That avoids stale module references when a tag
+# predates a newer .iml file or when the module set changes over time.
 
-TERMLAB_MODULES=(
-  "termlab/build/intellij.termlab.build.iml"
-  "termlab/core/intellij.termlab.core.iml"
-  "termlab/customization/intellij.termlab.customization.iml"
-  "termlab/intellij.termlab.main.iml"
-  "termlab/sdk/intellij.termlab.sdk.iml"
-  "termlab/plugins/ssh/intellij.termlab.ssh.iml"
-  "termlab/plugins/vault/intellij.termlab.vault.iml"
-  "termlab/plugins/tunnels/intellij.termlab.tunnels.iml"
-  "termlab/plugins/share/intellij.termlab.share.iml"
-  "termlab/plugins/sftp/intellij.termlab.sftp.iml"
-  "termlab/plugins/editor/intellij.termlab.editor.iml"
-  "termlab/plugins/runner/intellij.termlab.runner.iml"
-  "termlab/plugins/search/intellij.termlab.search.iml"
+mapfile -t TERMLAB_MODULES < <(python3 - "$WORKBENCH_DIR" <<'PYEOF'
+import os
+import sys
+
+root = sys.argv[1]
+modules = []
+
+for dirpath, dirnames, filenames in os.walk(root):
+    dirnames[:] = [d for d in dirnames if d not in {".git", ".idea", "out"}]
+    for filename in filenames:
+        if not filename.startswith("intellij.termlab") or not filename.endswith(".iml"):
+            continue
+        rel_path = os.path.relpath(os.path.join(dirpath, filename), root).replace(os.sep, "/")
+        modules.append(f"termlab/{rel_path}")
+
+for module in sorted(modules):
+    print(module)
+PYEOF
 )
 
-MISSING_MODULES=()
-for path in "${TERMLAB_MODULES[@]}"; do
-  if ! grep -Fq "$path" "$MODULES_XML"; then
-    MISSING_MODULES+=("$path")
-  fi
-done
-
-if [ ${#MISSING_MODULES[@]} -eq 0 ]; then
-  echo "==> TermLab modules already registered in $MODULES_XML"
-else
-  echo "==> Registering missing TermLab modules in $MODULES_XML"
-  for path in "${MISSING_MODULES[@]}"; do
-    echo "    + $path"
+ANCHOR='intellij.compose.ide.plugin.shared.tests.iml'
+if ! grep -q "$ANCHOR" "$MODULES_XML"; then
+  echo "ERROR: anchor line not found in $MODULES_XML." >&2
+  echo "       The intellij-community version may have changed." >&2
+  echo "       Manually add these lines to .idea/modules.xml inside <modules>:" >&2
+  for path in "${TERMLAB_MODULES[@]}"; do
+    echo "      <module fileurl=\"file://\$PROJECT_DIR\$/$path\" filepath=\"\$PROJECT_DIR\$/$path\" />" >&2
   done
+  exit 1
+fi
 
-  # Find the anchor line and inject only the missing module entries
-  # right after it.
-  ANCHOR='intellij.compose.ide.plugin.shared.tests.iml'
-  if ! grep -q "$ANCHOR" "$MODULES_XML"; then
-    echo "ERROR: anchor line not found in $MODULES_XML." >&2
-    echo "       The intellij-community version may have changed." >&2
-    echo "       Manually add these lines to .idea/modules.xml inside <modules>:" >&2
-    for path in "${MISSING_MODULES[@]}"; do
-      echo "      <module fileurl=\"file://\$PROJECT_DIR\$/$path\" filepath=\"\$PROJECT_DIR\$/$path\" />" >&2
-    done
-    exit 1
-  fi
-
-  python3 - "$MODULES_XML" "$ANCHOR" "${MISSING_MODULES[@]}" <<'PYEOF'
+SYNC_RESULT="$(python3 - "$MODULES_XML" "$ANCHOR" "${TERMLAB_MODULES[@]}" <<'PYEOF'
 import sys
 
 path, anchor, *modules = sys.argv[1:]
-insert = "".join(
-    f'      <module fileurl="file://$PROJECT_DIR$/{m}" filepath="$PROJECT_DIR$/{m}" />\n'
-    for m in modules
-)
+desired_lines = [
+    f'      <module fileurl="file://$PROJECT_DIR$/{module}" filepath="$PROJECT_DIR$/{module}" />\n'
+    for module in modules
+]
 
-with open(path) as f:
-    lines = f.readlines()
+with open(path, encoding="utf-8") as fh:
+    lines = fh.readlines()
 
-out = []
-inserted = False
+filtered = []
+anchor_index = None
 for line in lines:
-    out.append(line)
-    if not inserted and anchor in line:
-        out.append(insert)
-        inserted = True
+    if 'fileurl="file://$PROJECT_DIR$/termlab/' in line:
+        continue
+    filtered.append(line)
+    if anchor in line and anchor_index is None:
+        anchor_index = len(filtered)
 
-if not inserted:
+if anchor_index is None:
     sys.exit("anchor not found")
 
-with open(path, "w") as f:
-    f.writelines(out)
+updated = filtered[:anchor_index] + desired_lines + filtered[anchor_index:]
+if updated == lines:
+    print("unchanged")
+else:
+    with open(path, "w", encoding="utf-8") as fh:
+        fh.writelines(updated)
+    print("updated")
 PYEOF
+)"
+
+if [ "$SYNC_RESULT" = "unchanged" ]; then
+  echo "==> TermLab modules already synchronized in $MODULES_XML"
+else
+  echo "==> Synchronized TermLab modules in $MODULES_XML"
 fi
 
 echo
