@@ -22,7 +22,7 @@ public final class TermLabCompactModeCustomizer implements AppLifecycleListener 
 
     @Override
     public void appFrameCreated(@NotNull List<String> commandLineArgs) {
-        if (Files.exists(UI_SETTINGS_FILE)) {
+        if (hasExplicitDensityPreference()) {
             return;
         }
 
@@ -36,5 +36,18 @@ public final class TermLabCompactModeCustomizer implements AppLifecycleListener 
             settings.fireUISettingsChanged();
             LOG.info("TermLab: enabled Compact Mode by default for fresh install");
         });
+    }
+
+    private static boolean hasExplicitDensityPreference() {
+        if (!Files.exists(UI_SETTINGS_FILE)) {
+            return false;
+        }
+        try {
+            String xml = Files.readString(UI_SETTINGS_FILE);
+            return xml.contains("name=\"UI_DENSITY\"") || xml.contains("name=\"COMPACT_MODE\"");
+        } catch (Exception e) {
+            LOG.warn("TermLab: failed to inspect ui.lnf.xml for density preference", e);
+            return true;
+        }
     }
 }

@@ -42,10 +42,7 @@ class TermLabProperties(private val communityHomeDir: Path) : JetBrainsProductPr
       "intellij.termlab.runner",
       "intellij.termlab.search",
       "intellij.classic.ui",
-      "intellij.sh.plugin",
       "intellij.textmate.plugin",
-      "intellij.yaml",
-      "intellij.toml",
     )
 
     // TermLab plugins depend on non-plugin library modules (sdk, sshd,
@@ -97,6 +94,8 @@ class TermLabProperties(private val communityHomeDir: Path) : JetBrainsProductPr
       // Keep the Classic UI plugin bundled for optional use, but do
       // not enable it by default in shipped builds.
       "-Didea.suppressed.plugins.id=com.intellij.classic.ui",
+      // Force packaged fresh installs onto the branded default LaF.
+      "-Dlaf.name.for.new.installation=TermLab Dark",
       // Disable the native fsnotifier. TermLab has no project
       // indexing so filewatcher events are useless overhead, and on
       // Linux it pops an "inotify watch limit reached" balloon on
