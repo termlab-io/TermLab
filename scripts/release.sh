@@ -128,14 +128,13 @@ echo "$(bold "Fetching and checking out tag $TAG...")"
 git fetch origin "refs/tags/$TAG:refs/tags/$TAG" 2>/dev/null || true
 git checkout --quiet "refs/tags/$TAG"
 
-# --- 5. Build ----------------------------------------------------------------
-
-echo ""
-echo "$(bold "Running 'make termlab-installers' — this takes a while on a cold cache.")"
-echo ""
-make termlab-installers
-
-# --- 6. List artifacts -------------------------------------------------------
+# --- 5. Sync intellij-community to the tag's pinned SHAs ---------------------
+#
+# INTELLIJ_REF / ANDROID_REF live in this repo; checking out the tag
+# updated them to whatever SHAs the release expects. But the sibling
+# intellij-community clone is independent and still sitting on whichever
+# SHAs it had before. Run the same bootstrap CI used so the clone
+# matches the tag.
 
 INTELLIJ_ROOT_FILE="$WORKBENCH_DIR/.intellij-root"
 if [ -n "${INTELLIJ_ROOT:-}" ]; then
@@ -145,6 +144,46 @@ elif [ -f "$INTELLIJ_ROOT_FILE" ]; then
 else
   INTELLIJ_ROOT="$(dirname "$WORKBENCH_DIR")/intellij-community"
 fi
+
+PINNED_INTELLIJ="$(tr -d '[:space:]' < "$WORKBENCH_DIR/INTELLIJ_REF")"
+PINNED_ANDROID="$(tr -d '[:space:]' < "$WORKBENCH_DIR/ANDROID_REF" 2>/dev/null || echo 'master')"
+
+echo ""
+echo "$(bold "Pinned SHAs for $TAG:")"
+echo "  intellij-community: $PINNED_INTELLIJ"
+echo "  android:            $PINNED_ANDROID"
+
+# Abort if the local intellij-community or android clones have
+# uncommitted work — bootstrap would blow it away otherwise.
+check_dirty() {
+  local dir="$1" name="$2"
+  [ -d "$dir/.git" ] || return 0
+  if ! git -C "$dir" diff --quiet \
+     || ! git -C "$dir" diff --cached --quiet; then
+    echo ""
+    echo "$(red "$name has uncommitted changes at $dir")"
+    git -C "$dir" status --short | head -10
+    echo ""
+    echo "Commit, stash, or discard those changes, then re-run this script."
+    exit 1
+  fi
+}
+check_dirty "$INTELLIJ_ROOT" "intellij-community"
+check_dirty "$INTELLIJ_ROOT/android" "android"
+
+echo ""
+echo "$(bold "Syncing intellij-community + android to pinned SHAs...")"
+bash "$WORKBENCH_DIR/scripts/ci/bootstrap_intellij.sh" "$INTELLIJ_ROOT"
+
+# --- 6. Build ----------------------------------------------------------------
+
+echo ""
+echo "$(bold "Running 'make termlab-installers' — this takes a while on a cold cache.")"
+echo ""
+make termlab-installers
+
+# --- 7. List artifacts -------------------------------------------------------
+
 ARTIFACT_DIR="$INTELLIJ_ROOT/out/termlab/artifacts"
 
 if [ ! -d "$ARTIFACT_DIR" ]; then
@@ -167,7 +206,7 @@ for f in "${FILES[@]}"; do
   printf "  %s  %s\n" "$(basename "$f")" "$(dim "($size)")"
 done
 
-# --- 7. Upload ---------------------------------------------------------------
+# --- 8. Upload ---------------------------------------------------------------
 
 if [ "$UPLOAD" -eq 1 ]; then
   echo ""
