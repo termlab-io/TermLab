@@ -203,8 +203,9 @@ class TermLabProperties(private val communityHomeDir: Path) : JetBrainsProductPr
       dmgImagePath = "termlab/customization/resources/mac/dmg_background.tiff"
       copyAdditionalFiles { targetDir, _, context ->
         if (!context.isMacCodeSignEnabled) {
-          val launcher = targetDir.resolve("MacOS/${context.productProperties.baseFileName}")
-          removeMacSignatureIfPresent(launcher)
+          val baseFileName = context.productProperties.baseFileName
+          removeMacSignatureIfPresent(targetDir.resolve("MacOS/$baseFileName"))
+          removeMacSignatureIfPresent(targetDir.resolve("Contents/MacOS/$baseFileName"))
         }
       }
     }
