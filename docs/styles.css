@@ -369,12 +369,23 @@ footer {
   pointer-events: none;
 }
 
+.hero-back,
+.hero-front {
+  /* Promote rotated tiles to their own compositing layer so the
+     browser uses GPU-side antialiasing on the rotated edges. Without
+     this, the window-chrome border + border-radius produce visibly
+     jagged diagonals at 2.5° / -1°. */
+  will-change: transform;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
 .hero-back {
   position: absolute;
   top: 2%;
   left: 0;
   right: 6%;
-  transform: rotate(2.5deg);
+  transform: rotate(2.5deg) translateZ(0);
   transform-origin: center center;
   z-index: 1;
 }
@@ -384,7 +395,7 @@ footer {
   bottom: 0;
   right: 0;
   width: 68%;
-  transform: rotate(-1deg);
+  transform: rotate(-1deg) translateZ(0);
   transform-origin: center center;
   z-index: 2;
 }
