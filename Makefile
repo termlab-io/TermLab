@@ -11,7 +11,7 @@
 #   make termlab-clean              — clean build artifacts
 #   make termlab-installers         — build all-platform distributions
 #   make termlab-installers-fast    — build all-platform distributions reusing existing compiled IDE output
-#   make termlab-installers-mac     — build macOS distributions only (.sit)
+#   make termlab-installers-mac     — build macOS distributions only (.dmg)
 #   make termlab-installers-linux   — build Linux distributions only (.tar.gz)
 #   make termlab-installers-windows — build Windows distributions only (.win.zip, .exe)
 #   make termlab-version            — regenerate TermLabApplicationInfo.xml

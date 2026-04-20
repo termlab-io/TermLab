@@ -52,6 +52,9 @@ object TermLabInstallersBuildTarget {
           // distribution inside IntelliJ products — we just don't want
           // to maintain the license manifest for our purposes.
           BuildOptions.THIRD_PARTY_LIBRARIES_LIST_STEP,
+          // TermLab does not publish .sit archives. Keep DMG output and
+          // skip the legacy macOS SIT publication step entirely.
+          BuildOptions.MAC_SIT_PUBLICATION_STEP,
         )
       }
       val context = createBuildContext(
