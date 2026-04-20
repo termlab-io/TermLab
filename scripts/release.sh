@@ -8,7 +8,7 @@
 #   2. Pick a GitHub release (draft/prerelease/latest) interactively.
 #   3. Ask up front whether to upload artifacts after the build.
 #   4. Check out the release's tag.
-#   5. Run `make termlab-installers` (builds .dmg/.sit for both Mac archs,
+#   5. Run `make termlab-installers` (builds .dmg for both Mac archs,
 #      .tar.gz for Linux, .exe/.win.zip for both Windows archs).
 #   6. Show the artifact list.
 #   7. If upload was requested, `gh release upload` everything.
@@ -158,11 +158,22 @@ echo "  android:            $PINNED_ANDROID"
 check_dirty() {
   local dir="$1" name="$2"
   [ -d "$dir/.git" ] || return 0
-  if ! git -C "$dir" diff --quiet \
-     || ! git -C "$dir" diff --cached --quiet; then
+  local -a status_lines=()
+  if [ "$name" = "intellij-community" ]; then
+    mapfile -t status_lines < <(
+      git -C "$dir" status --short --untracked-files=all \
+        -- ':!/.idea/modules.xml' \
+           ':!/.idea/runConfigurations/TermLab.xml' \
+           ':!/termlab'
+    )
+  else
+    mapfile -t status_lines < <(git -C "$dir" status --short --untracked-files=all)
+  fi
+
+  if [ "${#status_lines[@]}" -ne 0 ]; then
     echo ""
     echo "$(red "$name has uncommitted changes at $dir")"
-    git -C "$dir" status --short | head -10
+    printf '%s\n' "${status_lines[@]:0:10}"
     echo ""
     echo "Commit, stash, or discard those changes, then re-run this script."
     exit 1

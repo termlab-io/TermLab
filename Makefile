@@ -77,7 +77,7 @@ TERMLAB_TEST_TARGETS := \
 	//termlab/plugins/sftp:sftp_test_runner \
 	//termlab/plugins/search:search_test_runner
 
-.PHONY: termlab termlab-build termlab-test termlab-clean termlab-installers termlab-installers-fast termlab-installers-mac termlab-installers-linux termlab-installers-windows check-intellij termlab-version termlab-sync-idea-config termlab-perf-benchmark termlab-perf-budget
+.PHONY: termlab termlab-build termlab-test termlab-clean termlab-installers termlab-installers-fast termlab-installers-mac termlab-installers-linux termlab-installers-windows check-intellij termlab-version termlab-sync-idea-config termlab-bootstrap-intellij termlab-perf-benchmark termlab-perf-budget
 
 check-intellij:
 	@test -f "$(INTELLIJ_ROOT)/bazel.cmd" || { \
@@ -92,6 +92,13 @@ check-intellij:
 # even though their Bazel targets and .iml files exist.
 termlab-sync-idea-config: check-intellij
 	@bash "$(WORKBENCH_DIR)/scripts/install-idea-config.sh" "$(INTELLIJ_ROOT)"
+
+# Installer packaging depends on the sibling intellij-community and android
+# checkouts matching the SHAs pinned by INTELLIJ_REF / ANDROID_REF. Reuse the
+# same bootstrap flow as release.sh so local packaging doesn't silently compile
+# against a drifted upstream checkout.
+termlab-bootstrap-intellij: check-intellij
+	@bash "$(WORKBENCH_DIR)/scripts/ci/bootstrap_intellij.sh" "$(INTELLIJ_ROOT)"
 
 # Stamp version attributes into customization/resources/idea/TermLabApplicationInfo.xml
 # in place. Only <version major/minor/patch suffix> are touched; other
@@ -120,25 +127,25 @@ termlab-test: check-intellij termlab-version
 termlab-clean: check-intellij
 	$(BAZEL) clean
 
-termlab-installers: check-intellij termlab-version termlab-sync-idea-config
+termlab-installers: check-intellij termlab-version termlab-bootstrap-intellij
 	$(BAZEL) run //termlab/build:termlab_installers
 	@echo "→ Installer artifacts in $(INTELLIJ_ROOT)/out/termlab/artifacts/"
 
-termlab-installers-fast: check-intellij termlab-version termlab-sync-idea-config
+termlab-installers-fast: check-intellij termlab-version termlab-bootstrap-intellij
 	@echo "→ Building installers from existing compiled IDE output"
 	@echo "  Run 'Build Project' in IntelliJ first if outputs are stale or missing."
 	TERMLAB_REUSE_COMPILED_CLASSES=true $(BAZEL) run //termlab/build:termlab_installers
 	@echo "→ Installer artifacts in $(INTELLIJ_ROOT)/out/termlab/artifacts/"
 
-termlab-installers-mac: check-intellij termlab-version termlab-sync-idea-config
+termlab-installers-mac: check-intellij termlab-version termlab-bootstrap-intellij
 	TERMLAB_TARGET_OS=mac $(BAZEL) run //termlab/build:termlab_installers
 	@echo "→ Installer artifacts in $(INTELLIJ_ROOT)/out/termlab/artifacts/"
 
-termlab-installers-linux: check-intellij termlab-version termlab-sync-idea-config
+termlab-installers-linux: check-intellij termlab-version termlab-bootstrap-intellij
 	TERMLAB_TARGET_OS=linux $(BAZEL) run //termlab/build:termlab_installers
 	@echo "→ Installer artifacts in $(INTELLIJ_ROOT)/out/termlab/artifacts/"
 
-termlab-installers-windows: check-intellij termlab-version termlab-sync-idea-config
+termlab-installers-windows: check-intellij termlab-version termlab-bootstrap-intellij
 	TERMLAB_TARGET_OS=windows $(BAZEL) run //termlab/build:termlab_installers
 	@echo "→ Installer artifacts in $(INTELLIJ_ROOT)/out/termlab/artifacts/"
 
