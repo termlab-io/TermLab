@@ -278,6 +278,13 @@ footer {
   background: #0f1828;
 }
 
+.window-chrome video {
+  width: 100%;
+  height: auto;
+  display: block;
+  background: #0f1828;
+}
+
 /* ---------- Hero ---------- */
 .hero {
   padding: clamp(56px, 9vw, 120px) 0 clamp(40px, 6vw, 72px);
