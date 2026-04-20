@@ -6,6 +6,7 @@ import com.intellij.execution.ui.ConsoleViewContentType;
 import com.intellij.openapi.editor.colors.TextAttributesKey;
 import com.intellij.openapi.editor.colors.EditorColorsManager;
 import com.intellij.openapi.editor.colors.EditorColorsScheme;
+import com.intellij.openapi.editor.colors.FontPreferences;
 import com.intellij.openapi.editor.markup.TextAttributes;
 import com.jediterm.core.Color;
 import com.jediterm.terminal.TerminalColor;
@@ -20,7 +21,8 @@ import java.awt.*;
 /**
  * Terminal settings that:
  * - Use the current IntelliJ editor color scheme for colors (follows theme plugins)
- * - Use our own TermLabTerminalConfig for font, line spacing, cursor, and behavior
+ * - Use IntelliJ's Console Font settings for terminal font family/size/line spacing
+ * - Use TermLabTerminalConfig for terminal-specific behavior and extra spacing
  */
 public final class TermLabTerminalSettings extends DefaultSettingsProvider {
 
@@ -99,8 +101,15 @@ public final class TermLabTerminalSettings extends DefaultSettingsProvider {
     @Override
     public @NotNull Font getTerminalFont() {
         TermLabTerminalConfig.State s = TermLabTerminalConfig.getInstance().getState();
-        String family = !s.fontFamily.isEmpty() ? s.fontFamily : bestMonospace();
-        Font font = new Font(family, Font.PLAIN, s.fontSize);
+        EditorColorsScheme scheme = EditorColorsManager.getInstance().getGlobalScheme();
+        FontPreferences prefs = scheme.getConsoleFontPreferences();
+        String family = prefs.getFontFamily();
+        if (family == null || family.isEmpty()) {
+            family = bestMonospace();
+        }
+
+        int size = scheme.getConsoleFontSize();
+        Font font = new Font(family, Font.PLAIN, size);
 
         if (Math.abs(s.characterSpacing) > 0.001f) {
             java.util.Map<java.awt.font.TextAttribute, Object> attrs = new java.util.HashMap<>(font.getAttributes());
@@ -110,8 +119,22 @@ public final class TermLabTerminalSettings extends DefaultSettingsProvider {
         return font;
     }
 
-    @Override public float getTerminalFontSize() { return TermLabTerminalConfig.getInstance().getState().fontSize; }
-    @Override public float getLineSpacing() { return TermLabTerminalConfig.getInstance().getState().lineSpacing; }
+    @Override
+    public float getTerminalFontSize() {
+        EditorColorsScheme scheme = EditorColorsManager.getInstance().getGlobalScheme();
+        FontPreferences prefs = scheme.getConsoleFontPreferences();
+        String family = prefs.getFontFamily();
+        if (family == null || family.isEmpty()) {
+            family = bestMonospace();
+        }
+        return prefs.hasSize(family) ? prefs.getSize(family) : scheme.getConsoleFontSize();
+    }
+
+    @Override
+    public float getLineSpacing() {
+        return EditorColorsManager.getInstance().getGlobalScheme().getConsoleLineSpacing();
+    }
+
     @Override public boolean useAntialiasing() { return true; }
     @Override public boolean audibleBell() { return TermLabTerminalConfig.getInstance().getState().audibleBell; }
     @Override public boolean copyOnSelect() { return TermLabTerminalConfig.getInstance().getState().copyOnSelect; }

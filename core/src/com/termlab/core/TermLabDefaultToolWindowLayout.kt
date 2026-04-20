@@ -17,9 +17,6 @@ class TermLabDefaultToolWindowLayout : DefaultToolWindowLayoutExtension {
             weight = 0.25f
             contentUiType = ToolWindowContentUiType.COMBO
         }
-        builder.left.addOrUpdate("Bookmarks") {
-            isSplit = true
-        }
 
         builder.bottom.addOrUpdate("Version Control")
         builder.bottom.addOrUpdate("Find")

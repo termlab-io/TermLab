@@ -40,7 +40,8 @@ public final class TermLabToolWindowCustomizer implements AppLifecycleListener {
      * extensions in the bundled modules' plugin XMLs.
      */
     private static final Set<String> UNWANTED_TOOL_WINDOW_IDS = Set.of(
-        "Problems View"
+        "Problems View",
+        "Bookmarks"
     );
 
     @Override

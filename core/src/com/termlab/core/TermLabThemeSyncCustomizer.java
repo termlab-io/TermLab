@@ -16,7 +16,7 @@ import java.util.Set;
 
 /**
  * Ensures OS theme sync uses TermLab's own light/dark themes instead of
- * IntelliJ defaults, and keeps first-launch default on TermLab Light.
+ * IntelliJ defaults, and keeps first-launch default on TermLab Dark.
  */
 public final class TermLabThemeSyncCustomizer implements AppLifecycleListener {
 
@@ -52,12 +52,12 @@ public final class TermLabThemeSyncCustomizer implements AppLifecycleListener {
             // Wire "Sync with OS" preferred light/dark targets to TermLab themes.
             setPreferredThemeTargets(lafManager, light, dark);
 
-            // Keep first-launch/default behavior on TermLab Light:
-            // if we're still on built-in LAFs, switch to our light theme.
+            // Keep first-launch/default behavior on TermLab Dark:
+            // if we're still on built-in LAFs, switch to our dark theme.
             Object current = tryInvokeNoArgs(lafManager, "getCurrentLookAndFeel");
             String currentName = getLafName(current);
             if (currentName == null || BUILTIN_LAF_NAMES.contains(currentName)) {
-                if (setCurrentLookAndFeel(lafManager, light)) {
+                if (setCurrentLookAndFeel(lafManager, dark)) {
                     tryInvokeNoArgs(lafManager, "updateUI");
                     notifyLafListOrStateChanged(lafManager);
                 }

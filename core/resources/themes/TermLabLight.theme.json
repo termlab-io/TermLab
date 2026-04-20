@@ -2,7 +2,7 @@
   "name": "TermLab Light",
   "dark": false,
   "author": "Dustin McKennaWatts",
-  "editorScheme": "/themes/termlab-flow-day.xml",
+  "editorScheme": "/colorSchemes/TermLabDark.xml",
   "colors": {
     "background": "#E3E8EF",
     "foreground": "#1F2933",
@@ -58,7 +58,20 @@
       "selectionBackground": "#5E7293"
     },
     "TextField": {
-      "background": "#DCE3EA",
+      "background": "#F4F7FA",
+      "disabledBackground": "#F4F7FA",
+      "inactiveBackground": "#F4F7FA",
+      "selectionBackground": "#CAD4E2",
+      "foreground": "#1F2933"
+    },
+    "FormattedTextField": {
+      "background": "#F4F7FA",
+      "inactiveBackground": "#F4F7FA",
+      "foreground": "#1F2933"
+    },
+    "PasswordField": {
+      "background": "#F4F7FA",
+      "inactiveBackground": "#F4F7FA",
       "foreground": "#1F2933"
     },
     "ScrollBar": {

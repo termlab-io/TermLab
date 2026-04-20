@@ -7,12 +7,12 @@
   <names product="TermLab" fullname="TermLab" script="termlab"
          motto="An Integrated SysOps Environment"/>
   <!--
-    Product default LaF for Classic UI (New UI is disabled via
-    -Dide.experimental.ui=false). Light classic defaults to TermLab
-    Light; dark classic defaults to TermLab Dark. Values are looked up
-    by theme id, then by display name.
+    Product default LaF. New UI defaults to TermLab Dark / TermLab Light,
+    while the bundled Classic UI plugin uses the same pair if users
+    enable it manually later.
   -->
-  <default-laf light-classic="TermLab Light" dark-classic="TermLab Dark"/>
+  <default-laf light="TermLab Light" dark="TermLab Dark"
+               light-classic="TermLab Light" dark-classic="TermLab Dark"/>
   <essential-plugin>com.termlab.core</essential-plugin>
   <essential-plugin>com.termlab.ssh</essential-plugin>
   <essential-plugin>com.termlab.vault</essential-plugin>
@@ -20,5 +20,4 @@
   <essential-plugin>com.termlab.share</essential-plugin>
   <essential-plugin>com.termlab.sftp</essential-plugin>
   <essential-plugin>com.termlab.runner</essential-plugin>
-  <essential-plugin>com.intellij.modules.json</essential-plugin>
 </component>

@@ -34,12 +34,6 @@
 
         <applicationConfigurable
             parentId="termlab.terminal.settings"
-            instance="com.termlab.core.settings.TermLabTerminalAppearanceConfigurable"
-            id="termlab.terminal.settings.appearance"
-            displayName="Appearance"/>
-
-        <applicationConfigurable
-            parentId="termlab.terminal.settings"
             instance="com.termlab.core.settings.TermLabTerminalTerminalConfigurable"
             id="termlab.terminal.settings.terminal"
             displayName="Terminal"/>
@@ -61,7 +55,8 @@
         <!--
           TermLab Dark UI theme. Referenced as the product default LaF
           in TermLabApplicationInfo.xml via
-          <default-laf light-classic="TermLab Light"
+          <default-laf light="TermLab Light" dark="TermLab Dark"
+                       light-classic="TermLab Light"
                        dark-classic="TermLab Dark"/>.
         -->
         <themeProvider id="termlab.dark"
@@ -121,6 +116,15 @@
             serviceInterface="com.intellij.openapi.updateSettings.impl.pluginsAdvertisement.PluginAdvertiserService"
             serviceImplementation="com.intellij.openapi.updateSettings.impl.pluginsAdvertisement.HeadlessPluginAdvertiserServiceImpl"/>
 
+        <!--
+          Disable the platform bookmarks feature entirely. TermLab does
+          not expose bookmarks UI, actions, or storage.
+        -->
+        <projectService
+            overrides="true"
+            serviceInterface="com.intellij.ide.bookmark.BookmarksManager"
+            serviceImplementation="com.termlab.core.DisabledBookmarksManager"/>
+
         <searchEverywhereContributor
             implementation="com.termlab.core.palette.TerminalPaletteContributor$Factory"/>
 
@@ -176,9 +180,11 @@
 
         <!--
           Strips IDE-oriented Settings pages under Editor/ that don't affect
-          the terminal view. Keeps Font, Color Scheme, and General/Appearance.
-          Project-scoped pages are stripped from TermLabStartupActivity per
-          project open. See TermLabEditorSettingsStripper for details.
+          the terminal view. Keeps Font, Console Font, Color Scheme, and
+          General/Appearance, while pruning Language Defaults, Diff & Merge,
+          and By Scope from Color Scheme. Project-scoped pages are stripped
+          from TermLabStartupActivity per project open. See
+          TermLabEditorSettingsStripper for details.
         -->
         <listener class="com.termlab.core.TermLabEditorSettingsStripper"
                   topic="com.intellij.ide.AppLifecycleListener"/>
@@ -195,7 +201,7 @@
 
         <!--
           Points OS theme sync to TermLab Light / TermLab Dark instead of
-          IntelliJ defaults, and keeps first-launch fallback on TermLab Light.
+          IntelliJ defaults, and keeps first-launch fallback on TermLab Dark.
         -->
         <listener class="com.termlab.core.TermLabThemeSyncCustomizer"
                   topic="com.intellij.ide.AppLifecycleListener"/>

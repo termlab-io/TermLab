@@ -7,7 +7,10 @@ import com.intellij.openapi.extensions.ExtensionPoint;
 import com.intellij.openapi.extensions.ExtensionsArea;
 import com.intellij.openapi.options.Configurable;
 import com.intellij.openapi.options.ConfigurableEP;
+import com.intellij.openapi.options.colors.ColorAndFontDescriptorsProvider;
+import com.intellij.openapi.options.colors.ColorSettingsPage;
 import com.intellij.openapi.project.Project;
+import com.intellij.application.options.colors.ColorAndFontPanelFactory;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.ArrayList;
@@ -30,7 +33,8 @@ import java.util.Set;
  *       terminal uses the platform editor font settings.</li>
  *   <li>Editor &gt; Color Scheme
  *       ({@code reference.settingsdialog.IDE.editor.colors}) — terminal
- *       colors/fg/bg come from here.</li>
+ *       colors/fg/bg come from here, minus Language Defaults, Diff &amp;
+ *       Merge, and By Scope.</li>
  *   <li>Editor &gt; General &gt; Appearance
  *       ({@code editor.preferences.appearance}) — caret style, selection
  *       colors, etc., which the terminal editor inherits.</li>
@@ -57,6 +61,12 @@ import java.util.Set;
 public final class TermLabEditorSettingsStripper implements AppLifecycleListener {
 
     private static final Logger LOG = Logger.getInstance(TermLabEditorSettingsStripper.class);
+    private static final String DEFAULT_LANGUAGE_COLORS_PAGE_CLASS =
+        "com.intellij.openapi.options.colors.pages.DefaultLanguageColorsPage";
+    private static final String DIFF_COLORS_FACTORY_CLASS =
+        "com.intellij.openapi.diff.impl.settings.DiffColorsPageFactory";
+    private static final String SCOPE_COLORS_FACTORY_CLASS =
+        "com.intellij.application.options.colors.ScopeColorsPageFactory";
 
     /**
      * Top-level or nested application-scoped pages under the Editor group we
@@ -118,6 +128,8 @@ public final class TermLabEditorSettingsStripper implements AppLifecycleListener
         if (editorOptionsEp != null) {
             stripFromExtensionPoint(editorOptionsEp, EDITOR_OPTIONS_PROVIDER_IDS, "editor options provider");
         }
+
+        stripColorSchemeChildren(appArea);
     }
 
     /**
@@ -149,6 +161,55 @@ public final class TermLabEditorSettingsStripper implements AppLifecycleListener
                 LOG.info("TermLab: stripped " + label + " '" + extension.id + "'");
             } catch (Exception e) {
                 LOG.warn("TermLab: failed to strip " + label + " '" + extension.id + "'", e);
+            }
+        }
+        LOG.info("TermLab: stripped " + removed + " " + label + "(s)");
+    }
+
+    private static void stripColorSchemeChildren(@NotNull ExtensionsArea appArea) {
+        ExtensionPoint<ColorSettingsPage> colorSettingsEp =
+            appArea.getExtensionPointIfRegistered("com.intellij.colorSettingsPage");
+        if (colorSettingsEp != null) {
+            stripExtensionsByClassName(
+                colorSettingsEp,
+                Set.of(DEFAULT_LANGUAGE_COLORS_PAGE_CLASS),
+                "color settings page");
+        }
+
+        ExtensionPoint<ColorAndFontPanelFactory> panelFactoryEp =
+            appArea.getExtensionPointIfRegistered("com.intellij.colorAndFontPanelFactory");
+        if (panelFactoryEp != null) {
+            stripExtensionsByClassName(
+                panelFactoryEp,
+                Set.of(DIFF_COLORS_FACTORY_CLASS, SCOPE_COLORS_FACTORY_CLASS),
+                "color and font panel factory");
+        }
+
+        ExtensionPoint<ColorAndFontDescriptorsProvider> descriptorsEp =
+            appArea.getExtensionPointIfRegistered("com.intellij.colorAndFontDescriptorProvider");
+        if (descriptorsEp != null) {
+            stripExtensionsByClassName(
+                descriptorsEp,
+                Set.of(DIFF_COLORS_FACTORY_CLASS),
+                "color and font descriptor provider");
+        }
+    }
+
+    private static <T> void stripExtensionsByClassName(
+        @NotNull ExtensionPoint<T> ep,
+        @NotNull Set<String> unwantedClassNames,
+        @NotNull String label
+    ) {
+        List<T> snapshot = new ArrayList<>(ep.getExtensionList());
+        int removed = 0;
+        for (T extension : snapshot) {
+            if (!unwantedClassNames.contains(extension.getClass().getName())) continue;
+            try {
+                ep.unregisterExtension(extension);
+                removed++;
+                LOG.info("TermLab: stripped " + label + " '" + extension.getClass().getName() + "'");
+            } catch (Exception e) {
+                LOG.warn("TermLab: failed to strip " + label + " '" + extension.getClass().getName() + "'", e);
             }
         }
         LOG.info("TermLab: stripped " + removed + " " + label + "(s)");

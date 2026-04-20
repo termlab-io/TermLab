@@ -22,7 +22,6 @@ public final class TermLabSearchableOptionContributor extends SearchableOptionCo
     @Override
     public void processOptions(@NotNull SearchableOptionProcessor processor) {
         contributeConfigurable(processor, new TermLabTerminalConfigurable(), "TermLab Terminal");
-        contributeConfigurable(processor, new TermLabTerminalAppearanceConfigurable(), "TermLab Terminal");
         contributeConfigurable(processor, new TermLabTerminalTerminalConfigurable(), "TermLab Terminal");
     }
 

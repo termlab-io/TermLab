@@ -75,7 +75,7 @@ public final class TermLabTerminalConfig {
         // Font
         public String fontFamily = "";
         public int fontSize = 14;
-        public float lineSpacing = 1.0f;
+        public float lineSpacing = 0.8f;
         public float characterSpacing = 0.0f;
 
         // Shell launch

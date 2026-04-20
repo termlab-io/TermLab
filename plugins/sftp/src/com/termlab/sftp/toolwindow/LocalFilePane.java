@@ -21,6 +21,7 @@ import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.ui.Messages;
 import com.intellij.openapi.wm.IdeFocusManager;
+import com.intellij.ui.components.JBTextField;
 import com.intellij.ui.table.JBTable;
 import com.intellij.util.concurrency.AppExecutorUtil;
 import com.intellij.util.ui.JBUI;
@@ -57,7 +58,7 @@ public final class LocalFilePane extends JPanel {
     private final Project project;
     private final FileTableModel model = new FileTableModel();
     private final JBTable table = new JBTable(model);
-    private final JTextField pathField = new JTextField();
+    private final JBTextField pathField = new JBTextField();
     private final FileListCache fileListCache = new FileListCache();
     private volatile boolean showHiddenFiles = TermLabSftpConfig.getInstance().isShowHiddenLocalFiles();
 
@@ -72,7 +73,6 @@ public final class LocalFilePane extends JPanel {
         JPanel north = new JPanel(new BorderLayout());
         north.add(buildToolbar().getComponent(), BorderLayout.WEST);
         pathField.setEditable(true);
-        pathField.setBorder(JBUI.Borders.empty(2, 6));
         pathField.setToolTipText("Type an absolute path and press Enter to navigate");
         pathField.addActionListener(e -> onPathFieldSubmit());
         north.add(pathField, BorderLayout.CENTER);

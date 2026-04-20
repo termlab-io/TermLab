@@ -29,6 +29,7 @@ import com.intellij.openapi.progress.Task;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.ui.Messages;
 import com.intellij.openapi.wm.IdeFocusManager;
+import com.intellij.ui.components.JBTextField;
 import com.intellij.ui.table.JBTable;
 import com.intellij.util.concurrency.AppExecutorUtil;
 import com.intellij.util.ui.JBUI;
@@ -65,7 +66,7 @@ public final class RemoteFilePane extends JPanel {
     private final FileTableModel model = new FileTableModel();
     private final JBTable table = new JBTable(model);
     private final JComboBox<SshHost> hostPicker = new JComboBox<>();
-    private final JTextField pathField = new JTextField();
+    private final JBTextField pathField = new JBTextField();
     private final JLabel statusLabel = new JLabel("Not connected");
     private final JButton connectButton = new JButton("Connect");
     private final JButton disconnectButton = new JButton("Disconnect");
@@ -150,7 +151,6 @@ public final class RemoteFilePane extends JPanel {
         JPanel bottom = new JPanel(new BorderLayout());
         bottom.add(buildToolbar().getComponent(), BorderLayout.WEST);
         pathField.setEditable(true);
-        pathField.setBorder(JBUI.Borders.empty(2, 6));
         pathField.setToolTipText("Type an absolute remote path and press Enter to navigate");
         pathField.addActionListener(e -> onPathFieldSubmit());
         bottom.add(pathField, BorderLayout.CENTER);

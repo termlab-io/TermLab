@@ -68,7 +68,6 @@ java_binary(
 
         # IntelliJ-platform bundled plugins — ONLY these exist in TermLab
         "//plugins/classic-ui",
-        "//json",
         # Required by the editor plugin for grammar-based syntax
         # highlighting.  The /plugin target is a thin descriptor-only
         # wrapper (META-INF/plugin.xml + icon); the implementation
@@ -181,13 +180,12 @@ java_binary(
         "-Didea.diagnostic.opentelemetry.meters.file.json=",
         "-Didea.disable.collect.statistics=true",
         "-Didea.suppress.statistics.report=true",
-        # Use Classic UI by default (disable new UI)
-        "-Dide.experimental.ui=false",
+        # Keep the Classic UI plugin bundled but disabled by default.
+        "-Didea.suppressed.plugins.id=com.intellij.classic.ui",
         # Default theme for new installations is wired via
-        # <default-laf light-classic="TermLab Light"
-        #              dark-classic="TermLab Dark"/> in
+        # <default-laf .../> in
         # TermLabApplicationInfo.xml — LafManagerImpl reads
-        # ApplicationInfoEx.defaultClassicDarkLaf on first launch.
+        # the product defaults on first launch.
         # --- Memory investigation (2026-04-16). Remove after investigation. ---
         # Native Memory Tracking. `detail` gives per-call-site attribution of
         # native allocations; required to separate heap vs. code cache vs.

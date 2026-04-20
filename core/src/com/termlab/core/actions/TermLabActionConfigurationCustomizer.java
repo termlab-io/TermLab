@@ -91,6 +91,7 @@ public final class TermLabActionConfigurationCustomizer implements ActionConfigu
         "ActivateDebugToolWindow",
         "ActivateHierarchyToolWindow",
         "ActivateServicesToolWindow",
+        "ActivateBookmarksToolWindow",
         // Debugger actions. These action ids are still registered from
         // platform action XML even though TermLab excludes the debugger
         // implementation modules, so command-palette updates can probe
@@ -109,6 +110,36 @@ public final class TermLabActionConfigurationCustomizer implements ActionConfigu
         "ShowExecutionPoint",
         "ToggleLineBreakpoint",
         "ViewBreakpoints",
+        // Bookmarks
+        "AddAnotherBookmark",
+        "EditBookmark",
+        "ToggleBookmark",
+        "ToggleBookmarkWithMnemonic",
+        "DeleteMnemonicFromBookmark",
+        "BookmarkOpenTabs",
+        "ShowBookmarks",
+        "ShowTypeBookmarks",
+        "GotoNextBookmark",
+        "GotoNextBookmarkInEditor",
+        "GotoPreviousBookmark",
+        "GotoPreviousBookmarkInEditor",
+        "BookmarksView.DefaultGroup",
+        "BookmarksView.Rename",
+        "BookmarksView.Delete",
+        "BookmarksView.DeleteType",
+        "BookmarksView.ChooseType",
+        "BookmarksView.MoveUp",
+        "BookmarksView.MoveDown",
+        "BookmarksView.SortGroupBookmarks",
+        "OpenBookmarkGroup",
+        "BookmarksView.Create",
+        "BookmarksView.ShowPreview",
+        "BookmarksView.GroupLineBookmarks",
+        "BookmarksView.RewriteBookmarkType",
+        "BookmarksView.AskBeforeDeletingLists",
+        "BookmarksView.OpenInPreviewTab",
+        "BookmarksView.AutoscrollToSource",
+        "BookmarksView.AutoscrollFromSource",
     };
 
     /**
@@ -122,6 +153,16 @@ public final class TermLabActionConfigurationCustomizer implements ActionConfigu
         "CallHierarchyPopupMenu",
         "RunContextGroup",
         "RunConfigurationsActionGroup",
+        "Bookmarks",
+        "Bookmarks.Goto",
+        "Bookmarks.Toggle",
+        "Bookmarks.ToolWindow.PopupMenu",
+        "Bookmarks.ToolWindow.TitleActions",
+        "Bookmarks.ToolWindow.GearActions",
+        "popup@BookmarkContextMenu",
+        "popup@ExpandableBookmarkContextMenu",
+        "BookmarkOpenTabsGroup",
+        "EditBookmarksGroup",
     };
 
     /**
@@ -168,6 +209,8 @@ public final class TermLabActionConfigurationCustomizer implements ActionConfigu
         for (String actionId : IDE_CENTRIC_ACTION_IDS) {
             unregisterIfPresent(actionManager, actionId);
         }
+        unregisterBookmarkMnemonicActions(actionManager, "ToggleBookmark");
+        unregisterBookmarkMnemonicActions(actionManager, "GotoBookmark");
         for (String groupId : IDE_CENTRIC_GROUP_IDS) {
             replaceWithHiddenGroup(actionManager, groupId);
         }
@@ -221,6 +264,16 @@ public final class TermLabActionConfigurationCustomizer implements ActionConfigu
         // freely.
         if (actionManager.getActionOrStub(actionId) != null) {
             actionManager.unregisterAction(actionId);
+        }
+    }
+
+    private static void unregisterBookmarkMnemonicActions(@NotNull ActionManager actionManager,
+                                                          @NotNull String prefix) {
+        for (char c = '0'; c <= '9'; c++) {
+            unregisterIfPresent(actionManager, prefix + c);
+        }
+        for (char c = 'A'; c <= 'Z'; c++) {
+            unregisterIfPresent(actionManager, prefix + c);
         }
     }
 

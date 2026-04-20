@@ -30,7 +30,7 @@ public final class TermLabTerminalConfigurable implements SearchableConfigurable
     @Override
     public @Nullable JComponent createComponent() {
         JPanel panel = new JPanel(new BorderLayout());
-        JLabel label = new JLabel("Select a category on the left (Appearance, Terminal).");
+        JLabel label = new JLabel("Select a category on the left (Terminal).");
         label.setBorder(BorderFactory.createEmptyBorder(12, 12, 12, 12));
         panel.add(label, BorderLayout.NORTH);
         return panel;
