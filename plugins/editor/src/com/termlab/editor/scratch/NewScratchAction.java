@@ -1,26 +1,31 @@
 package com.termlab.editor.scratch;
 
 import com.intellij.icons.AllIcons;
+import com.intellij.ide.scratch.ScratchFileService;
+import com.intellij.ide.scratch.ScratchRootType;
 import com.intellij.openapi.actionSystem.ActionUpdateThread;
 import com.intellij.openapi.actionSystem.AnAction;
 import com.intellij.openapi.actionSystem.AnActionEvent;
 import com.intellij.openapi.actionSystem.CommonDataKeys;
 import com.intellij.openapi.fileEditor.FileEditorManager;
+import com.intellij.openapi.project.DumbAware;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.ui.popup.JBPopupFactory;
-import com.intellij.testFramework.LightVirtualFile;
+import com.intellij.openapi.vfs.VirtualFile;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import javax.swing.Icon;
 import javax.swing.*;
+import java.io.IOException;
 import java.util.List;
 
 /**
- * Opens an empty scratch buffer as a {@link LightVirtualFile} in
- * the main editor area. Pops up a curated file-type picker first.
- * First save triggers a Save-As dialog via {@link SaveAsHelper}.
+ * Opens an empty scratch buffer from the platform scratch filesystem in the
+ * main editor area. Using a real scratch {@link VirtualFile} keeps editor
+ * plugins such as IdeaVim on their normal file-editor path.
  */
-public final class NewScratchAction extends AnAction {
+public final class NewScratchAction extends AnAction implements DumbAware {
 
     private record ScratchOption(String label, String extension, Icon icon) {}
 
@@ -73,17 +78,24 @@ public final class NewScratchAction extends AnAction {
     private static void createAndOpen(@NotNull Project project, @NotNull ScratchOption option) {
         int n = ScratchCounter.next();
         String filename = "scratch-" + n + option.extension();
+        VirtualFile file = createScratchFile(project, filename);
+        if (file == null) {
+            return;
+        }
 
-        // Two-arg LightVirtualFile: leaves myFileType=null so getFileType()
-        // falls through to FileTypeManager.getFileTypeByFile(vfile), which
-        // runs FileTypeIdentifiableByVirtualFile.isMyFileType on every
-        // registered impl — including TextMate's. For a filename like
-        // "scratch-1.java" with TextMate bundles loaded, TextMate claims
-        // the file and applies its Java grammar for highlighting.
-        LightVirtualFile file = new LightVirtualFile(filename, "");
-        file.putUserData(ScratchMarker.KEY, Boolean.TRUE);
-
+        ScratchMarker.mark(file);
         FileEditorManager.getInstance(project).openFile(file, true);
+    }
+
+    private static @Nullable VirtualFile createScratchFile(@NotNull Project project, @NotNull String filename) {
+        try {
+            return ScratchFileService.getInstance().findFile(
+                ScratchRootType.getInstance(),
+                filename,
+                ScratchFileService.Option.create_new_always);
+        } catch (IOException ignored) {
+            return null;
+        }
     }
 
     @Override

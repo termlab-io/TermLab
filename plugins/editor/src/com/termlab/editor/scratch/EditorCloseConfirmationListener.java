@@ -8,7 +8,6 @@ import com.intellij.openapi.fileEditor.FileEditorManagerListener;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.ui.Messages;
 import com.intellij.openapi.vfs.VirtualFile;
-import com.intellij.testFramework.LightVirtualFile;
 import org.jetbrains.annotations.NotNull;
 
 /**
@@ -27,7 +26,13 @@ public final class EditorCloseConfirmationListener implements FileEditorManagerL
         if (file.getUserData(ScratchMarker.SKIP_CLOSE_CONFIRMATION_KEY) == Boolean.TRUE) return;
 
         FileDocumentManager documentManager = FileDocumentManager.getInstance();
-        if (!documentManager.isFileModified(file)) return;
+        boolean isScratch = ScratchMarker.isMarkedScratch(file);
+        if (!documentManager.isFileModified(file)) {
+            if (isScratch) {
+                deleteScratchAfterClose(file);
+            }
+            return;
+        }
 
         Document document = documentManager.getDocument(file);
         if (document == null) return;
@@ -48,13 +53,15 @@ public final class EditorCloseConfirmationListener implements FileEditorManagerL
         }
 
         if (choice == Messages.NO) {
-            if (!(file instanceof LightVirtualFile && file.getUserData(ScratchMarker.KEY) == Boolean.TRUE)) {
+            if (isScratch) {
+                deleteScratchAfterClose(file);
+            } else {
                 ApplicationManager.getApplication().runWriteAction(() -> documentManager.reloadFromDisk(document));
             }
             return;
         }
 
-        if (file instanceof LightVirtualFile && file.getUserData(ScratchMarker.KEY) == Boolean.TRUE) {
+        if (isScratch) {
             if (!SaveAsHelper.saveAs(project, file)) {
                 reopenAfterClose(source, file);
             }
@@ -77,5 +84,10 @@ public final class EditorCloseConfirmationListener implements FileEditorManagerL
 
     private static @NotNull String buildPrompt(@NotNull VirtualFile file) {
         return "Save changes to " + file.getName() + " before closing?";
+    }
+
+    private static void deleteScratchAfterClose(@NotNull VirtualFile file) {
+        ApplicationManager.getApplication().invokeLater(() ->
+            ScratchMarker.deleteMarkedScratchFile(file, EditorCloseConfirmationListener.class));
     }
 }

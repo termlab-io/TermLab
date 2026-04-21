@@ -14,7 +14,6 @@ import com.intellij.openapi.project.Project;
 import com.intellij.openapi.vfs.LocalFileSystem;
 import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.openapi.vfs.VirtualFileManager;
-import com.intellij.testFramework.LightVirtualFile;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -37,9 +36,8 @@ final class SaveBeforeRunHelper {
     }
 
     static @Nullable RunTarget resolve(@NotNull Project project, @NotNull VirtualFile file) {
-        if (file instanceof LightVirtualFile lightVirtualFile
-            && lightVirtualFile.getUserData(ScratchMarker.KEY) == Boolean.TRUE) {
-            VirtualFile saved = saveScratch(project, lightVirtualFile);
+        if (ScratchMarker.isMarkedScratch(file)) {
+            VirtualFile saved = saveScratch(project, file);
             if (saved == null) {
                 return null;
             }
@@ -63,7 +61,7 @@ final class SaveBeforeRunHelper {
         return new RunTarget(file.getPath(), null);
     }
 
-    private static @Nullable VirtualFile saveScratch(@NotNull Project project, @NotNull LightVirtualFile file) {
+    private static @Nullable VirtualFile saveScratch(@NotNull Project project, @NotNull VirtualFile file) {
         Document document = FileDocumentManager.getInstance().getDocument(file);
         if (document == null) {
             return null;
@@ -89,7 +87,10 @@ final class SaveBeforeRunHelper {
         VirtualFile saved = resolveSavedVirtualFile(result);
         if (saved != null) {
             FileEditorManager manager = FileEditorManager.getInstance(project);
+            file.putUserData(ScratchMarker.SKIP_CLOSE_CONFIRMATION_KEY, Boolean.TRUE);
             manager.closeFile(file);
+            ScratchMarker.deleteMarkedScratchFile(file, SaveBeforeRunHelper.class);
+            file.putUserData(ScratchMarker.SKIP_CLOSE_CONFIRMATION_KEY, null);
             manager.openFile(saved, true);
         }
         return saved;

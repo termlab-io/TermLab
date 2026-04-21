@@ -15,7 +15,6 @@ import com.intellij.openapi.project.Project;
 import com.intellij.openapi.vfs.LocalFileSystem;
 import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.openapi.vfs.VirtualFileManager;
-import com.intellij.testFramework.LightVirtualFile;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -39,9 +38,9 @@ final class SaveAsHelper {
 
     /**
      * Run the unified Save As flow for the given file. The file must
-     * have a backing {@link Document}; if it is a scratch
-     * {@link LightVirtualFile} its tab will be closed after a
-     * successful save and the new file opened in its place.
+     * have a backing {@link Document}; if it is a marked TermLab scratch file,
+     * its tab will be closed after a successful save and the new file opened in
+     * its place.
      */
     static boolean saveAs(@NotNull Project project, @NotNull VirtualFile file) {
         Document doc = FileDocumentManager.getInstance().getDocument(file);
@@ -77,12 +76,12 @@ final class SaveAsHelper {
 
         VirtualFile saved = resolveSavedVirtualFile(result);
         FileEditorManager mgr = FileEditorManager.getInstance(project);
-        boolean isScratch = file instanceof LightVirtualFile lvf
-            && lvf.getUserData(ScratchMarker.KEY) == Boolean.TRUE;
+        boolean isScratch = ScratchMarker.isMarkedScratch(file);
         if (saved != null) {
             if (isScratch) {
                 file.putUserData(ScratchMarker.SKIP_CLOSE_CONFIRMATION_KEY, Boolean.TRUE);
                 mgr.closeFile(file);
+                ScratchMarker.deleteMarkedScratchFile(file, SaveAsHelper.class);
                 file.putUserData(ScratchMarker.SKIP_CLOSE_CONFIRMATION_KEY, null);
             }
             mgr.openFile(saved, true);

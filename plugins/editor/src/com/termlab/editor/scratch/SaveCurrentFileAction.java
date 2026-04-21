@@ -10,7 +10,6 @@ import com.intellij.openapi.fileEditor.FileEditor;
 import com.intellij.openapi.fileEditor.FileEditorManager;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.vfs.VirtualFile;
-import com.intellij.testFramework.LightVirtualFile;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -21,11 +20,11 @@ import org.jetbrains.annotations.Nullable;
  * {@code Ctrl+S} keybinding with it. This action replaces it with a
  * focused "save the current file" flow.
  *
- * <p>For marked scratch {@link LightVirtualFile}s the save is routed
- * through {@link SaveAsHelper}, which opens the unified file picker so
- * the user can pick a local or remote destination. For all other files
- * (local or SFTP-backed via the VFS), the default save path writes
- * through {@link FileDocumentManager#saveDocument}.
+ * <p>For marked TermLab scratch files the save is routed through
+ * {@link SaveAsHelper}, which opens the unified file picker so the user can
+ * pick a local or remote destination. For all other files (local or
+ * SFTP-backed via the VFS), the default save path writes through
+ * {@link FileDocumentManager#saveDocument}.
  */
 public final class SaveCurrentFileAction extends AnAction {
 
@@ -53,9 +52,8 @@ public final class SaveCurrentFileAction extends AnAction {
         if (project == null) return;
         VirtualFile file = activeFile(e);
         if (file == null) return;
-        if (file instanceof LightVirtualFile lvf
-            && lvf.getUserData(ScratchMarker.KEY) == Boolean.TRUE) {
-            SaveAsHelper.saveAs(project, lvf);
+        if (ScratchMarker.isMarkedScratch(file)) {
+            SaveAsHelper.saveAs(project, file);
             return;
         }
         Document document = FileDocumentManager.getInstance().getDocument(file);
