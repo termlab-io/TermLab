@@ -7,6 +7,7 @@ import com.termlab.ssh.model.SshHost;
 import com.intellij.openapi.Disposable;
 import com.intellij.openapi.components.Service;
 import com.intellij.openapi.diagnostic.Logger;
+import com.intellij.openapi.application.ModalityState;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -231,7 +232,7 @@ public final class SftpSessionManager implements Disposable {
         }
         java.util.concurrent.atomic.AtomicReference<HostCredentialBundle> ref =
             new java.util.concurrent.atomic.AtomicReference<>();
-        app.invokeAndWait(() -> ref.set(connector.resolveCredentials(host)));
+        app.invokeAndWait(() -> ref.set(connector.resolveCredentials(host)), ModalityState.any());
         return ref.get();
     }
 
