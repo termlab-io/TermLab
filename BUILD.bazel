@@ -180,8 +180,6 @@ java_binary(
         "-Didea.diagnostic.opentelemetry.meters.file.json=",
         "-Didea.disable.collect.statistics=true",
         "-Didea.suppress.statistics.report=true",
-        # Keep the Classic UI plugin bundled but disabled by default.
-        "-Didea.suppressed.plugins.id=com.intellij.classic.ui",
         # Default theme for new installations is wired via
         # <default-laf .../> in
         # TermLabApplicationInfo.xml — LafManagerImpl reads
