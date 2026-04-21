@@ -406,6 +406,87 @@
             <keyboard-shortcut keymap="$default" first-keystroke="F2"/>
         </action>
 
+        <action id="TermLab.SelectTerminalTab1"
+                class="com.termlab.core.actions.SelectTerminalTabByNumberAction"
+                text="Select Tab 1"
+                description="Select the first tab in the active split">
+            <keyboard-shortcut keymap="$default" first-keystroke="control 1"/>
+            <keyboard-shortcut keymap="Mac OS X 10.5+" first-keystroke="meta 1" replace-all="true"/>
+            <keyboard-shortcut keymap="Mac OS X" first-keystroke="meta 1" replace-all="true"/>
+        </action>
+
+        <action id="TermLab.SelectTerminalTab2"
+                class="com.termlab.core.actions.SelectTerminalTabByNumberAction"
+                text="Select Tab 2"
+                description="Select the second tab in the active split">
+            <keyboard-shortcut keymap="$default" first-keystroke="control 2"/>
+            <keyboard-shortcut keymap="Mac OS X 10.5+" first-keystroke="meta 2" replace-all="true"/>
+            <keyboard-shortcut keymap="Mac OS X" first-keystroke="meta 2" replace-all="true"/>
+        </action>
+
+        <action id="TermLab.SelectTerminalTab3"
+                class="com.termlab.core.actions.SelectTerminalTabByNumberAction"
+                text="Select Tab 3"
+                description="Select the third tab in the active split">
+            <keyboard-shortcut keymap="$default" first-keystroke="control 3"/>
+            <keyboard-shortcut keymap="Mac OS X 10.5+" first-keystroke="meta 3" replace-all="true"/>
+            <keyboard-shortcut keymap="Mac OS X" first-keystroke="meta 3" replace-all="true"/>
+        </action>
+
+        <action id="TermLab.SelectTerminalTab4"
+                class="com.termlab.core.actions.SelectTerminalTabByNumberAction"
+                text="Select Tab 4"
+                description="Select the fourth tab in the active split">
+            <keyboard-shortcut keymap="$default" first-keystroke="control 4"/>
+            <keyboard-shortcut keymap="Mac OS X 10.5+" first-keystroke="meta 4" replace-all="true"/>
+            <keyboard-shortcut keymap="Mac OS X" first-keystroke="meta 4" replace-all="true"/>
+        </action>
+
+        <action id="TermLab.SelectTerminalTab5"
+                class="com.termlab.core.actions.SelectTerminalTabByNumberAction"
+                text="Select Tab 5"
+                description="Select the fifth tab in the active split">
+            <keyboard-shortcut keymap="$default" first-keystroke="control 5"/>
+            <keyboard-shortcut keymap="Mac OS X 10.5+" first-keystroke="meta 5" replace-all="true"/>
+            <keyboard-shortcut keymap="Mac OS X" first-keystroke="meta 5" replace-all="true"/>
+        </action>
+
+        <action id="TermLab.SelectTerminalTab6"
+                class="com.termlab.core.actions.SelectTerminalTabByNumberAction"
+                text="Select Tab 6"
+                description="Select the sixth tab in the active split">
+            <keyboard-shortcut keymap="$default" first-keystroke="control 6"/>
+            <keyboard-shortcut keymap="Mac OS X 10.5+" first-keystroke="meta 6" replace-all="true"/>
+            <keyboard-shortcut keymap="Mac OS X" first-keystroke="meta 6" replace-all="true"/>
+        </action>
+
+        <action id="TermLab.SelectTerminalTab7"
+                class="com.termlab.core.actions.SelectTerminalTabByNumberAction"
+                text="Select Tab 7"
+                description="Select the seventh tab in the active split">
+            <keyboard-shortcut keymap="$default" first-keystroke="control 7"/>
+            <keyboard-shortcut keymap="Mac OS X 10.5+" first-keystroke="meta 7" replace-all="true"/>
+            <keyboard-shortcut keymap="Mac OS X" first-keystroke="meta 7" replace-all="true"/>
+        </action>
+
+        <action id="TermLab.SelectTerminalTab8"
+                class="com.termlab.core.actions.SelectTerminalTabByNumberAction"
+                text="Select Tab 8"
+                description="Select the eighth tab in the active split">
+            <keyboard-shortcut keymap="$default" first-keystroke="control 8"/>
+            <keyboard-shortcut keymap="Mac OS X 10.5+" first-keystroke="meta 8" replace-all="true"/>
+            <keyboard-shortcut keymap="Mac OS X" first-keystroke="meta 8" replace-all="true"/>
+        </action>
+
+        <action id="TermLab.SelectTerminalTab9"
+                class="com.termlab.core.actions.SelectTerminalTabByNumberAction"
+                text="Select Tab 9"
+                description="Select the ninth tab in the active split">
+            <keyboard-shortcut keymap="$default" first-keystroke="control 9"/>
+            <keyboard-shortcut keymap="Mac OS X 10.5+" first-keystroke="meta 9" replace-all="true"/>
+            <keyboard-shortcut keymap="Mac OS X" first-keystroke="meta 9" replace-all="true"/>
+        </action>
+
         <group id="TermLab.TerminalActions" text="Terminal" popup="true">
             <add-to-group group-id="MainMenu" anchor="before" relative-to-action="HelpMenu"/>
 
