@@ -10,6 +10,7 @@ import com.termlab.sftp.persistence.TermLabSftpConfig;
 import com.termlab.sftp.search.FileListCache;
 import com.termlab.sftp.spi.LocalFileOpener;
 import com.intellij.icons.AllIcons;
+import com.intellij.openapi.actionSystem.ActionPopupMenu;
 import com.intellij.openapi.actionSystem.ActionManager;
 import com.intellij.openapi.actionSystem.ActionToolbar;
 import com.intellij.openapi.actionSystem.ActionUpdateThread;
@@ -24,11 +25,15 @@ import com.intellij.openapi.wm.IdeFocusManager;
 import com.intellij.ui.components.JBTextField;
 import com.intellij.ui.table.JBTable;
 import com.intellij.util.concurrency.AppExecutorUtil;
-import com.intellij.util.ui.JBUI;
 import org.jetbrains.annotations.NotNull;
 
 import javax.swing.event.ListSelectionListener;
+import javax.swing.event.ChangeEvent;
 import javax.swing.table.TableRowSorter;
+import javax.swing.table.JTableHeader;
+import javax.swing.table.TableColumn;
+import javax.swing.event.TableColumnModelEvent;
+import javax.swing.event.TableColumnModelListener;
 import javax.swing.*;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.awt.*;
@@ -43,6 +48,7 @@ import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.Enumeration;
 import java.util.Iterator;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -55,12 +61,17 @@ import java.util.stream.Stream;
  * the EDT.
  */
 public final class LocalFilePane extends JPanel {
+    private static final TermLabSftpConfig.TablePane TABLE_PANE = TermLabSftpConfig.TablePane.LOCAL;
+
     private final Project project;
+    private final TermLabSftpConfig config = TermLabSftpConfig.getInstance();
     private final FileTableModel model = new FileTableModel();
     private final JBTable table = new JBTable(model);
+    private final JScrollPane scrollPane = new JScrollPane(table);
+    private final TableColumn[] columns = new TableColumn[model.getColumnCount()];
     private final JBTextField pathField = new JBTextField();
     private final FileListCache fileListCache = new FileListCache();
-    private volatile boolean showHiddenFiles = TermLabSftpConfig.getInstance().isShowHiddenLocalFiles();
+    private volatile boolean showHiddenFiles = config.isShowHiddenLocalFiles();
 
     private Path currentDir;
     private final CopyOnWriteArrayList<Runnable> directoryListeners = new CopyOnWriteArrayList<>();
@@ -91,6 +102,10 @@ public final class LocalFilePane extends JPanel {
         TableRowSorter<FileTableModel> sorter = new TableRowSorter<>(model);
         sorter.setSortsOnUpdates(true);
         table.setRowSorter(sorter);
+        captureColumns();
+        installColumnLayoutPersistence();
+        installHeaderPopupMenu();
+        applyPersistedColumnVisibility();
         table.addMouseListener(new MouseAdapter() {
             @Override
             public void mouseClicked(MouseEvent e) {
@@ -109,7 +124,7 @@ public final class LocalFilePane extends JPanel {
                 maybeShowPopup(e);
             }
         });
-        add(new JScrollPane(table), BorderLayout.CENTER);
+        add(scrollPane, BorderLayout.CENTER);
         installTransferShortcut();
 
         reload(initialDirectory());
@@ -330,6 +345,169 @@ public final class LocalFilePane extends JPanel {
         return toolbar;
     }
 
+    private void captureColumns() {
+        for (int column = 0; column < model.getColumnCount(); column++) {
+            columns[column] = table.getColumnModel().getColumn(column);
+        }
+    }
+
+    private void installColumnLayoutPersistence() {
+        applyPersistedColumnWidths();
+        table.getColumnModel().addColumnModelListener(new TableColumnModelListener() {
+            @Override
+            public void columnAdded(TableColumnModelEvent e) {
+            }
+
+            @Override
+            public void columnRemoved(TableColumnModelEvent e) {
+            }
+
+            @Override
+            public void columnMoved(TableColumnModelEvent e) {
+            }
+
+            @Override
+            public void columnSelectionChanged(javax.swing.event.ListSelectionEvent e) {
+            }
+
+            @Override
+            public void columnMarginChanged(ChangeEvent e) {
+                JTableHeader header = table.getTableHeader();
+                if (header == null || header.getResizingColumn() == null) return;
+                persistColumnWidths();
+            }
+        });
+    }
+
+    private void applyPersistedColumnWidths() {
+        for (int column = 0; column < model.getColumnCount(); column++) {
+            int width = config.getColumnWidth(TABLE_PANE, column);
+            if (width <= 0) continue;
+            columns[column].setPreferredWidth(width);
+            columns[column].setWidth(width);
+        }
+    }
+
+    private void persistColumnWidths() {
+        Enumeration<TableColumn> columns = table.getColumnModel().getColumns();
+        while (columns.hasMoreElements()) {
+            TableColumn column = columns.nextElement();
+            config.setColumnWidth(TABLE_PANE, column.getModelIndex(), column.getWidth());
+        }
+    }
+
+    private void installHeaderPopupMenu() {
+        JTableHeader header = table.getTableHeader();
+        header.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mousePressed(MouseEvent e) {
+                maybeShowHeaderPopup(e);
+            }
+
+            @Override
+            public void mouseReleased(MouseEvent e) {
+                maybeShowHeaderPopup(e);
+            }
+        });
+    }
+
+    private void maybeShowHeaderPopup(@NotNull MouseEvent e) {
+        if (!e.isPopupTrigger()) return;
+        ActionPopupMenu popupMenu = buildHeaderMenu();
+        popupMenu.setTargetComponent(table);
+        popupMenu.getComponent().show(e.getComponent(), e.getX(), e.getY());
+    }
+
+    private @NotNull ActionPopupMenu buildHeaderMenu() {
+        DefaultActionGroup group = new DefaultActionGroup();
+        int visibleCount = table.getColumnModel().getColumnCount();
+        for (int column = 0; column < model.getColumnCount(); column++) {
+            final int modelColumn = column;
+            group.add(new ToggleAction(model.getColumnName(modelColumn)) {
+                @Override
+                public boolean isSelected(@NotNull AnActionEvent e) {
+                    return isColumnVisible(modelColumn);
+                }
+
+                @Override
+                public void setSelected(@NotNull AnActionEvent e, boolean state) {
+                    setColumnVisible(modelColumn, state);
+                }
+
+                @Override
+                public void update(@NotNull AnActionEvent e) {
+                    super.update(e);
+                    e.getPresentation().setEnabled(isColumnVisible(modelColumn) ? visibleCount > 1 : true);
+                }
+
+                @Override
+                public @NotNull ActionUpdateThread getActionUpdateThread() {
+                    return ActionUpdateThread.EDT;
+                }
+            });
+        }
+        return ActionManager.getInstance().createActionPopupMenu("TermLabSftpLocalHeader", group);
+    }
+
+    private void applyPersistedColumnVisibility() {
+        for (int column = model.getColumnCount() - 1; column >= 0; column--) {
+            if (!config.isColumnVisible(TABLE_PANE, column)) {
+                hideColumn(column);
+            }
+        }
+    }
+
+    private boolean isColumnVisible(int modelColumn) {
+        return findVisibleColumn(modelColumn) != null;
+    }
+
+    private void setColumnVisible(int modelColumn, boolean visible) {
+        boolean changed = visible ? showColumn(modelColumn) : hideColumn(modelColumn);
+        config.setColumnVisible(TABLE_PANE, modelColumn, changed ? visible : isColumnVisible(modelColumn));
+    }
+
+    private boolean showColumn(int modelColumn) {
+        if (isColumnVisible(modelColumn)) return false;
+        TableColumn column = columns[modelColumn];
+        table.addColumn(column);
+        int targetIndex = 0;
+        for (int i = 0; i < modelColumn; i++) {
+            if (isColumnVisible(i)) {
+                targetIndex++;
+            }
+        }
+        int lastIndex = table.getColumnModel().getColumnCount() - 1;
+        if (targetIndex < lastIndex) {
+            table.getColumnModel().moveColumn(lastIndex, targetIndex);
+        }
+        int width = config.getColumnWidth(TABLE_PANE, modelColumn);
+        if (width > 0) {
+            column.setPreferredWidth(width);
+            column.setWidth(width);
+        }
+        return true;
+    }
+
+    private boolean hideColumn(int modelColumn) {
+        if (table.getColumnModel().getColumnCount() <= 1) return false;
+        TableColumn column = findVisibleColumn(modelColumn);
+        if (column == null) return false;
+        config.setColumnWidth(TABLE_PANE, modelColumn, column.getWidth());
+        table.removeColumn(column);
+        return true;
+    }
+
+    private TableColumn findVisibleColumn(int modelColumn) {
+        Enumeration<TableColumn> columns = table.getColumnModel().getColumns();
+        while (columns.hasMoreElements()) {
+            TableColumn column = columns.nextElement();
+            if (column.getModelIndex() == modelColumn) {
+                return column;
+            }
+        }
+        return null;
+    }
+
     private @NotNull Path initialDirectory() {
         String saved = TermLabSftpConfig.getInstance().getLastLocalPath();
         if (saved != null) {
@@ -467,7 +645,7 @@ public final class LocalFilePane extends JPanel {
     public void setShowHiddenFiles(boolean showHiddenFiles) {
         if (this.showHiddenFiles == showHiddenFiles) return;
         this.showHiddenFiles = showHiddenFiles;
-        TermLabSftpConfig.getInstance().setShowHiddenLocalFiles(showHiddenFiles);
+        config.setShowHiddenLocalFiles(showHiddenFiles);
         refresh();
         IdeFocusManager.getInstance(project).requestFocus(table, true);
     }
