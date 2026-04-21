@@ -77,7 +77,7 @@ TERMLAB_TEST_TARGETS := \
 	//termlab/plugins/sftp:sftp_test_runner \
 	//termlab/plugins/search:search_test_runner
 
-.PHONY: termlab termlab-build termlab-test termlab-clean termlab-installers termlab-installers-fast termlab-installers-mac termlab-installers-linux termlab-installers-windows check-intellij termlab-version termlab-sync-idea-config termlab-bootstrap-intellij termlab-perf-benchmark termlab-perf-budget
+.PHONY: termlab termlab-build termlab-test termlab-clean termlab-installers termlab-installers-fast termlab-installers-mac termlab-installers-linux termlab-installers-windows check-intellij termlab-version termlab-memory-artifacts termlab-sync-idea-config termlab-bootstrap-intellij termlab-perf-benchmark termlab-perf-budget
 
 check-intellij:
 	@test -f "$(INTELLIJ_ROOT)/bazel.cmd" || { \
@@ -109,7 +109,12 @@ termlab-bootstrap-intellij: check-intellij
 termlab-version:
 	python3 $(WORKBENCH_DIR)/scripts/generate_version.py
 
-termlab: check-intellij termlab-version
+termlab-memory-artifacts:
+	@mkdir -p "$(WORKBENCH_DIR)/docs/memory-investigation/2026-04-16/dumps" \
+		"$(WORKBENCH_DIR)/docs/memory-investigation/2026-04-16/gc" \
+		"$(WORKBENCH_DIR)/docs/memory-investigation/2026-04-16/jcmd"
+
+termlab: check-intellij termlab-version termlab-memory-artifacts
 	$(BAZEL) run //termlab:termlab_run -- $(TERMLAB_WORKSPACE)
 
 termlab-build: check-intellij termlab-version

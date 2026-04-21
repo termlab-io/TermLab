@@ -192,10 +192,10 @@ java_binary(
         # Dump heap on OOM so we catch runaway growth in the artifact dir
         # rather than losing it to process kill.
         "-XX:+HeapDumpOnOutOfMemoryError",
-        "-XX:HeapDumpPath=/Users/dustin/projects/conch_workbench/docs/memory-investigation/2026-04-16/dumps/",
+        "-XX:HeapDumpPath=$${BUILD_WORKSPACE_DIRECTORY}/termlab/docs/memory-investigation/2026-04-16/dumps/",
         # GC log: tagged, time-stamped, rotated once at 50 MB. Read
         # post-hoc to distinguish \"heap genuinely grew\" from \"GC was lazy\".
-        "-Xlog:gc*,gc+heap=debug,gc+metaspace=debug:file=/Users/dustin/projects/conch_workbench/docs/memory-investigation/2026-04-16/gc/gc.log:time,uptime,tags:filecount=1,filesize=50M",
+        "-Xlog:gc*,gc+heap=debug,gc+metaspace=debug:file=$${BUILD_WORKSPACE_DIRECTORY}/termlab/docs/memory-investigation/2026-04-16/gc/gc.log:time,uptime,tags:filecount=1,filesize=50M",
         # Allow JFR to be started via jcmd without restarting (already on
         # in JDK 25 by default, but set explicitly for reproducibility).
         "-XX:+FlightRecorder",

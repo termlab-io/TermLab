@@ -4,19 +4,29 @@
 # Produces: dumps/<NN>-<label>.hprof + jcmd/<label>-*.txt files.
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+WORKBENCH_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
+INTELLIJ_ROOT_FILE="$WORKBENCH_DIR/.intellij-root"
+
 LABEL="${1:?usage: capture_mem_snapshot.sh <label> [--gc-before]}"
 GC_BEFORE=0
 if [[ "${2:-}" == "--gc-before" ]]; then
   GC_BEFORE=1
 fi
 
-ART_DIR="/Users/dustin/projects/conch_workbench/docs/memory-investigation/2026-04-16"
+ART_DIR="$WORKBENCH_DIR/docs/memory-investigation/2026-04-16"
 DUMP_DIR="$ART_DIR/dumps"
 JCMD_DIR="$ART_DIR/jcmd"
 mkdir -p "$DUMP_DIR" "$JCMD_DIR"
 
+if [[ -f "$INTELLIJ_ROOT_FILE" ]]; then
+  INTELLIJ_ROOT="$(<"$INTELLIJ_ROOT_FILE")"
+else
+  INTELLIJ_ROOT="$WORKBENCH_DIR/../intellij-community"
+fi
+
 # Find the TermLab JVM pid (same pattern as benchmark_idle.sh).
-SYSTEM_PATH="/Users/dustin/projects/intellij-community/system/termlab"
+SYSTEM_PATH="$INTELLIJ_ROOT/system/termlab"
 PID="$(ps -axo pid=,command= \
   | awk -v p="$SYSTEM_PATH" '
       $0 ~ /com\.intellij\.idea\.Main/ && \
