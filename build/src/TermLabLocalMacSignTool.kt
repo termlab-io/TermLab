@@ -6,11 +6,16 @@ import org.jetbrains.intellij.build.ProprietaryBuildTools
 import org.jetbrains.intellij.build.SignNativeFileMode
 import org.jetbrains.intellij.build.SignTool
 import org.jetbrains.intellij.build.JvmArchitecture
+import java.io.BufferedInputStream
+import java.io.BufferedOutputStream
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.StandardCopyOption
 import java.util.Comparator
 import java.util.regex.Pattern
+import java.util.zip.ZipEntry
+import java.util.zip.ZipFile
+import java.util.zip.ZipOutputStream
 import kotlin.io.path.extension
 import kotlin.io.path.name
 import kotlin.io.path.pathString
@@ -91,7 +96,7 @@ class TermLabLocalMacSignTool(
         signMacArchive(file = file, entitlements = entitlements, useRuntime = useRuntime)
       }
       else {
-        signPath(file = file, entitlements = null, useRuntime = useRuntime)
+        signPath(file = file, entitlements = entitlements, useRuntime = useRuntime)
       }
     }
   }
@@ -124,6 +129,7 @@ class TermLabLocalMacSignTool(
         }
       }
 
+      resignNestedMacLibraries(appPath = appPath, useRuntime = useRuntime)
       signPath(file = appPath, entitlements = entitlements, useRuntime = useRuntime)
 
       val rebuilt = file.resolveSibling("${file.name}.signed")
@@ -164,6 +170,98 @@ class TermLabLocalMacSignTool(
     }
     command += file.pathString
     runCommand(command)
+  }
+
+  private fun resignNestedMacLibraries(appPath: Path, useRuntime: Boolean) {
+    val libDir = appPath.resolve("Contents/lib")
+    if (!Files.isDirectory(libDir)) {
+      return
+    }
+
+    Files.walk(libDir).use { paths ->
+      paths
+        .filter { Files.isRegularFile(it) && it.extension == "jar" }
+        .forEach { jarPath ->
+          rewriteJarWithSignedMacNatives(jarPath = jarPath, useRuntime = useRuntime)
+        }
+    }
+  }
+
+  private fun rewriteJarWithSignedMacNatives(jarPath: Path, useRuntime: Boolean) {
+    ZipFile(jarPath.toFile()).use { zipFile ->
+      val entries = buildList {
+        val enumeration = zipFile.entries()
+        while (enumeration.hasMoreElements()) {
+          add(enumeration.nextElement())
+        }
+      }
+      if (entries.none { entry -> !entry.isDirectory && shouldResignJarEntry(entry.name) }) {
+        return
+      }
+
+      val rewrittenJar = Files.createTempFile(jarPath.parent, "${jarPath.name}.", ".signed")
+      try {
+        ZipOutputStream(BufferedOutputStream(Files.newOutputStream(rewrittenJar))).use { output ->
+          for (entry in entries) {
+            val replacement = ZipEntry(entry.name).apply {
+              comment = entry.comment
+              extra = entry.extra
+              method = ZipEntry.DEFLATED
+              if (entry.time >= 0) {
+                time = entry.time
+              }
+            }
+            output.putNextEntry(replacement)
+            if (!entry.isDirectory) {
+              if (shouldResignJarEntry(entry.name)) {
+                val signedNative = signJarEntry(zipFile = zipFile, entry = entry, useRuntime = useRuntime)
+                Files.newInputStream(signedNative).use { input -> input.copyTo(output) }
+                Files.deleteIfExists(signedNative)
+              }
+              else {
+                BufferedInputStream(zipFile.getInputStream(entry)).use { input -> input.copyTo(output) }
+              }
+            }
+            output.closeEntry()
+          }
+        }
+        Files.move(rewrittenJar, jarPath, StandardCopyOption.REPLACE_EXISTING)
+      }
+      finally {
+        Files.deleteIfExists(rewrittenJar)
+      }
+    }
+  }
+
+  private fun signJarEntry(zipFile: ZipFile, entry: ZipEntry, useRuntime: Boolean): Path {
+    val suffix = entry.name.substringAfterLast('/', "").substringAfterLast('.', "")
+      .takeIf { it.isNotBlank() }
+      ?.let { ".$it" }
+      ?: ".bin"
+    val extracted = Files.createTempFile("termlab-mac-native-", suffix)
+    BufferedInputStream(zipFile.getInputStream(entry)).use { input ->
+      BufferedOutputStream(Files.newOutputStream(extracted)).use { output -> input.copyTo(output) }
+    }
+    signPath(file = extracted, entitlements = null, useRuntime = useRuntime)
+    return extracted
+  }
+
+  private fun shouldResignJarEntry(entryName: String): Boolean {
+    val normalized = entryName.lowercase()
+    if (normalized.endsWith(".dylib") || normalized.endsWith(".jnilib")) {
+      return true
+    }
+
+    if (!normalized.contains("/darwin/") &&
+        !normalized.contains("/darwin-") &&
+        !normalized.contains("/mac/") &&
+        !normalized.contains("/macos/") &&
+        !normalized.contains("/osx/")) {
+      return false
+    }
+
+    val fileName = normalized.substringAfterLast('/')
+    return fileName.isNotEmpty() && !fileName.contains('.')
   }
 
   private fun runCommand(command: List<String>, workingDirectory: Path? = null) {
