@@ -110,6 +110,7 @@ class TermLabLocalMacSignTool(
       runCommand(
         listOf(
           "ditto",
+          "--norsrc",
           "-x",
           "-k",
           file.pathString,
@@ -129,6 +130,7 @@ class TermLabLocalMacSignTool(
       runCommand(
         listOf(
           "ditto",
+          "--norsrc",
           "-c",
           "-k",
           "--keepParent",
@@ -167,6 +169,7 @@ class TermLabLocalMacSignTool(
   private fun runCommand(command: List<String>, workingDirectory: Path? = null) {
     val process = ProcessBuilder(command)
       .directory(workingDirectory?.toFile())
+      .apply { environment()["COPYFILE_DISABLE"] = "1" }
       .redirectErrorStream(true)
       .start()
     val output = process.inputStream.bufferedReader().readText()
