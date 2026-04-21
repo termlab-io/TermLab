@@ -43,11 +43,13 @@ object TermLabInstallersBuildTarget {
         if (macSigningEnabled) {
           buildStepsToSkip -= BuildOptions.MAC_SIGN_STEP
         }
+        else {
+          buildStepsToSkip += BuildOptions.MAC_SIGN_STEP
+        }
         if (macNotarizationEnabled) {
           buildStepsToSkip -= BuildOptions.MAC_NOTARIZE_STEP
         }
         else {
-          buildStepsToSkip += BuildOptions.MAC_SIGN_STEP
           buildStepsToSkip += BuildOptions.MAC_NOTARIZE_STEP
         }
         buildStepsToSkip += listOf(

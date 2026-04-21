@@ -68,7 +68,7 @@ class TermLabLocalMacSignTool(
   override val macOsCodesignIdentity: MacOsCodesignIdentity = config.identity
 
   override val signNativeFileMode: SignNativeFileMode
-    get() = SignNativeFileMode.ENABLED
+    get() = SignNativeFileMode.PREPARE
 
   override suspend fun signFiles(files: List<Path>, context: BuildContext?, options: PersistentMap<String, String>) {
     if (files.isEmpty()) {
@@ -76,6 +76,9 @@ class TermLabLocalMacSignTool(
     }
 
     val contentType = options["contentType"].orEmpty()
+    if (contentType == "application/x-exe") {
+      return
+    }
     val entitlements = options["mac_codesign_entitlements"]?.takeIf { it.isNotBlank() }?.let(Path::of)
     val useRuntime = options["mac_codesign_options"]?.contains("runtime") == true
 
