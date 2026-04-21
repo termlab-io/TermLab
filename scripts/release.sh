@@ -4,16 +4,19 @@
 # upload them to an existing GitHub release.
 #
 # Flow:
-#   1. Require a clean git tree (offer to stash if dirty).
-#   2. Pick a GitHub release (draft/prerelease/latest) interactively.
-#   3. Ask up front whether to upload artifacts after the build.
-#   4. Check out the release's tag.
-#   5. Run `make termlab-installers` (builds .dmg for both Mac archs,
-#      .tar.gz for Linux, .exe/.win.zip for both Windows archs).
-#   6. Show the artifact list.
-#   7. If upload was requested, `gh release upload` everything.
-#   8. Restore the original branch/commit and, if a stash was created,
-#      prompt to pop it.
+#   1. Pick a GitHub release (draft/prerelease/latest) interactively.
+#   2. Choose one mode:
+#      - build and upload
+#      - build only
+#      - upload existing artifacts only
+#   3. For build modes only:
+#      - require a clean git tree (offer to stash if dirty)
+#      - check out the release's tag
+#      - sync intellij-community/android to the pinned SHAs
+#      - run `make termlab-installers`
+#      - restore the original branch/commit and any auto-stash
+#   4. Show the artifact list.
+#   5. If upload was requested, `gh release upload` everything.
 
 set -euo pipefail
 
@@ -109,49 +112,7 @@ if [ -f "$WORKBENCH_DIR/ANDROID_REF" ]; then
   FALLBACK_ANDROID_REF="$(tr -d '[:space:]' < "$WORKBENCH_DIR/ANDROID_REF")"
 fi
 
-# --- 1. Require clean tree ---------------------------------------------------
-
-STASHED=0
-if ! git diff --quiet \
-   || ! git diff --cached --quiet \
-   || [ -n "$(git ls-files --others --exclude-standard)" ]; then
-  echo "$(red "Working tree is not clean:")"
-  git status --short
-  echo ""
-  if ask "Stash changes (including untracked) before continuing?"; then
-    git stash push --include-untracked -m "release.sh auto-stash $(date +%s)" >/dev/null
-    STASHED=1
-    echo "$(dim "Stashed. Will prompt to pop at the end.")"
-  else
-    echo "Aborting."
-    exit 1
-  fi
-fi
-
-# Capture the ref we return to when we're done. Prefer branch name; fall
-# back to the commit SHA for detached HEAD.
-ORIGINAL_REF="$(git symbolic-ref -q --short HEAD || git rev-parse HEAD)"
-
-cleanup() {
-  local ec=$?
-  echo ""
-  echo "Restoring original ref: $(bold "$ORIGINAL_REF")"
-  git restore --source=HEAD --staged --worktree customization/resources/idea/TermLabApplicationInfo.xml 2>/dev/null || true
-  git checkout --quiet "$ORIGINAL_REF" 2>/dev/null || \
-    echo "$(red "Could not restore to $ORIGINAL_REF — check 'git status'.")"
-  if [ "$STASHED" -eq 1 ]; then
-    echo ""
-    if ask "Pop the auto-stash now?"; then
-      git stash pop
-    else
-      echo "$(dim "Stash kept — list with: git stash list")"
-    fi
-  fi
-  exit "$ec"
-}
-trap cleanup EXIT
-
-# --- 2. Pick a release -------------------------------------------------------
+# --- 1. Pick a release -------------------------------------------------------
 
 echo ""
 echo "$(bold "Fetching releases from GitHub...")"
@@ -184,29 +145,33 @@ fi
 IFS=$'\t' read -r TAG _ _ _ _ <<< "${RELEASES[$((CHOICE-1))]}"
 echo "Selected: $(bold "$TAG")"
 
-# --- 3. Ask about upload up front --------------------------------------------
+# --- 2. Pick a mode ----------------------------------------------------------
 
 echo ""
-if ask "Upload artifacts to release $TAG after the build completes?"; then
-  UPLOAD=1
-else
-  UPLOAD=0
-fi
-
-# --- 4. Check out the tag ----------------------------------------------------
-
+echo "$(bold "What do you want to do with $TAG?")"
+echo "  1) Build fresh artifacts and upload them"
+echo "  2) Build fresh artifacts only"
+echo "  3) Upload existing artifacts only"
 echo ""
-echo "$(bold "Fetching and checking out tag $TAG...")"
-git fetch --force origin "refs/tags/$TAG:refs/tags/$TAG"
-git checkout --quiet "refs/tags/$TAG"
-
-# --- 5. Sync intellij-community to the tag's pinned SHAs ---------------------
-#
-# INTELLIJ_REF / ANDROID_REF live in this repo; checking out the tag
-# updated them to whatever SHAs the release expects. But the sibling
-# intellij-community clone is independent and still sitting on whichever
-# SHAs it had before. Run the same bootstrap CI used so the clone
-# matches the tag.
+read -r -p "Pick an action [1-3]: " ACTION
+case "${ACTION:-}" in
+  1)
+    BUILD=1
+    UPLOAD=1
+    ;;
+  2)
+    BUILD=1
+    UPLOAD=0
+    ;;
+  3)
+    BUILD=0
+    UPLOAD=1
+    ;;
+  *)
+    echo "$(red "Invalid choice: ${ACTION:-}")"
+    exit 1
+    ;;
+esac
 
 INTELLIJ_ROOT_FILE="$WORKBENCH_DIR/.intellij-root"
 if [ -n "${INTELLIJ_ROOT:-}" ]; then
@@ -217,60 +182,119 @@ else
   INTELLIJ_ROOT="$(dirname "$WORKBENCH_DIR")/intellij-community"
 fi
 
-PINNED_INTELLIJ="$(tr -d '[:space:]' < "$WORKBENCH_DIR/INTELLIJ_REF")"
-if [ -f "$WORKBENCH_DIR/ANDROID_REF" ]; then
-  PINNED_ANDROID="$(tr -d '[:space:]' < "$WORKBENCH_DIR/ANDROID_REF")"
-elif [ -n "$FALLBACK_ANDROID_REF" ]; then
-  PINNED_ANDROID="$FALLBACK_ANDROID_REF"
-else
-  PINNED_ANDROID="master"
-fi
+if [ "$BUILD" -eq 1 ]; then
+  # --- 3. Require clean tree -------------------------------------------------
 
-echo ""
-echo "$(bold "Pinned SHAs for $TAG:")"
-echo "  intellij-community: $PINNED_INTELLIJ"
-echo "  android:            $PINNED_ANDROID"
+  STASHED=0
+  if ! git diff --quiet \
+     || ! git diff --cached --quiet \
+     || [ -n "$(git ls-files --others --exclude-standard)" ]; then
+    echo "$(red "Working tree is not clean:")"
+    git status --short
+    echo ""
+    if ask "Stash changes (including untracked) before continuing?"; then
+      git stash push --include-untracked -m "release.sh auto-stash $(date +%s)" >/dev/null
+      STASHED=1
+      echo "$(dim "Stashed. Will prompt to pop at the end.")"
+    else
+      echo "Aborting."
+      exit 1
+    fi
+  fi
 
-# Abort if the local intellij-community or android clones have
-# uncommitted work — bootstrap would blow it away otherwise.
-check_dirty() {
-  local dir="$1" name="$2"
-  [ -d "$dir/.git" ] || return 0
-  local -a status_lines=()
-  if [ "$name" = "intellij-community" ]; then
-    mapfile -t status_lines < <(
-      git -C "$dir" status --short --untracked-files=all \
-        -- ':!/.idea/modules.xml' \
-           ':!/.idea/runConfigurations/TermLab.xml' \
-           ':!/termlab'
-    )
+  # Capture the ref we return to when we're done. Prefer branch name; fall
+  # back to the commit SHA for detached HEAD.
+  ORIGINAL_REF="$(git symbolic-ref -q --short HEAD || git rev-parse HEAD)"
+
+  cleanup() {
+    local ec=$?
+    echo ""
+    echo "Restoring original ref: $(bold "$ORIGINAL_REF")"
+    git restore --source=HEAD --staged --worktree customization/resources/idea/TermLabApplicationInfo.xml 2>/dev/null || true
+    git checkout --quiet "$ORIGINAL_REF" 2>/dev/null || \
+      echo "$(red "Could not restore to $ORIGINAL_REF — check 'git status'.")"
+    if [ "$STASHED" -eq 1 ]; then
+      echo ""
+      if ask "Pop the auto-stash now?"; then
+        git stash pop
+      else
+        echo "$(dim "Stash kept — list with: git stash list")"
+      fi
+    fi
+    exit "$ec"
+  }
+  trap cleanup EXIT
+
+  # --- 4. Check out the tag --------------------------------------------------
+
+  echo ""
+  echo "$(bold "Fetching and checking out tag $TAG...")"
+  git fetch --force origin "refs/tags/$TAG:refs/tags/$TAG"
+  git checkout --quiet "refs/tags/$TAG"
+
+  # --- 5. Sync intellij-community to the tag's pinned SHAs -------------------
+  #
+  # INTELLIJ_REF / ANDROID_REF live in this repo; checking out the tag
+  # updated them to whatever SHAs the release expects. But the sibling
+  # intellij-community clone is independent and still sitting on whichever
+  # SHAs it had before. Run the same bootstrap CI used so the clone
+  # matches the tag.
+
+  PINNED_INTELLIJ="$(tr -d '[:space:]' < "$WORKBENCH_DIR/INTELLIJ_REF")"
+  if [ -f "$WORKBENCH_DIR/ANDROID_REF" ]; then
+    PINNED_ANDROID="$(tr -d '[:space:]' < "$WORKBENCH_DIR/ANDROID_REF")"
+  elif [ -n "$FALLBACK_ANDROID_REF" ]; then
+    PINNED_ANDROID="$FALLBACK_ANDROID_REF"
   else
-    mapfile -t status_lines < <(git -C "$dir" status --short --untracked-files=all)
+    PINNED_ANDROID="master"
   fi
 
-  if [ "${#status_lines[@]}" -ne 0 ]; then
+  echo ""
+  echo "$(bold "Pinned SHAs for $TAG:")"
+  echo "  intellij-community: $PINNED_INTELLIJ"
+  echo "  android:            $PINNED_ANDROID"
+
+  # Abort if the local intellij-community or android clones have
+  # uncommitted work — bootstrap would blow it away otherwise.
+  check_dirty() {
+    local dir="$1" name="$2"
+    [ -d "$dir/.git" ] || return 0
+    local -a status_lines=()
+    if [ "$name" = "intellij-community" ]; then
+      mapfile -t status_lines < <(
+        git -C "$dir" status --short --untracked-files=all \
+          -- ':!/.idea/modules.xml' \
+             ':!/.idea/runConfigurations/TermLab.xml' \
+             ':!/termlab'
+      )
+    else
+      mapfile -t status_lines < <(git -C "$dir" status --short --untracked-files=all)
+    fi
+
     echo ""
-    echo "$(red "$name has uncommitted changes at $dir")"
-    printf '%s\n' "${status_lines[@]:0:10}"
-    echo ""
-    echo "Commit, stash, or discard those changes, then re-run this script."
-    exit 1
-  fi
-}
-check_dirty "$INTELLIJ_ROOT" "intellij-community"
-check_dirty "$INTELLIJ_ROOT/android" "android"
+    if [ "${#status_lines[@]}" -ne 0 ]; then
+      echo "$(red "$name has uncommitted changes at $dir")"
+      printf '%s\n' "${status_lines[@]:0:10}"
+      echo ""
+      echo "Commit, stash, or discard those changes, then re-run this script."
+      exit 1
+    fi
+  }
+  check_dirty "$INTELLIJ_ROOT" "intellij-community"
+  check_dirty "$INTELLIJ_ROOT/android" "android"
 
-echo ""
-echo "$(bold "Syncing intellij-community + android to pinned SHAs...")"
-ANDROID_REF="$PINNED_ANDROID" bash "$WORKBENCH_DIR/scripts/ci/bootstrap_intellij.sh" "$INTELLIJ_ROOT"
-sync_termlab_idea_config "$INTELLIJ_ROOT"
+  echo ""
+  echo "$(bold "Syncing intellij-community + android to pinned SHAs...")"
+  ANDROID_REF="$PINNED_ANDROID" bash "$WORKBENCH_DIR/scripts/ci/bootstrap_intellij.sh" "$INTELLIJ_ROOT"
+  sync_termlab_idea_config "$INTELLIJ_ROOT"
 
-# --- 6. Build ----------------------------------------------------------------
+  # --- 6. Build --------------------------------------------------------------
 
-echo ""
-echo "$(bold "Running 'make termlab-installers' — this takes a while on a cold cache.")"
-echo ""
-make termlab-installers
+  echo ""
+  echo "$(bold "Running 'make termlab-installers' — this takes a while on a cold cache.")"
+  echo ""
+  make termlab-installers
+fi
 
 # --- 7. List artifacts -------------------------------------------------------
 
