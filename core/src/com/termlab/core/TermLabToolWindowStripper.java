@@ -52,6 +52,7 @@ public final class TermLabToolWindowStripper implements ToolWindowManagerListene
      * modules we bundle register unwanted tool windows at runtime.
      */
     private static final Set<String> UNWANTED_IDS = Set.of(
+        "Find",
         "Run",
         "Debug",
         "Hierarchy",

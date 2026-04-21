@@ -91,6 +91,7 @@ public final class TermLabActionConfigurationCustomizer implements ActionConfigu
         // stripped, the action can appear in the palette)
         "ActivateRunToolWindow",
         "ActivateDebugToolWindow",
+        "ActivateFindToolWindow",
         "ActivateHierarchyToolWindow",
         "ActivateServicesToolWindow",
         "ActivateBookmarksToolWindow",

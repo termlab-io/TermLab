@@ -19,7 +19,6 @@ class TermLabDefaultToolWindowLayout : DefaultToolWindowLayoutExtension {
         }
 
         builder.bottom.addOrUpdate("Version Control")
-        builder.bottom.addOrUpdate("Find")
         builder.bottom.addOrUpdate("Run")
         builder.bottom.addOrUpdate("Debug") { weight = 0.4f }
         builder.bottom.addOrUpdate("Inspection") { weight = 0.4f }
