@@ -14,7 +14,7 @@ public final class SftpToolWindowFactory implements ToolWindowFactory {
 
     @Override
     public void createToolWindowContent(@NotNull Project project, @NotNull ToolWindow toolWindow) {
-        SftpToolWindow panel = new SftpToolWindow(project);
+        SftpToolWindow panel = new SftpToolWindow(project, toolWindow);
         Content content = ContentFactory.getInstance().createContent(panel, "", false);
         content.setCloseable(false);
         toolWindow.getContentManager().addContent(content);

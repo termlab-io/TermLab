@@ -8,8 +8,9 @@ import com.intellij.openapi.fileChooser.FileChooserDescriptorFactory;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.vfs.LocalFileSystem;
 import com.intellij.openapi.vfs.VirtualFile;
+import com.intellij.openapi.wm.ToolWindow;
+import com.intellij.openapi.wm.ex.ToolWindowManagerListener;
 import com.intellij.ui.JBSplitter;
-import com.intellij.util.ui.JBUI;
 import org.jetbrains.annotations.NotNull;
 
 import javax.swing.*;
@@ -24,21 +25,33 @@ import java.io.IOException;
  */
 public final class SftpToolWindow extends JPanel {
 
+    private static final float DEFAULT_SPLITTER_PROPORTION = 0.5f;
+
+    private final Project project;
+    private final ToolWindow toolWindow;
     private final LocalFilePane local;
     private final RemoteFilePane remote;
     private final TransferCoordinator coordinator;
     private final JPanel contentPanel;
+    private final JBSplitter dualPaneSplitter;
     private TermLabSftpConfig.ViewMode viewMode;
+    private boolean stackedLayout;
 
-    public SftpToolWindow(@NotNull Project project) {
+    public SftpToolWindow(@NotNull Project project, @NotNull ToolWindow toolWindow) {
         super(new BorderLayout());
+        this.project = project;
+        this.toolWindow = toolWindow;
         this.local = new LocalFilePane(project);
         this.remote = new RemoteFilePane(project);
         this.coordinator = new TransferCoordinator(project, local, remote);
         TermLabSftpConfig config = TermLabSftpConfig.getInstance();
         this.viewMode = config.getViewMode();
+        this.stackedLayout = shouldStackForAnchor(toolWindow);
 
         this.contentPanel = new JPanel(new BorderLayout());
+        this.dualPaneSplitter = new JBSplitter(stackedLayout, DEFAULT_SPLITTER_PROPORTION);
+        this.dualPaneSplitter.setFirstComponent(local);
+        this.dualPaneSplitter.setSecondComponent(remote);
 
         this.local.setTransferActions(new LocalFilePane.TransferActions() {
             @Override
@@ -127,6 +140,7 @@ public final class SftpToolWindow extends JPanel {
         });
 
         add(contentPanel, BorderLayout.CENTER);
+        installToolWindowLayoutListener();
         applyViewMode(viewMode);
     }
 
@@ -145,7 +159,7 @@ public final class SftpToolWindow extends JPanel {
 
         contentPanel.removeAll();
         switch (mode) {
-            case BOTH -> contentPanel.add(buildDualPaneView(), BorderLayout.CENTER);
+            case BOTH -> contentPanel.add(dualPaneSplitter, BorderLayout.CENTER);
             case LOCAL_ONLY -> contentPanel.add(local, BorderLayout.CENTER);
             case REMOTE_ONLY -> contentPanel.add(remote, BorderLayout.CENTER);
         }
@@ -153,11 +167,32 @@ public final class SftpToolWindow extends JPanel {
         contentPanel.repaint();
     }
 
-    private @NotNull JComponent buildDualPaneView() {
-        JBSplitter splitter = new JBSplitter(false, 0.5f);
-        splitter.setFirstComponent(local);
-        splitter.setSecondComponent(remote);
-        return splitter;
+    private void installToolWindowLayoutListener() {
+        project.getMessageBus().connect(toolWindow.getDisposable()).subscribe(ToolWindowManagerListener.TOPIC, new ToolWindowManagerListener() {
+            @Override
+            public void stateChanged(@NotNull com.intellij.openapi.wm.ToolWindowManager toolWindowManager) {
+                SwingUtilities.invokeLater(() -> {
+                    if (!toolWindow.isDisposed()) {
+                        updateDualPaneOrientation();
+                    }
+                });
+            }
+        });
+    }
+
+    private void updateDualPaneOrientation() {
+        boolean shouldStack = shouldStackForAnchor(toolWindow);
+        if (stackedLayout == shouldStack) {
+            return;
+        }
+        stackedLayout = shouldStack;
+        dualPaneSplitter.setOrientation(stackedLayout);
+        dualPaneSplitter.revalidate();
+        dualPaneSplitter.repaint();
+    }
+
+    private static boolean shouldStackForAnchor(@NotNull ToolWindow toolWindow) {
+        return !toolWindow.getAnchor().isHorizontal();
     }
 
     private @NotNull String resolveInitialRemotePath() {
