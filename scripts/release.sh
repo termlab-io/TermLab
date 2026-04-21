@@ -197,7 +197,7 @@ fi
 
 echo ""
 echo "$(bold "Fetching and checking out tag $TAG...")"
-git fetch origin "refs/tags/$TAG:refs/tags/$TAG" 2>/dev/null || true
+git fetch --force origin "refs/tags/$TAG:refs/tags/$TAG"
 git checkout --quiet "refs/tags/$TAG"
 
 # --- 5. Sync intellij-community to the tag's pinned SHAs ---------------------
