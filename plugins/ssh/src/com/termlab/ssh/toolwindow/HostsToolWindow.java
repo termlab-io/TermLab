@@ -56,6 +56,7 @@ public final class HostsToolWindow extends JPanel {
 
     private final Project project;
     private final HostStore store;
+    private final Runnable storeListener;
     private final DefaultListModel<SshHost> listModel = new DefaultListModel<>();
     private final JBList<SshHost> list = new JBList<>(listModel);
 
@@ -63,6 +64,7 @@ public final class HostsToolWindow extends JPanel {
         super(new BorderLayout());
         this.project = project;
         this.store = ApplicationManager.getApplication().getService(HostStore.class);
+        this.storeListener = () -> ApplicationManager.getApplication().invokeLater(this::refreshFromStore);
 
         list.setCellRenderer(new HostCellRenderer());
         list.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
@@ -91,9 +93,30 @@ public final class HostsToolWindow extends JPanel {
         refreshFromStore();
     }
 
+    @Override
+    public void addNotify() {
+        super.addNotify();
+        if (store != null) {
+            store.removeChangeListener(storeListener);
+            store.addChangeListener(storeListener);
+        }
+    }
+
+    @Override
+    public void removeNotify() {
+        if (store != null) {
+            store.removeChangeListener(storeListener);
+        }
+        super.removeNotify();
+    }
+
     // -- data sync ------------------------------------------------------------
 
     private void refreshFromStore() {
+        if (store == null) {
+            listModel.clear();
+            return;
+        }
         SshHost previousSelection = list.getSelectedValue();
         listModel.clear();
         for (SshHost h : store.getHosts()) listModel.addElement(h);

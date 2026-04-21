@@ -11,6 +11,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 /**
  * Application service holding the saved tunnel list. Mirrors
@@ -20,6 +21,7 @@ public final class TunnelStore {
 
     private final Path filePath;
     private final List<SshTunnel> tunnels;
+    private final CopyOnWriteArrayList<Runnable> changeListeners = new CopyOnWriteArrayList<>();
 
     /** Framework constructor — loads from default path. */
     public TunnelStore() {
@@ -57,16 +59,22 @@ public final class TunnelStore {
 
     public void addTunnel(@NotNull SshTunnel tunnel) {
         tunnels.add(tunnel);
+        fireChanged();
     }
 
     public boolean removeTunnel(@NotNull UUID id) {
-        return tunnels.removeIf(t -> t.id().equals(id));
+        boolean removed = tunnels.removeIf(t -> t.id().equals(id));
+        if (removed) {
+            fireChanged();
+        }
+        return removed;
     }
 
     public boolean updateTunnel(@NotNull SshTunnel updated) {
         for (int i = 0; i < tunnels.size(); i++) {
             if (tunnels.get(i).id().equals(updated.id())) {
                 tunnels.set(i, updated);
+                fireChanged();
                 return true;
             }
         }
@@ -80,5 +88,20 @@ public final class TunnelStore {
     public void reload() throws IOException {
         tunnels.clear();
         tunnels.addAll(TunnelsFile.load(filePath));
+        fireChanged();
+    }
+
+    public void addChangeListener(@NotNull Runnable listener) {
+        changeListeners.add(listener);
+    }
+
+    public void removeChangeListener(@NotNull Runnable listener) {
+        changeListeners.remove(listener);
+    }
+
+    private void fireChanged() {
+        for (Runnable listener : changeListeners) {
+            listener.run();
+        }
     }
 }

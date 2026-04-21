@@ -77,6 +77,7 @@ public final class TunnelsToolWindow extends JPanel {
     private final Project project;
     private final TunnelStore store;
     private final TunnelConnectionManager connectionManager;
+    private final Runnable storeListener;
     private final DefaultListModel<SshTunnel> listModel = new DefaultListModel<>();
     private final JBList<SshTunnel> list = new JBList<>(listModel);
 
@@ -86,6 +87,7 @@ public final class TunnelsToolWindow extends JPanel {
         this.store = ApplicationManager.getApplication().getService(TunnelStore.class);
         this.connectionManager =
             ApplicationManager.getApplication().getService(TunnelConnectionManager.class);
+        this.storeListener = () -> ApplicationManager.getApplication().invokeLater(this::refreshFromStore);
 
         list.setCellRenderer(new TunnelCellRenderer());
         list.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
@@ -114,9 +116,30 @@ public final class TunnelsToolWindow extends JPanel {
         refreshFromStore();
     }
 
+    @Override
+    public void addNotify() {
+        super.addNotify();
+        if (store != null) {
+            store.removeChangeListener(storeListener);
+            store.addChangeListener(storeListener);
+        }
+    }
+
+    @Override
+    public void removeNotify() {
+        if (store != null) {
+            store.removeChangeListener(storeListener);
+        }
+        super.removeNotify();
+    }
+
     // -- data sync ------------------------------------------------------------
 
     private void refreshFromStore() {
+        if (store == null) {
+            listModel.clear();
+            return;
+        }
         SshTunnel previousSelection = list.getSelectedValue();
         listModel.clear();
         for (SshTunnel t : store.getTunnels()) listModel.addElement(t);
