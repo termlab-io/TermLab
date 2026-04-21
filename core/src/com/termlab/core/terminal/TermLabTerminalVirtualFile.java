@@ -6,13 +6,18 @@ import com.intellij.openapi.fileEditor.FileEditorManagerKeys;
 import com.intellij.openapi.fileEditor.FileEditorManager;
 import com.intellij.openapi.project.Project;
 import com.intellij.testFramework.LightVirtualFile;
+import com.intellij.util.concurrency.AppExecutorUtil;
 import com.jediterm.terminal.TtyConnector;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.TimeUnit;
 import java.util.UUID;
 
 public final class TermLabTerminalVirtualFile extends LightVirtualFile {
+    private static final long SESSION_RELEASE_GRACE_MS = 750L;
+
     private final String sessionId;
     private final TerminalSessionProvider provider;
     private String currentWorkingDirectory;
@@ -114,6 +119,7 @@ public final class TermLabTerminalVirtualFile extends LightVirtualFile {
         private int retainCount;
         private boolean disposed;
         private boolean closeScheduled;
+        private @Nullable ScheduledFuture<?> closeFuture;
 
         private SharedTerminalSession(@NotNull Project project, @NotNull TermLabTerminalVirtualFile file) {
             this.project = project;
@@ -155,10 +161,13 @@ public final class TermLabTerminalVirtualFile extends LightVirtualFile {
             }
             retainCount++;
             closeScheduled = false;
+            if (closeFuture != null) {
+                closeFuture.cancel(false);
+                closeFuture = null;
+            }
         }
 
         public void release() {
-            boolean closeNow = false;
             boolean deferClose = false;
             synchronized (this) {
                 if (disposed) return;
@@ -168,20 +177,24 @@ public final class TermLabTerminalVirtualFile extends LightVirtualFile {
                 if (retainCount > 0) {
                     return;
                 }
-                if (file.getUserData(FileEditorManagerKeys.CLOSING_TO_REOPEN) == Boolean.TRUE) {
-                    if (!closeScheduled) {
-                        closeScheduled = true;
-                        deferClose = true;
-                    }
-                } else {
-                    closeNow = true;
+                if (!closeScheduled) {
+                    closeScheduled = true;
+                    deferClose = true;
                 }
             }
 
             if (deferClose) {
-                ApplicationManager.getApplication().invokeLater(this::closeIfUnused);
-            } else if (closeNow) {
-                disposeSession();
+                ScheduledFuture<?> future = AppExecutorUtil.getAppScheduledExecutorService().schedule(
+                    () -> ApplicationManager.getApplication().invokeLater(this::closeIfUnused, project.getDisposed()),
+                    SESSION_RELEASE_GRACE_MS,
+                    TimeUnit.MILLISECONDS);
+                synchronized (this) {
+                    if (disposed || retainCount > 0) {
+                        future.cancel(false);
+                    } else {
+                        closeFuture = future;
+                    }
+                }
             }
         }
 
@@ -189,7 +202,10 @@ public final class TermLabTerminalVirtualFile extends LightVirtualFile {
             synchronized (this) {
                 if (disposed) return;
                 closeScheduled = false;
-                if (retainCount > 0 || file.getUserData(FileEditorManagerKeys.CLOSING_TO_REOPEN) == Boolean.TRUE) {
+                closeFuture = null;
+                if (retainCount > 0
+                    || file.getUserData(FileEditorManagerKeys.CLOSING_TO_REOPEN) == Boolean.TRUE
+                    || FileEditorManager.getInstance(project).isFileOpen(file)) {
                     return;
                 }
             }
@@ -200,6 +216,10 @@ public final class TermLabTerminalVirtualFile extends LightVirtualFile {
             synchronized (this) {
                 if (disposed) return;
                 disposed = true;
+                if (closeFuture != null) {
+                    closeFuture.cancel(false);
+                    closeFuture = null;
+                }
             }
             file.clearSharedSession(this);
             try {

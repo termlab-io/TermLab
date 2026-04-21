@@ -17,6 +17,7 @@ import com.intellij.openapi.fileEditor.impl.EditorWindow;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.util.UserDataHolderBase;
 import com.jediterm.terminal.CursorShape;
+import com.jediterm.terminal.RequestOrigin;
 import com.jediterm.terminal.TtyConnector;
 import com.jediterm.terminal.ui.JediTermWidget;
 import com.intellij.ui.Gray;
@@ -29,6 +30,10 @@ import org.jetbrains.annotations.Nullable;
 import com.intellij.openapi.vfs.VirtualFile;
 
 import javax.swing.*;
+import java.awt.event.ComponentAdapter;
+import java.awt.event.ComponentEvent;
+import java.awt.event.HierarchyEvent;
+import java.awt.event.HierarchyListener;
 import java.awt.datatransfer.DataFlavor;
 import java.io.IOException;
 import java.beans.PropertyChangeListener;
@@ -44,6 +49,26 @@ public final class TermLabTerminalEditor extends UserDataHolderBase implements F
     private final com.intellij.util.messages.MessageBusConnection messageBusConnection;
     private final TtyConnector connector;
     private final ActionGroup tabActions;
+    private final ComponentAdapter resizeListener = new ComponentAdapter() {
+        @Override
+        public void componentResized(ComponentEvent e) {
+            scheduleTerminalResize();
+        }
+
+        @Override
+        public void componentShown(ComponentEvent e) {
+            scheduleTerminalResize();
+        }
+    };
+    private final HierarchyListener hierarchyListener = e -> {
+        long flags = e.getChangeFlags();
+        if ((flags & HierarchyEvent.PARENT_CHANGED) != 0
+            || (flags & HierarchyEvent.SHOWING_CHANGED) != 0
+            || (flags & HierarchyEvent.DISPLAYABILITY_CHANGED) != 0) {
+            scheduleTerminalResize();
+        }
+    };
+    private boolean resizeQueued;
 
     public TermLabTerminalEditor(@NotNull Project project,
                                 @NotNull TermLabTerminalVirtualFile file) {
@@ -57,6 +82,8 @@ public final class TermLabTerminalEditor extends UserDataHolderBase implements F
         installAppearanceListeners();
         applyTerminalAppearance();
         installFileDropHandler();
+        installResizeListeners();
+        scheduleTerminalResize();
     }
 
     @Override public @NotNull JComponent getComponent() { return terminalWidget; }
@@ -72,6 +99,10 @@ public final class TermLabTerminalEditor extends UserDataHolderBase implements F
 
     @Override
     public void dispose() {
+        terminalWidget.removeComponentListener(resizeListener);
+        terminalWidget.removeHierarchyListener(hierarchyListener);
+        terminalWidget.getTerminalPanel().removeComponentListener(resizeListener);
+        terminalWidget.getTerminalPanel().removeHierarchyListener(hierarchyListener);
         messageBusConnection.disconnect();
         session.release();
     }
@@ -112,6 +143,33 @@ public final class TermLabTerminalEditor extends UserDataHolderBase implements F
 
     public @NotNull TermLabTerminalVirtualFile getTerminalFile() { return file; }
     public @NotNull JediTermWidget getTerminalWidget() { return terminalWidget; }
+
+    private void installResizeListeners() {
+        terminalWidget.addComponentListener(resizeListener);
+        terminalWidget.addHierarchyListener(hierarchyListener);
+        terminalWidget.getTerminalPanel().addComponentListener(resizeListener);
+        terminalWidget.getTerminalPanel().addHierarchyListener(hierarchyListener);
+    }
+
+    private void scheduleTerminalResize() {
+        if (resizeQueued || project.isDisposed()) {
+            return;
+        }
+        resizeQueued = true;
+        ApplicationManager.getApplication().invokeLater(() -> {
+            resizeQueued = false;
+            if (project.isDisposed() || !isValid()) {
+                return;
+            }
+            if (!terminalWidget.isShowing() || terminalWidget.getTerminalPanel().getWidth() <= 0
+                || terminalWidget.getTerminalPanel().getHeight() <= 0) {
+                return;
+            }
+            terminalWidget.getTerminalStarter().postResize(
+                terminalWidget.getTerminalPanel().getTerminalSizeFromComponent(),
+                RequestOrigin.User);
+        }, project.getDisposed());
+    }
 
     private void installFileDropHandler() {
         TransferHandler handler = new TransferHandler() {

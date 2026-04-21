@@ -5,6 +5,7 @@ import com.intellij.openapi.fileEditor.FileEditorManager;
 import com.intellij.openapi.fileEditor.FileEditorManagerListener;
 import com.intellij.openapi.fileEditor.ex.FileEditorManagerEx;
 import com.intellij.openapi.fileEditor.FileEditor;
+import com.intellij.openapi.fileEditor.FileEditorManagerEvent;
 import com.intellij.openapi.vfs.VirtualFile;
 import org.jetbrains.annotations.NotNull;
 
@@ -39,6 +40,11 @@ public final class TermLabTerminalOnlyFileEditorListener implements FileEditorMa
     @Override
     public void fileClosed(@NotNull FileEditorManager source, @NotNull VirtualFile file) {
         TermLabTabBarManager.schedulePreferredTabSettings(source.getProject());
+    }
+
+    @Override
+    public void selectionChanged(@NotNull FileEditorManagerEvent event) {
+        TermLabTabBarManager.schedulePreferredTabSettings(event.getManager().getProject());
     }
 
     private static void scheduleConsistentFloatingWindowSize(@NotNull FileEditorManager source,

@@ -31,6 +31,8 @@
     <projectListeners>
         <listener class="com.termlab.editor.scratch.EditorCloseConfirmationListener"
                   topic="com.intellij.openapi.fileEditor.FileEditorManagerListener$Before"/>
+        <listener class="com.termlab.editor.scratch.EditorCloseConfirmationListener"
+                  topic="com.intellij.openapi.fileEditor.FileEditorManagerListener"/>
     </projectListeners>
 
     <extensions defaultExtensionNs="com.termlab.sftp">

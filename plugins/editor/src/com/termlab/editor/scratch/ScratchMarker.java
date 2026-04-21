@@ -13,6 +13,10 @@ public final class ScratchMarker {
     public static final Key<Boolean> KEY = Key.create("termlab.editor.scratchMarker");
     public static final Key<Boolean> SKIP_CLOSE_CONFIRMATION_KEY =
         Key.create("termlab.editor.skipCloseConfirmation");
+    public static final Key<Boolean> PENDING_CLOSE_HANDLING_KEY =
+        Key.create("termlab.editor.pendingCloseHandling");
+    public static final Key<Boolean> PENDING_CLOSE_WAS_MODIFIED_KEY =
+        Key.create("termlab.editor.pendingCloseWasModified");
 
     private ScratchMarker() {}
 

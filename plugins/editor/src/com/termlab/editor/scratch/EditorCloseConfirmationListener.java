@@ -4,7 +4,9 @@ import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.editor.Document;
 import com.intellij.openapi.fileEditor.FileDocumentManager;
 import com.intellij.openapi.fileEditor.FileEditorManager;
+import com.intellij.openapi.fileEditor.FileEditorManagerEvent;
 import com.intellij.openapi.fileEditor.FileEditorManagerListener;
+import com.intellij.openapi.fileEditor.FileEditorManagerKeys;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.ui.Messages;
 import com.intellij.openapi.vfs.VirtualFile;
@@ -13,21 +15,61 @@ import org.jetbrains.annotations.NotNull;
 /**
  * Adds a lightweight save/discard/cancel prompt when TermLab editor tabs close.
  *
- * <p>The platform tab close button bypasses the standard pre-close checks, so
- * we hook {@link FileEditorManagerListener.Before#beforeFileClosed} instead and
- * emulate the expected editor behavior there.
+ * <p>Tab drag/reorder operations can temporarily close and reopen editors while
+ * relocating them. To avoid prompting or tearing down scratch files during that
+ * transient move, we mark the close in {@link #beforeFileClosed} and only act
+ * after the close if the file is still actually closed on the next EDT turn.
  */
-public final class EditorCloseConfirmationListener implements FileEditorManagerListener.Before {
+public final class EditorCloseConfirmationListener
+    implements FileEditorManagerListener.Before, FileEditorManagerListener {
 
     @Override
     public void beforeFileClosed(@NotNull FileEditorManager source, @NotNull VirtualFile file) {
         Project project = source.getProject();
         if (project.isDisposed()) return;
         if (file.getUserData(ScratchMarker.SKIP_CLOSE_CONFIRMATION_KEY) == Boolean.TRUE) return;
+        if (file.getUserData(FileEditorManagerKeys.CLOSING_TO_REOPEN) == Boolean.TRUE) return;
+        if (file.getUserData(FileEditorManagerKeys.REOPEN_WINDOW) == Boolean.TRUE) return;
 
         FileDocumentManager documentManager = FileDocumentManager.getInstance();
         boolean isScratch = ScratchMarker.isMarkedScratch(file);
-        if (!documentManager.isFileModified(file)) {
+        boolean isModified = documentManager.isFileModified(file);
+        if (!isModified && !isScratch) {
+            return;
+        }
+
+        file.putUserData(ScratchMarker.PENDING_CLOSE_HANDLING_KEY, Boolean.TRUE);
+        file.putUserData(ScratchMarker.PENDING_CLOSE_WAS_MODIFIED_KEY, isModified);
+    }
+
+    @Override
+    public void fileClosed(@NotNull FileEditorManager source, @NotNull VirtualFile file) {
+        if (file.getUserData(ScratchMarker.PENDING_CLOSE_HANDLING_KEY) != Boolean.TRUE) {
+            return;
+        }
+
+        ApplicationManager.getApplication().invokeLater(() -> handlePostClose(source, file));
+    }
+
+    @Override
+    public void selectionChanged(@NotNull FileEditorManagerEvent event) {
+        // No-op: we only care about the explicit close lifecycle.
+    }
+
+    private static void handlePostClose(@NotNull FileEditorManager source, @NotNull VirtualFile file) {
+        boolean wasModified = file.getUserData(ScratchMarker.PENDING_CLOSE_WAS_MODIFIED_KEY) == Boolean.TRUE;
+        clearPendingCloseState(file);
+
+        Project project = source.getProject();
+        if (project.isDisposed()) return;
+        if (source.isFileOpen(file)) return;
+        if (file.getUserData(FileEditorManagerKeys.CLOSING_TO_REOPEN) == Boolean.TRUE) return;
+        if (file.getUserData(FileEditorManagerKeys.REOPEN_WINDOW) == Boolean.TRUE) return;
+
+        boolean isScratch = ScratchMarker.isMarkedScratch(file);
+        FileDocumentManager documentManager = FileDocumentManager.getInstance();
+
+        if (!wasModified) {
             if (isScratch) {
                 deleteScratchAfterClose(file);
             }
@@ -35,7 +77,12 @@ public final class EditorCloseConfirmationListener implements FileEditorManagerL
         }
 
         Document document = documentManager.getDocument(file);
-        if (document == null) return;
+        if (document == null) {
+            if (isScratch) {
+                reopenAfterClose(source, file);
+            }
+            return;
+        }
 
         int choice = Messages.showYesNoCancelDialog(
             project,
@@ -84,6 +131,11 @@ public final class EditorCloseConfirmationListener implements FileEditorManagerL
 
     private static @NotNull String buildPrompt(@NotNull VirtualFile file) {
         return "Save changes to " + file.getName() + " before closing?";
+    }
+
+    private static void clearPendingCloseState(@NotNull VirtualFile file) {
+        file.putUserData(ScratchMarker.PENDING_CLOSE_HANDLING_KEY, null);
+        file.putUserData(ScratchMarker.PENDING_CLOSE_WAS_MODIFIED_KEY, null);
     }
 
     private static void deleteScratchAfterClose(@NotNull VirtualFile file) {

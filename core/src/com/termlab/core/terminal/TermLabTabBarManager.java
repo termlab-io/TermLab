@@ -5,6 +5,7 @@ import com.intellij.ide.ui.UISettings;
 import com.intellij.ide.util.PropertiesComponent;
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.fileEditor.FileEditorManager;
+import com.intellij.openapi.fileEditor.ex.FileEditorManagerEx;
 import com.intellij.openapi.project.Project;
 
 import javax.swing.*;
@@ -51,9 +52,15 @@ public final class TermLabTabBarManager {
     }
 
     private static void applyPreferredTabSettingsOnEdt(Project project) {
+        FileEditorManagerEx manager = FileEditorManagerEx.getInstanceEx(project);
         UISettings settings = UISettings.getInstance();
         int openTabCount = FileEditorManager.getInstance(project).getOpenFiles().length;
-        int desiredPlacement = openTabCount > 1 ? SwingConstants.TOP : UISettings.TABS_NONE;
+        boolean hasMultipleEditorWindows =
+            manager.getWindows().length > 1
+                || manager.hasSplitOrUndockedWindows()
+                || manager.getWindowSplitCount() > 0;
+        int desiredPlacement =
+            (openTabCount > 1 || hasMultipleEditorWindows) ? SwingConstants.TOP : UISettings.TABS_NONE;
 
         if (settings.getEditorTabPlacement() != desiredPlacement) {
             settings.setEditorTabPlacement(desiredPlacement);
