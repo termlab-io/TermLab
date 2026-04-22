@@ -56,9 +56,7 @@ public final class TermLabTabBarManager {
         UISettings settings = UISettings.getInstance();
         int openTabCount = FileEditorManager.getInstance(project).getOpenFiles().length;
         boolean hasMultipleEditorWindows =
-            manager.getWindows().length > 1
-                || manager.hasSplitOrUndockedWindows()
-                || manager.getWindowSplitCount() > 0;
+            manager.getWindows().length > 1 || manager.hasSplitOrUndockedWindows();
         int desiredPlacement =
             (openTabCount > 1 || hasMultipleEditorWindows) ? SwingConstants.TOP : UISettings.TABS_NONE;
 
