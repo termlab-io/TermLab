@@ -4,8 +4,10 @@ import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.plus
 import org.jetbrains.intellij.build.ApplicationInfoProperties
 import org.jetbrains.intellij.build.CommunityRepositoryModules
+import org.jetbrains.intellij.build.CommunityLibraryLicenses
 import com.intellij.platform.pluginSystem.parser.impl.elements.ModuleLoadingRuleValue
 import org.jetbrains.intellij.build.JetBrainsProductProperties
+import org.jetbrains.intellij.build.JvmArchitecture
 import org.jetbrains.intellij.build.LinuxDistributionCustomizer
 import org.jetbrains.intellij.build.impl.PluginLayout
 import org.jetbrains.intellij.build.MacDistributionCustomizer
@@ -108,6 +110,7 @@ class TermLabProperties(private val communityHomeDir: Path) : JetBrainsProductPr
     additionalDirectoriesWithLicenses = listOf(
       communityHomeDir.resolve("termlab/customization/licenses"),
     )
+    allLibraryLicenses = CommunityLibraryLicenses.LICENSES_LIST + TermLabThirdPartyLicenses.LICENSES
   }
 
   override val baseFileName: String
@@ -183,6 +186,11 @@ class TermLabProperties(private val communityHomeDir: Path) : JetBrainsProductPr
         installerImagesPath = projectHome.resolve("termlab/customization/resources/win")
       }
 
+      override suspend fun copyAdditionalFiles(targetDir: Path, arch: JvmArchitecture, context: org.jetbrains.intellij.build.BuildContext) {
+        super.copyAdditionalFiles(targetDir, arch, context)
+        TermLabBundledGitForWindows.copyIntoDistribution(targetDir, arch, context)
+      }
+
       override fun getFullNameIncludingEdition(appInfo: ApplicationInfoProperties): String {
         return packagedProductName(appInfo)
       }
@@ -213,11 +221,6 @@ class TermLabProperties(private val communityHomeDir: Path) : JetBrainsProductPr
       dmgImagePath = "termlab/customization/resources/mac/dmg_background.tiff"
       copyAdditionalFiles { targetDir, _, context ->
         normalizeMacBundleName(targetDir.resolve("Info.plist"), context.applicationInfo)
-        if (!context.isMacCodeSignEnabled) {
-          val baseFileName = context.productProperties.baseFileName
-          removeMacSignatureIfPresent(targetDir.resolve("MacOS/$baseFileName"))
-          removeMacSignatureIfPresent(targetDir.resolve("Contents/MacOS/$baseFileName"))
-        }
       }
     }
 
@@ -250,20 +253,5 @@ private fun normalizeMacBundleName(infoPlistPath: Path, appInfo: ApplicationInfo
   )
   if (updated != original) {
     Files.writeString(infoPlistPath, updated)
-  }
-}
-
-private fun removeMacSignatureIfPresent(path: Path) {
-  if (!path.exists()) {
-    return
-  }
-
-  val process = ProcessBuilder("codesign", "--remove-signature", path.toString())
-    .redirectErrorStream(true)
-    .start()
-  val output = process.inputStream.bufferedReader().readText()
-  val exitCode = process.waitFor()
-  if (exitCode != 0 && !output.contains("is not signed at all")) {
-    error("Failed to remove macOS signature from $path:\n$output")
   }
 }

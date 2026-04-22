@@ -8,17 +8,26 @@ import org.jetbrains.intellij.build.SignNativeFileMode
 import org.jetbrains.intellij.build.impl.buildDistributions
 import org.jetbrains.intellij.build.impl.createBuildContext
 import org.jetbrains.intellij.build.termlab.TermLabProperties
+import java.nio.file.Files
 
 object TermLabInstallersBuildTarget {
+  private val GENERATED_THIRD_PARTY_LICENSE_FILES = listOf(
+    "third-party-libraries.html",
+    "third-party-libraries.json",
+  )
+
   @JvmStatic
   fun main(args: Array<String>) {
+    val targetOs = System.getenv("TERMLAB_TARGET_OS")?.trim()?.lowercase()
     // Honor TERMLAB_TARGET_OS env var so the Makefile can build for a
     // single OS (mac / linux / windows) or all of them (default).
     // BuildOptions reads intellij.build.target.os in its init block.
-    System.getenv("TERMLAB_TARGET_OS")?.let {
+    targetOs?.let {
       System.setProperty("intellij.build.target.os", it)
     }
     val reuseCompiledClasses = (System.getenv("TERMLAB_REUSE_COMPILED_CLASSES") ?: "false").toBoolean()
+    val windowsOnlyBuild = targetOs == "windows"
+    cleanupDevSeededThirdPartyLicenseFiles()
     val proprietaryBuildTools = createTermLabProprietaryBuildTools()
     val macSigningEnabled = proprietaryBuildTools.signTool.signNativeFileMode != SignNativeFileMode.DISABLED
     val macNotarizationEnabled = macSigningEnabled &&
@@ -35,11 +44,17 @@ object TermLabInstallersBuildTarget {
         incrementalCompilation = !reuseCompiledClasses,
         useCompiledClassesFromProjectOutput = reuseCompiledClasses,
       ).apply {
-        // Installer builds should behave like release packaging rather than
-        // local IDE dev builds. In particular, the macOS launcher UUID patcher
-        // ad-hoc re-signs the launcher in development mode, which leaves the
-        // app bundle in a malformed half-signed state for unsigned DMGs.
-        isInDevelopmentMode = false
+        // Most installer builds should behave like release packaging rather
+        // than local IDE dev builds. In particular, the macOS launcher UUID
+        // patcher ad-hoc re-signs the launcher in development mode, which
+        // leaves unsigned DMG app bundles in a malformed half-signed state.
+        //
+        // The one exception is a Windows-only installer build on macOS:
+        // upstream NSIS packaging skips `.exe` generation on macOS unless the
+        // build is marked as development-mode. TermLab exposes that path via
+        // `make termlab-installers-windows` so local Windows installer testing
+        // still works without weakening the all-platform/macOS packaging flow.
+        isInDevelopmentMode = windowsOnlyBuild
         if (macSigningEnabled) {
           buildStepsToSkip -= BuildOptions.MAC_SIGN_STEP
         }
@@ -68,13 +83,6 @@ object TermLabInstallersBuildTarget {
           // dmgImagePath, and hdiutil is macOS-native. We also leave
           // the unsigned Windows .exe installer enabled so CI can
           // publish full release artifacts for both Windows arches.
-          // License-list generation requires every bundled third-party
-          // library to have an entry in the platform's libraries list.
-          // The libraries TermLab pulls in via plugin layouts (sshd-osgi,
-          // bouncy-castle, etc.) are already approved by JetBrains for
-          // distribution inside IntelliJ products — we just don't want
-          // to maintain the license manifest for our purposes.
-          BuildOptions.THIRD_PARTY_LIBRARIES_LIST_STEP,
           // TermLab does not publish .sit archives. Keep DMG output and
           // skip the legacy macOS SIT publication step entirely.
           BuildOptions.MAC_SIT_PUBLICATION_STEP,
@@ -87,6 +95,13 @@ object TermLabInstallersBuildTarget {
         options = options,
       )
       buildDistributions(context)
+    }
+  }
+
+  private fun cleanupDevSeededThirdPartyLicenseFiles() {
+    val licenseDir = COMMUNITY_ROOT.communityRoot.resolve("license")
+    for (fileName in GENERATED_THIRD_PARTY_LICENSE_FILES) {
+      Files.deleteIfExists(licenseDir.resolve(fileName))
     }
   }
 }

@@ -38,6 +38,10 @@
             id="termlab.terminal.settings.terminal"
             displayName="Terminal"/>
 
+        <notificationGroup
+            id="TermLab Terminal"
+            displayType="BALLOON"/>
+
         <search.optionContributor
             implementation="com.termlab.core.settings.TermLabSearchableOptionContributor"/>
 
@@ -142,6 +146,8 @@
     <applicationListeners>
         <listener class="com.termlab.core.TermLabProjectCloseListener"
                   topic="com.intellij.openapi.project.ProjectManagerListener"/>
+        <listener class="com.termlab.core.TermLabThirdPartyLicenseFilesSync"
+                  topic="com.intellij.ide.AppLifecycleListener"/>
         <!--
           Strips built-in Search Everywhere contributors (files, classes,
           symbols, text, run configs, top hits, calculator, YAML keys) so the

@@ -143,15 +143,15 @@ termlab-installers-fast: check-intellij termlab-version termlab-bootstrap-intell
 	@echo "→ Installer artifacts in $(INTELLIJ_ROOT)/out/termlab/artifacts/"
 
 termlab-installers-mac: check-intellij termlab-version termlab-bootstrap-intellij
-	TERMLAB_TARGET_OS=mac $(BAZEL) run //termlab/build:termlab_installers
+	cd $(INTELLIJ_ROOT) && TERMLAB_TARGET_OS=mac bash bazel.cmd run //termlab/build:termlab_installers
 	@echo "→ Installer artifacts in $(INTELLIJ_ROOT)/out/termlab/artifacts/"
 
 termlab-installers-linux: check-intellij termlab-version termlab-bootstrap-intellij
-	TERMLAB_TARGET_OS=linux $(BAZEL) run //termlab/build:termlab_installers
+	cd $(INTELLIJ_ROOT) && TERMLAB_TARGET_OS=linux bash bazel.cmd run //termlab/build:termlab_installers
 	@echo "→ Installer artifacts in $(INTELLIJ_ROOT)/out/termlab/artifacts/"
 
 termlab-installers-windows: check-intellij termlab-version termlab-bootstrap-intellij
-	TERMLAB_TARGET_OS=windows $(BAZEL) run //termlab/build:termlab_installers
+	cd $(INTELLIJ_ROOT) && TERMLAB_TARGET_OS=windows bash bazel.cmd run //termlab/build:termlab_installers
 	@echo "→ Installer artifacts in $(INTELLIJ_ROOT)/out/termlab/artifacts/"
 
 termlab-perf-benchmark: check-intellij

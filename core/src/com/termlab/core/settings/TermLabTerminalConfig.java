@@ -80,7 +80,7 @@ public final class TermLabTerminalConfig {
 
         // Shell launch
         public String shellProgram = "";
-        public String shellArguments = "-l";
+        public String shellArguments = "";
 
         // Colors (hex)
         public String foreground = "#BBBBBB";

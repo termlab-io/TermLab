@@ -1,7 +1,12 @@
 package com.termlab.core.terminal;
 
+import com.termlab.core.notifications.TermLabNotifier;
 import com.termlab.core.settings.TermLabTerminalConfig;
 import com.termlab.sdk.TerminalSessionProvider;
+import com.intellij.notification.Notification;
+import com.intellij.notification.NotificationType;
+import com.intellij.openapi.application.PathManager;
+import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.util.SystemInfo;
 import com.jediterm.core.util.TermSize;
 import com.jediterm.terminal.TtyConnector;
@@ -21,8 +26,12 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public final class LocalPtySessionProvider implements TerminalSessionProvider {
+    private static final Logger LOG = Logger.getInstance(LocalPtySessionProvider.class);
+    private static final String NOTIFICATION_GROUP_ID = "TermLab Terminal";
+    private static final AtomicBoolean BUNDLED_GIT_BASH_WARNING_SHOWN = new AtomicBoolean();
 
     @Override public @NotNull String getId() { return "com.termlab.local-pty"; }
     @Override public @NotNull String getDisplayName() { return "Local Terminal"; }
@@ -33,33 +42,6 @@ public final class LocalPtySessionProvider implements TerminalSessionProvider {
     public @Nullable TtyConnector createSession(@NotNull SessionContext context) {
         try {
             TermLabTerminalConfig.State settings = TermLabTerminalConfig.getInstance().getState();
-
-            String shell = normalize(settings.shellProgram);
-            if (shell.isEmpty()) {
-                shell = normalize(System.getenv("SHELL"));
-            }
-            if (shell.isEmpty()) {
-                shell = defaultShellForPlatform();
-            }
-
-            String rawArgs = normalize(settings.shellArguments);
-            List<String> parsedArgs = parseCommandArgs(rawArgs);
-
-            // Default to a login shell on Unix when the user hasn't
-            // specified arguments, so .zprofile / .bash_profile runs
-            // and seeds PATH / LANG / aliases — the same behavior
-            // Terminal.app, iTerm2, and Alacritty default to. Without
-            // this, a Finder-launched TermLab gets launchd's stripped
-            // env (no Homebrew on PATH, no LANG, etc.) and the shell
-            // inside never gets a chance to fix it.
-            if (parsedArgs.isEmpty() && !SystemInfo.isWindows && isLoginCapableShell(shell)) {
-                parsedArgs = List.of("-l");
-            }
-
-            List<String> command = new ArrayList<>();
-            command.add(shell);
-            command.addAll(parsedArgs);
-
             String workDir = context.getWorkingDirectory();
             if (workDir == null) workDir = System.getProperty("user.home");
 
@@ -69,18 +51,56 @@ public final class LocalPtySessionProvider implements TerminalSessionProvider {
             env.put("TERM_PROGRAM", "TermLab");
             applyFinderLaunchFallbacks(env);
 
-            PtyProcess process = new PtyProcessBuilder()
-                .setCommand(command.toArray(String[]::new))
-                .setDirectory(workDir)
-                .setEnvironment(env)
-                .setInitialColumns(80)
-                .setInitialRows(24)
-                .start();
+            ShellLaunch shellLaunch = resolveShellLaunch(settings, env);
+            if (SystemInfo.isWindows
+                && normalize(settings.shellProgram).isEmpty()
+                && !shellLaunch.bundledGitBash()
+                && shellLaunch.shellKind() == TerminalShellKind.WINDOWS_NATIVE) {
+                showBundledGitBashFallbackNotification("Bundled Git Bash is unavailable in this build.");
+            }
+            PtyProcess process;
+            try {
+                process = startProcess(shellLaunch, workDir, env);
+            } catch (IOException primaryError) {
+                if (!shellLaunch.bundledGitBash()) {
+                    throw primaryError;
+                }
+
+                LOG.warn("Failed to start bundled Git Bash, falling back to Windows default shell", primaryError);
+                showBundledGitBashFallbackNotification(primaryError.getMessage());
+
+                ShellLaunch fallbackLaunch = createWindowsFallbackLaunch();
+                process = startProcess(fallbackLaunch, workDir, env);
+            }
 
             return new LocalPtyTtyConnector(process);
         } catch (IOException e) {
             throw new RuntimeException("Failed to start local PTY: " + e.getMessage(), e);
         }
+    }
+
+    public static @NotNull TerminalShellKind resolveConfiguredShellKind(@NotNull TermLabTerminalConfig.State settings) {
+        return resolveShellLaunch(settings, System.getenv()).shellKind();
+    }
+
+    public static @NotNull List<String> commandForSettings(@NotNull TermLabTerminalConfig.State settings,
+                                                           @NotNull Map<String, String> environment) {
+        return resolveShellLaunch(settings, environment).command();
+    }
+
+    public static void configureShellEnvironment(@NotNull Map<String, String> env,
+                                                 @NotNull TermLabTerminalConfig.State settings) {
+        resolveShellLaunch(settings, env).prepareEnvironment(env);
+    }
+
+    public static @NotNull List<String> bundledGitBashCommand(@NotNull Path runtimeRoot,
+                                                              @NotNull String configuredArgs) {
+        return createBundledGitBashLaunch(runtimeRoot, normalize(configuredArgs)).command();
+    }
+
+    public static void applyBundledGitBashEnvironmentForTest(@NotNull Map<String, String> env,
+                                                             @NotNull Path runtimeRoot) {
+        applyBundledGitBashEnvironment(env, runtimeRoot);
     }
 
     /**
@@ -165,6 +185,20 @@ public final class LocalPtySessionProvider implements TerminalSessionProvider {
         return prepended + ":" + currentPath;
     }
 
+    private static @NotNull PtyProcess startProcess(@NotNull ShellLaunch launch,
+                                                    @NotNull String workDir,
+                                                    @NotNull Map<String, String> env) throws IOException {
+        Map<String, String> effectiveEnv = new HashMap<>(env);
+        launch.prepareEnvironment(effectiveEnv);
+        return new PtyProcessBuilder()
+            .setCommand(launch.command().toArray(String[]::new))
+            .setDirectory(workDir)
+            .setEnvironment(effectiveEnv)
+            .setInitialColumns(80)
+            .setInitialRows(24)
+            .start();
+    }
+
     private static boolean pathContains(@NotNull String pathVar, @NotNull String candidate) {
         if (pathVar.isEmpty()) return false;
         for (String entry : pathVar.split(":")) {
@@ -247,6 +281,137 @@ public final class LocalPtySessionProvider implements TerminalSessionProvider {
         return value == null ? "" : value.trim();
     }
 
+    private static @NotNull ShellLaunch resolveShellLaunch(@NotNull TermLabTerminalConfig.State settings,
+                                                           @NotNull Map<String, String> environment) {
+        String configuredShell = normalize(settings.shellProgram);
+        String configuredArgs = normalize(settings.shellArguments);
+
+        if (!configuredShell.isEmpty()) {
+            return createExplicitLaunch(configuredShell, configuredArgs);
+        }
+
+        if (SystemInfo.isWindows) {
+            Path bundledRuntime = findBundledGitRuntimeRoot();
+            if (bundledRuntime != null) {
+                return createBundledGitBashLaunch(bundledRuntime, configuredArgs);
+            }
+            return createWindowsFallbackLaunch();
+        }
+
+        String shell = normalize(environment.get("SHELL"));
+        if (shell.isEmpty()) {
+            shell = defaultShellForPlatform();
+        }
+        return createUnixLaunch(shell, configuredArgs);
+    }
+
+    private static @NotNull ShellLaunch createExplicitLaunch(@NotNull String shell,
+                                                             @NotNull String configuredArgs) {
+        List<String> args = parseCommandArgs(configuredArgs);
+        return new ShellLaunch(command(shell, args), detectShellKind(shell), false, null);
+    }
+
+    private static @NotNull ShellLaunch createBundledGitBashLaunch(@NotNull Path runtimeRoot,
+                                                                   @NotNull String configuredArgs) {
+        List<String> args;
+        if (configuredArgs.isBlank() || "-l".equals(configuredArgs)) {
+            args = List.of("--login", "-i");
+        } else {
+            args = parseCommandArgs(configuredArgs);
+        }
+        Path shellPath = runtimeRoot.resolve("bin").resolve("bash.exe");
+        return new ShellLaunch(command(shellPath.toString(), args), TerminalShellKind.POSIX, true, runtimeRoot);
+    }
+
+    private static @NotNull ShellLaunch createUnixLaunch(@NotNull String shell,
+                                                         @NotNull String configuredArgs) {
+        List<String> args = parseCommandArgs(configuredArgs);
+        if (args.isEmpty() && isLoginCapableShell(shell)) {
+            args = List.of("-l");
+        }
+        return new ShellLaunch(command(shell, args), TerminalShellKind.POSIX, false, null);
+    }
+
+    private static @NotNull ShellLaunch createWindowsFallbackLaunch() {
+        String shell = defaultShellForPlatform();
+        return new ShellLaunch(command(shell, List.of()), TerminalShellKind.WINDOWS_NATIVE, false, null);
+    }
+
+    private static @NotNull List<String> command(@NotNull String executable, @NotNull List<String> args) {
+        List<String> command = new ArrayList<>(1 + args.size());
+        command.add(executable);
+        command.addAll(args);
+        return command;
+    }
+
+    private static @Nullable Path findBundledGitRuntimeRoot() {
+        Path candidate = Path.of(PathManager.getHomePath()).resolve("git");
+        Path bash = candidate.resolve("bin").resolve("bash.exe");
+        return Files.isRegularFile(bash) ? candidate : null;
+    }
+
+    private static void showBundledGitBashFallbackNotification(@Nullable String detail) {
+        if (!BUNDLED_GIT_BASH_WARNING_SHOWN.compareAndSet(false, true)) {
+            return;
+        }
+        String suffix = normalize(detail);
+        String message = "Bundled Git Bash could not be started. Falling back to the Windows default shell."
+            + (suffix.isEmpty() ? "" : "<br/><br/>" + suffix);
+        Notification notification = new Notification(
+            NOTIFICATION_GROUP_ID,
+            "TermLab Terminal",
+            message,
+            NotificationType.WARNING
+        );
+        TermLabNotifier.notify(null, notification);
+    }
+
+    private static void applyBundledGitBashEnvironment(@NotNull Map<String, String> env,
+                                                       @NotNull Path runtimeRoot) {
+        env.put("CHERE_INVOKING", "1");
+        env.putIfAbsent("MSYS2_PATH_TYPE", "inherit");
+        env.put("MSYSTEM", detectMsystem(runtimeRoot));
+        env.put("SHELL", runtimeRoot.resolve("bin").resolve("bash.exe").toString());
+
+        List<String> preferredPaths = new ArrayList<>();
+        addExisting(preferredPaths, runtimeRoot.resolve("cmd"));
+        addExisting(preferredPaths, runtimeRoot.resolve("usr").resolve("bin"));
+        addExisting(preferredPaths, runtimeRoot.resolve("mingw64").resolve("bin"));
+        addExisting(preferredPaths, runtimeRoot.resolve("clangarm64").resolve("bin"));
+        addExisting(preferredPaths, runtimeRoot.resolve("ucrt64").resolve("bin"));
+
+        String currentPath = env.getOrDefault("PATH", "");
+        if (!preferredPaths.isEmpty()) {
+            String joined = String.join(File.pathSeparator, preferredPaths);
+            env.put("PATH", currentPath.isBlank() ? joined : joined + File.pathSeparator + currentPath);
+        }
+    }
+
+    private static void addExisting(@NotNull List<String> preferredPaths, @NotNull Path path) {
+        if (Files.isDirectory(path)) {
+            preferredPaths.add(path.toString());
+        }
+    }
+
+    private static @NotNull String detectMsystem(@NotNull Path runtimeRoot) {
+        if (Files.isDirectory(runtimeRoot.resolve("clangarm64"))) {
+            return "CLANGARM64";
+        }
+        if (Files.isDirectory(runtimeRoot.resolve("ucrt64"))) {
+            return "UCRT64";
+        }
+        return "MINGW64";
+    }
+
+    private static @NotNull TerminalShellKind detectShellKind(@NotNull String shellPath) {
+        String name = Path.of(shellPath).getFileName().toString().toLowerCase();
+        return switch (name) {
+            case "bash", "bash.exe", "sh", "sh.exe", "zsh", "zsh.exe", "fish", "fish.exe",
+                 "dash", "dash.exe", "ksh", "ksh.exe" -> TerminalShellKind.POSIX;
+            default -> SystemInfo.isWindows ? TerminalShellKind.WINDOWS_NATIVE : TerminalShellKind.POSIX;
+        };
+    }
+
     /**
      * Platform-aware default shell when neither the user setting nor
      * {@code $SHELL} is available.
@@ -272,6 +437,23 @@ public final class LocalPtySessionProvider implements TerminalSessionProvider {
             return "/bin/bash";
         }
         return "/bin/sh";
+    }
+
+    private record ShellLaunch(
+        @NotNull List<String> command,
+        @NotNull TerminalShellKind shellKind,
+        boolean bundledGitBash,
+        @Nullable Path runtimeRoot
+    ) {
+        private ShellLaunch {
+            command = List.copyOf(command);
+        }
+
+        void prepareEnvironment(@NotNull Map<String, String> env) {
+            if (bundledGitBash && runtimeRoot != null) {
+                applyBundledGitBashEnvironment(env, runtimeRoot);
+            }
+        }
     }
 
     /**

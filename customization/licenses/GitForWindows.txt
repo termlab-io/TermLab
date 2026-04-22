@@ -1,0 +1,10 @@
+Windows builds of TermLab bundle Git for Windows 2.54.0.
+
+Upstream project:
+https://gitforwindows.org/
+https://github.com/git-for-windows/git/releases/tag/v2.54.0.windows.1
+
+The bundled runtime includes Git for Windows' own license and third-party
+license materials inside the packaged `git/` directory. See that runtime's
+`LICENSE.txt`, `COPYING`, and bundled upstream notices for the full terms that
+apply to the shipped shell environment and tools.

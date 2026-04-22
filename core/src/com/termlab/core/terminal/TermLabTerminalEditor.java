@@ -228,7 +228,7 @@ public final class TermLabTerminalEditor extends UserDataHolderBase implements F
                             paths.add(file.toPath());
                         }
                     }
-                    String text = TerminalDroppedPathFormatter.formatDroppedPaths(paths);
+                    String text = TerminalDroppedPathFormatter.formatDroppedPaths(paths, resolveDropPathShellKind());
                     if (text.isEmpty()) return false;
                     if (!terminalWidget.pasteText(text)) {
                         connector.write(text);
@@ -242,6 +242,13 @@ public final class TermLabTerminalEditor extends UserDataHolderBase implements F
         };
         terminalWidget.setTransferHandler(handler);
         terminalWidget.getTerminalPanel().setTransferHandler(handler);
+    }
+
+    private @NotNull TerminalShellKind resolveDropPathShellKind() {
+        if (file.getProvider() instanceof LocalPtySessionProvider) {
+            return LocalPtySessionProvider.resolveConfiguredShellKind(TermLabTerminalConfig.getInstance().getState());
+        }
+        return TerminalShellKind.POSIX;
     }
 
     private static final class SelectTabNumberHintAction extends AnAction {

@@ -12,7 +12,6 @@ import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.StandardCopyOption
 import java.util.Comparator
-import java.util.regex.Pattern
 import java.util.zip.ZipEntry
 import java.util.zip.ZipFile
 import java.util.zip.ZipOutputStream
@@ -37,33 +36,6 @@ data class TermLabMacSigningConfig(
       }
       return TermLabMacSigningConfig(teamName = teamName, teamId = teamId)
     }
-
-    fun fromKeychain(): TermLabMacSigningConfig? {
-      val process = ProcessBuilder("security", "find-identity", "-v", "-p", "codesigning")
-        .redirectErrorStream(true)
-        .start()
-      val output = process.inputStream.bufferedReader().readText()
-      val exitCode = process.waitFor()
-      if (exitCode != 0) {
-        return null
-      }
-
-      val matcher = KEYCHAIN_DEVELOPER_ID_PATTERN.matcher(output)
-      if (!matcher.find()) {
-        return null
-      }
-
-      val teamName = matcher.group(1)?.trim().orEmpty()
-      val teamId = matcher.group(2)?.trim().orEmpty()
-      if (teamName.isEmpty() || teamId.isEmpty()) {
-        return null
-      }
-      return TermLabMacSigningConfig(teamName = teamName, teamId = teamId)
-    }
-
-    private val KEYCHAIN_DEVELOPER_ID_PATTERN: Pattern = Pattern.compile(
-      "\"Developer ID Application: (.+) \\(([A-Z0-9]+)\\)\""
-    )
   }
 }
 
@@ -279,7 +251,7 @@ class TermLabLocalMacSignTool(
 }
 
 fun createTermLabProprietaryBuildTools(): ProprietaryBuildTools {
-  val macSigning = TermLabMacSigningConfig.fromEnv() ?: TermLabMacSigningConfig.fromKeychain()
+  val macSigning = TermLabMacSigningConfig.fromEnv()
   return macSigning?.let { config ->
     ProprietaryBuildTools(
       signTool = TermLabLocalMacSignTool(config),

@@ -43,11 +43,11 @@ public final class TermLabTerminalTerminalConfigurable implements SearchableConf
 
         shellProgramField = new JTextField();
         addLabeledRow(gbc, row++, "Program:", shellProgramField,
-            "(empty = use $SHELL / %COMSPEC%, platform default otherwise)");
+            "(empty = use bundled Git Bash on Windows, $SHELL elsewhere)");
 
         shellArgumentsField = new JTextField();
         addLabeledRow(gbc, row++, "Arguments:", shellArgumentsField,
-            "(example: -l or --noprofile --norc)");
+            "(empty = bundled Git Bash uses --login -i on Windows; Unix login shells use -l)");
 
         scrollbackSpinner = new JSpinner(new SpinnerNumberModel(10000, 1000, 100000, 1000));
         addLabeledRow(gbc, row++, "Scrollback lines:", scrollbackSpinner, null);

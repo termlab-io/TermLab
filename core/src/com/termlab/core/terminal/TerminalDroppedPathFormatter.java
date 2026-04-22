@@ -18,16 +18,25 @@ public final class TerminalDroppedPathFormatter {
     private TerminalDroppedPathFormatter() {}
 
     public static @NotNull String formatDroppedPaths(@NotNull List<Path> paths) {
+        TerminalShellKind shellKind = SystemInfoRt.isWindows
+            ? TerminalShellKind.WINDOWS_NATIVE
+            : TerminalShellKind.POSIX;
+        return formatDroppedPaths(paths, shellKind);
+    }
+
+    public static @NotNull String formatDroppedPaths(@NotNull List<Path> paths,
+                                                     @NotNull TerminalShellKind shellKind) {
         if (paths.isEmpty()) return "";
         return paths.stream()
             .map(Path::toAbsolutePath)
             .map(Path::toString)
-            .map(TerminalDroppedPathFormatter::quotePath)
+            .map(path -> quotePath(path, shellKind))
             .collect(Collectors.joining(" ", "", " "));
     }
 
-    private static @NotNull String quotePath(@NotNull String path) {
-        if (SystemInfoRt.isWindows) {
+    private static @NotNull String quotePath(@NotNull String path,
+                                             @NotNull TerminalShellKind shellKind) {
+        if (shellKind == TerminalShellKind.WINDOWS_NATIVE) {
             return needsWindowsQuotes(path) ? "\"" + path.replace("\"", "\\\"") + "\"" : path;
         }
         return "'" + path.replace("'", "'\"'\"'") + "'";

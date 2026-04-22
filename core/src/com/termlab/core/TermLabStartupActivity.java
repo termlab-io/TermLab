@@ -27,6 +27,7 @@ public final class TermLabStartupActivity implements ProjectActivity {
         // Encodings, Auto Import). Project configurables live in the
         // project's extension area, so the app-level stripper in
         // TermLabEditorSettingsStripper can't reach them — do it here.
+        TermLabThirdPartyLicenseFiles.ensurePresent();
         TermLabEditorSettingsStripper.stripProjectConfigurables(project);
 
         WorkspaceManager.getInstance(project).restore();
