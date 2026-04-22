@@ -57,6 +57,12 @@ public final class TermLabStartupActivity implements ProjectActivity {
         // to appear in Distraction Free Mode once multiple tabs exist.
         TermLabTabBarManager.schedulePreferredTabSettings(project);
 
+        // Earlier TermLab builds saved console font settings into the
+        // standalone app-level service, which makes Color Scheme -> Console
+        // Font read-only. Re-apply the migration after project startup so it
+        // wins over persisted option loading order.
+        ApplicationManager.getApplication().invokeLater(TermLabConsoleFontCustomizer::applyConsoleFontSettings);
+
         // Keep the project/window accent stable across TermLab workspaces.
         ProjectWindowCustomizerService customizer =
             ApplicationManager.getApplication().getService(ProjectWindowCustomizerService.class);
