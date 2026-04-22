@@ -1,11 +1,10 @@
 package com.termlab.editor.sftp;
 
+import com.termlab.core.notifications.TermLabNotifier;
 import com.termlab.editor.guard.OpenGuards;
 import com.termlab.sftp.model.LocalFileEntry;
 import com.termlab.sftp.spi.LocalFileOpener;
-import com.intellij.notification.Notification;
 import com.intellij.notification.NotificationType;
-import com.intellij.notification.Notifications;
 import com.intellij.openapi.fileEditor.FileEditorManager;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.vfs.LocalFileSystem;
@@ -21,10 +20,8 @@ public final class EditorLocalFileOpener implements LocalFileOpener {
         if (!OpenGuards.allow(project, entry.name(), entry.size())) return;
         VirtualFile vf = LocalFileSystem.getInstance().refreshAndFindFileByNioFile(entry.path());
         if (vf == null) {
-            Notifications.Bus.notify(
-                new Notification(NOTIFICATION_GROUP, "SFTP",
-                    "Could not open " + entry.path(), NotificationType.ERROR),
-                project);
+            TermLabNotifier.notify(project, NOTIFICATION_GROUP, "SFTP",
+                "Could not open " + entry.path(), NotificationType.ERROR);
             return;
         }
         FileEditorManager.getInstance(project).openFile(vf, true);

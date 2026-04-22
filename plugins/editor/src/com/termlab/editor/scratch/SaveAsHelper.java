@@ -1,13 +1,12 @@
 package com.termlab.editor.scratch;
 
+import com.termlab.core.notifications.TermLabNotifier;
 import com.termlab.core.filepicker.FilePickerResult;
 import com.termlab.core.filepicker.FileSource;
 import com.termlab.core.filepicker.ui.UnifiedFilePickerDialog;
 import com.termlab.sftp.vfs.SftpUrl;
 import com.intellij.ide.util.PropertiesComponent;
-import com.intellij.notification.Notification;
 import com.intellij.notification.NotificationType;
-import com.intellij.notification.Notifications;
 import com.intellij.openapi.editor.Document;
 import com.intellij.openapi.fileEditor.FileDocumentManager;
 import com.intellij.openapi.fileEditor.FileEditorManager;
@@ -126,8 +125,7 @@ final class SaveAsHelper {
     }
 
     private static void notify(@NotNull Project project, @NotNull String message, @NotNull NotificationType type) {
-        Notifications.Bus.notify(
-            new Notification(NOTIFICATION_GROUP, "Save As", message, type), project);
+        TermLabNotifier.notify(project, NOTIFICATION_GROUP, "Save As", message, type);
     }
 
     private static void notifyError(@NotNull Project project, @NotNull String message) {

@@ -1,5 +1,6 @@
 package com.termlab.editor.sftp;
 
+import com.termlab.core.notifications.TermLabNotifier;
 import com.termlab.editor.guard.BinarySniffer;
 import com.termlab.editor.guard.OpenGuards;
 import com.termlab.sftp.client.SshSftpSession;
@@ -7,9 +8,7 @@ import com.termlab.sftp.model.RemoteFileEntry;
 import com.termlab.sftp.spi.RemoteFileOpener;
 import com.termlab.sftp.vfs.SftpUrl;
 import com.termlab.ssh.model.SshHost;
-import com.intellij.notification.Notification;
 import com.intellij.notification.NotificationType;
-import com.intellij.notification.Notifications;
 import com.intellij.openapi.fileEditor.FileEditorManager;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.vfs.VirtualFile;
@@ -55,8 +54,6 @@ public final class EditorRemoteFileOpener implements RemoteFileOpener {
     }
 
     private static void notifyError(@NotNull Project project, @NotNull String message) {
-        Notifications.Bus.notify(
-            new Notification(NOTIFICATION_GROUP, "SFTP", message, NotificationType.ERROR),
-            project);
+        TermLabNotifier.notify(project, NOTIFICATION_GROUP, "SFTP", message, NotificationType.ERROR);
     }
 }

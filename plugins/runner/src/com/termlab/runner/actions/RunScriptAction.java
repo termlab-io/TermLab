@@ -1,9 +1,9 @@
 package com.termlab.runner.actions;
 
+import com.termlab.core.notifications.TermLabNotifier;
 import com.intellij.notification.Notification;
 import com.intellij.notification.NotificationAction;
 import com.intellij.notification.NotificationType;
-import com.intellij.notification.Notifications;
 import com.intellij.openapi.actionSystem.ActionUpdateThread;
 import com.intellij.openapi.actionSystem.AnAction;
 import com.intellij.openapi.actionSystem.AnActionEvent;
@@ -289,7 +289,7 @@ public final class RunScriptAction extends AnAction {
                 revealOutput(project, filename, hostLabel);
                 notification.expire();
             }));
-            Notifications.Bus.notify(notification, project);
+            TermLabNotifier.notify(project, notification);
         }));
     }
 
@@ -335,7 +335,7 @@ public final class RunScriptAction extends AnAction {
     }
 
     private static void notify(@NotNull Project project, @NotNull String message, @NotNull NotificationType type) {
-        Notifications.Bus.notify(new Notification(NOTIFICATION_GROUP, "Script Runner", message, type), project);
+        TermLabNotifier.notify(project, NOTIFICATION_GROUP, "Script Runner", message, type);
     }
 
     private static @Nullable VirtualFile activeFile(@NotNull AnActionEvent e) {

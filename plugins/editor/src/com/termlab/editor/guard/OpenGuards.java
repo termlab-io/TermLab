@@ -1,8 +1,7 @@
 package com.termlab.editor.guard;
 
-import com.intellij.notification.Notification;
+import com.termlab.core.notifications.TermLabNotifier;
 import com.intellij.notification.NotificationType;
-import com.intellij.notification.Notifications;
 import com.intellij.openapi.project.Project;
 import org.jetbrains.annotations.NotNull;
 
@@ -34,8 +33,6 @@ public final class OpenGuards {
     }
 
     private static void notify(@NotNull Project project, @NotNull String message) {
-        Notifications.Bus.notify(
-            new Notification(NOTIFICATION_GROUP, "TermLab Editor", message, NotificationType.ERROR),
-            project);
+        TermLabNotifier.notify(project, NOTIFICATION_GROUP, "TermLab Editor", message, NotificationType.ERROR);
     }
 }

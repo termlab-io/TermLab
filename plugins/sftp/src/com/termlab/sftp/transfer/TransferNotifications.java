@@ -1,7 +1,7 @@
 package com.termlab.sftp.transfer;
 
+import com.termlab.core.notifications.TermLabNotifier;
 import com.intellij.notification.Notification;
-import com.intellij.notification.NotificationGroupManager;
 import com.intellij.notification.NotificationType;
 import com.intellij.openapi.project.Project;
 import org.jetbrains.annotations.NotNull;
@@ -67,10 +67,7 @@ public final class TransferNotifications {
         @NotNull String content,
         @NotNull NotificationType type
     ) {
-        Notification notification = NotificationGroupManager.getInstance()
-            .getNotificationGroup(GROUP_ID)
-            .createNotification(title, content, type);
-        notification.notify(project);
+        TermLabNotifier.notify(project, GROUP_ID, title, content, type);
     }
 
     private static @NotNull String formatSummary(@NotNull TransferResult result) {

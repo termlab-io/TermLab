@@ -7,6 +7,7 @@ import com.intellij.notification.Notification;
 import com.intellij.notification.NotificationAction;
 import com.intellij.notification.NotificationGroupManager;
 import com.intellij.notification.NotificationType;
+import com.termlab.core.notifications.TermLabNotifier;
 import com.intellij.openapi.actionSystem.ActionUpdateThread;
 import com.intellij.openapi.actionSystem.AnAction;
 import com.intellij.openapi.actionSystem.AnActionEvent;
@@ -408,7 +409,7 @@ public final class FileSearchContributor implements SearchEverywhereContributor<
                     + ". Install ripgrep for much faster indexing.",
                 NotificationType.INFORMATION);
         notification.addAction(NotificationAction.createSimple("Don't show again", () -> filter.dismissHint(hintKey)));
-        notification.notify(project);
+        TermLabNotifier.notify(project, notification);
     }
 
     private static int countResults(@NotNull List<FileHit> hits) {
