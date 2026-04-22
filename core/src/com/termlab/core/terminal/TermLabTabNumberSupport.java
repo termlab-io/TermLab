@@ -2,6 +2,7 @@ package com.termlab.core.terminal;
 
 import com.intellij.openapi.fileEditor.ex.FileEditorManagerEx;
 import com.intellij.openapi.fileEditor.impl.EditorWindow;
+import com.intellij.openapi.keymap.KeymapUtil;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.util.SystemInfo;
 import com.intellij.openapi.vfs.VirtualFile;
@@ -10,6 +11,7 @@ import org.jetbrains.annotations.Nullable;
 
 public final class TermLabTabNumberSupport {
     public static final int MAX_SHORTCUT_TABS = 9;
+    public static final String SELECT_TAB_ACTION_ID_PREFIX = "TermLab.SelectTerminalTab";
 
     private TermLabTabNumberSupport() {}
 
@@ -68,6 +70,10 @@ public final class TermLabTabNumberSupport {
     }
 
     public static @NotNull String formatShortcutHint(int tabNumber) {
+        String configured = KeymapUtil.getFirstKeyboardShortcutText(SELECT_TAB_ACTION_ID_PREFIX + tabNumber);
+        if (!configured.isEmpty()) {
+            return configured;
+        }
         return SystemInfo.isMac ? "\u2318" + tabNumber : "Ctrl+" + tabNumber;
     }
 

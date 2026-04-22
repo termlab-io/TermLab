@@ -278,6 +278,15 @@
                   topic="com.intellij.openapi.actionSystem.ex.AnActionListener"/>
         <listener class="com.termlab.core.terminal.TermLabDistractionFreeModeListener"
                   topic="com.intellij.openapi.actionSystem.ex.AnActionListener"/>
+
+        <!--
+          Refreshes editor tab presentations when the active keymap or
+          any TermLab tab-select shortcut changes, so the per-tab
+          shortcut hint rendered by TermLabEditorTabTitleProvider stays
+          in sync with the user's current bindings.
+        -->
+        <listener class="com.termlab.core.terminal.TermLabKeymapChangeListener"
+                  topic="com.intellij.openapi.keymap.KeymapManagerListener"/>
     </applicationListeners>
 
     <projectListeners>
