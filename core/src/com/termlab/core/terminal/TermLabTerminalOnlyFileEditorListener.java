@@ -21,6 +21,7 @@ public final class TermLabTerminalOnlyFileEditorListener implements FileEditorMa
     @Override
     public void fileOpened(@NotNull FileEditorManager source, @NotNull VirtualFile file) {
         TermLabTabBarManager.applyPreferredTabSettings(source.getProject());
+        TermLabMultiExecManager.getInstance(source.getProject()).onSelectionChanged(file);
 
         if (file instanceof TermLabTerminalVirtualFile) {
             scheduleConsistentFloatingWindowSize(source, file);
@@ -40,11 +41,13 @@ public final class TermLabTerminalOnlyFileEditorListener implements FileEditorMa
     @Override
     public void fileClosed(@NotNull FileEditorManager source, @NotNull VirtualFile file) {
         TermLabTabBarManager.schedulePreferredTabSettings(source.getProject());
+        TermLabMultiExecManager.getInstance(source.getProject()).onFileClosed(file);
     }
 
     @Override
     public void selectionChanged(@NotNull FileEditorManagerEvent event) {
         TermLabTabBarManager.schedulePreferredTabSettings(event.getManager().getProject());
+        TermLabMultiExecManager.getInstance(event.getManager().getProject()).onSelectionChanged(event.getNewFile());
     }
 
     private static void scheduleConsistentFloatingWindowSize(@NotNull FileEditorManager source,

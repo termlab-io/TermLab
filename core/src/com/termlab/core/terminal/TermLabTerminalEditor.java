@@ -32,6 +32,8 @@ import com.intellij.openapi.vfs.VirtualFile;
 import javax.swing.*;
 import java.awt.event.ComponentAdapter;
 import java.awt.event.ComponentEvent;
+import java.awt.event.FocusAdapter;
+import java.awt.event.FocusEvent;
 import java.awt.event.HierarchyEvent;
 import java.awt.event.HierarchyListener;
 import java.awt.datatransfer.DataFlavor;
@@ -40,12 +42,14 @@ import java.beans.PropertyChangeListener;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.awt.BorderLayout;
 
 public final class TermLabTerminalEditor extends UserDataHolderBase implements FileEditor {
     private final Project project;
     private final TermLabTerminalVirtualFile file;
     private final TermLabTerminalVirtualFile.SharedTerminalSession session;
     private final TermLabTerminalWidget terminalWidget;
+    private final JPanel rootPanel;
     private final com.intellij.util.messages.MessageBusConnection messageBusConnection;
     private final TtyConnector connector;
     private final ActionGroup tabActions;
@@ -68,6 +72,12 @@ public final class TermLabTerminalEditor extends UserDataHolderBase implements F
             scheduleTerminalResize();
         }
     };
+    private final FocusAdapter focusListener = new FocusAdapter() {
+        @Override
+        public void focusGained(FocusEvent e) {
+            TermLabMultiExecManager.getInstance(project).onTerminalFocused(file);
+        }
+    };
     private boolean resizeQueued;
 
     public TermLabTerminalEditor(@NotNull Project project,
@@ -79,14 +89,17 @@ public final class TermLabTerminalEditor extends UserDataHolderBase implements F
         this.connector = session.getConnector();
         this.messageBusConnection = ApplicationManager.getApplication().getMessageBus().connect();
         this.tabActions = new DefaultActionGroup(new SelectTabNumberHintAction(project, file));
+        this.rootPanel = new JPanel(new BorderLayout());
+        rootPanel.add(terminalWidget, BorderLayout.CENTER);
         installAppearanceListeners();
         applyTerminalAppearance();
         installFileDropHandler();
         installResizeListeners();
+        installFocusListeners();
         scheduleTerminalResize();
     }
 
-    @Override public @NotNull JComponent getComponent() { return terminalWidget; }
+    @Override public @NotNull JComponent getComponent() { return rootPanel; }
     @Override public @Nullable JComponent getPreferredFocusedComponent() { return terminalWidget; }
     @Override public @NotNull String getName() { return "Terminal"; }
     @Override public boolean isModified() { return false; }
@@ -101,8 +114,10 @@ public final class TermLabTerminalEditor extends UserDataHolderBase implements F
     public void dispose() {
         terminalWidget.removeComponentListener(resizeListener);
         terminalWidget.removeHierarchyListener(hierarchyListener);
+        terminalWidget.removeFocusListener(focusListener);
         terminalWidget.getTerminalPanel().removeComponentListener(resizeListener);
         terminalWidget.getTerminalPanel().removeHierarchyListener(hierarchyListener);
+        terminalWidget.getTerminalPanel().removeFocusListener(focusListener);
         messageBusConnection.disconnect();
         session.release();
     }
@@ -144,11 +159,19 @@ public final class TermLabTerminalEditor extends UserDataHolderBase implements F
     public @NotNull TermLabTerminalVirtualFile getTerminalFile() { return file; }
     public @NotNull JediTermWidget getTerminalWidget() { return terminalWidget; }
 
+    public void refreshMultiExecHeader() {
+    }
+
     private void installResizeListeners() {
         terminalWidget.addComponentListener(resizeListener);
         terminalWidget.addHierarchyListener(hierarchyListener);
         terminalWidget.getTerminalPanel().addComponentListener(resizeListener);
         terminalWidget.getTerminalPanel().addHierarchyListener(hierarchyListener);
+    }
+
+    private void installFocusListeners() {
+        terminalWidget.addFocusListener(focusListener);
+        terminalWidget.getTerminalPanel().addFocusListener(focusListener);
     }
 
     private void scheduleTerminalResize() {
@@ -252,7 +275,7 @@ public final class TermLabTerminalEditor extends UserDataHolderBase implements F
 
         @Override
         public @NotNull ActionUpdateThread getActionUpdateThread() {
-            return ActionUpdateThread.BGT;
+            return ActionUpdateThread.EDT;
         }
     }
 }

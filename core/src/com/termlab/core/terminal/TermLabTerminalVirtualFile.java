@@ -124,7 +124,7 @@ public final class TermLabTerminalVirtualFile extends LightVirtualFile {
         private SharedTerminalSession(@NotNull Project project, @NotNull TermLabTerminalVirtualFile file) {
             this.project = project;
             this.file = file;
-            this.widget = new TermLabTerminalWidget(new TermLabTerminalSettings());
+            this.widget = new TermLabTerminalWidget(new TermLabTerminalSettings(), project, file);
 
             TerminalSessionProvider.SessionContext context = file.getSessionContext();
             TtyConnector rawConnector = file.getProvider().createSession(context);

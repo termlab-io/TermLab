@@ -200,6 +200,9 @@ public final class TermLabActionConfigurationCustomizer implements ActionConfigu
         // along with the platform ones.
         clearGroup(actionManager, "EditorTabPopupMenu");
         addToGroupIfPresent(actionManager, "EditorTabPopupMenu", "TermLab.RenameTerminalTab");
+        addToGroupIfPresent(actionManager, "EditorTabPopupMenu", "TermLab.DisableTerminalFromMultiExec");
+        addToGroupIfPresent(actionManager, "EditorTabPopupMenu", "TermLab.EnableTerminalForMultiExec");
+        addToGroupIfPresent(actionManager, "EditorTabPopupMenu", "TermLab.ExitMultiExec");
 
         clearGroup(actionManager, "FileOpenGroup");
         for (String menuId : UNWANTED_MAIN_MENU_IDS) {

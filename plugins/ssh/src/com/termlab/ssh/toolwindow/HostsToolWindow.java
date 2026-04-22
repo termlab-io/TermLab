@@ -1,14 +1,17 @@
 package com.termlab.ssh.toolwindow;
 
+import com.termlab.core.terminal.TermLabMultiExecManager;
 import com.termlab.ssh.actions.ConnectToHostAction;
 import com.termlab.ssh.model.HostStore;
 import com.termlab.ssh.model.SshHost;
 import com.termlab.ssh.ui.HostEditDialog;
 import com.intellij.icons.AllIcons;
+import com.intellij.openapi.actionSystem.ActionUpdateThread;
 import com.intellij.openapi.actionSystem.ActionToolbar;
 import com.intellij.openapi.actionSystem.AnAction;
 import com.intellij.openapi.actionSystem.AnActionEvent;
 import com.intellij.openapi.actionSystem.DefaultActionGroup;
+import com.intellij.openapi.actionSystem.ToggleAction;
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.ui.Messages;
@@ -146,6 +149,8 @@ public final class HostsToolWindow extends JPanel {
         group.add(new DeleteHostAction());
         group.addSeparator();
         group.add(new RefreshAction());
+        group.addSeparator();
+        group.add(new MultiExecAction());
 
         ActionToolbar toolbar = com.intellij.openapi.actionSystem.ActionManager.getInstance()
             .createActionToolbar("HostsToolbar", group, true);
@@ -283,6 +288,40 @@ public final class HostsToolWindow extends JPanel {
     private final class RefreshAction extends AnAction {
         RefreshAction() { super("Refresh", "Reload hosts from disk", AllIcons.Actions.Refresh); }
         @Override public void actionPerformed(@NotNull AnActionEvent e) { reloadFromDisk(); }
+    }
+
+    private final class MultiExecAction extends ToggleAction {
+        MultiExecAction() {
+            super("MultiExec", "Broadcast input to all open SSH sessions in the active editor window", null);
+        }
+
+        @Override
+        public boolean isSelected(@NotNull AnActionEvent e) {
+            return TermLabMultiExecManager.getInstance(project).isActive();
+        }
+
+        @Override
+        public void setSelected(@NotNull AnActionEvent e, boolean state) {
+            TermLabMultiExecManager manager = TermLabMultiExecManager.getInstance(project);
+            if (state != manager.isActive()) {
+                manager.toggleFromActiveWindow();
+            } else if (!state && manager.isActive()) {
+                manager.deactivate();
+            }
+        }
+
+        @Override
+        public void update(@NotNull AnActionEvent e) {
+            super.update(e);
+            TermLabMultiExecManager manager = TermLabMultiExecManager.getInstance(project);
+            e.getPresentation().setEnabled(manager.isActive() || manager.canActivateFromActiveWindow());
+            e.getPresentation().setVisible(true);
+        }
+
+        @Override
+        public @NotNull ActionUpdateThread getActionUpdateThread() {
+            return ActionUpdateThread.EDT;
+        }
     }
 
     // Access for tests / the factory.

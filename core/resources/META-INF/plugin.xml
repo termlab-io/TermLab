@@ -108,6 +108,9 @@
         <projectService
             serviceImplementation="com.termlab.core.workspace.WorkspaceManager"/>
 
+        <projectService
+            serviceImplementation="com.termlab.core.terminal.TermLabMultiExecManager"/>
+
         <!-- TermLab intentionally suppresses plugin-advertiser prompts.
              This prevents marketplace-style notifications such as
              "Plugin ... supporting run configuration ... is not installed". -->
@@ -405,6 +408,21 @@
                 description="Rename the current terminal tab">
             <keyboard-shortcut keymap="$default" first-keystroke="F2"/>
         </action>
+
+        <action id="TermLab.DisableTerminalFromMultiExec"
+                class="com.termlab.core.actions.DisableTerminalFromMultiExecAction"
+                text="Disable This Terminal from MultiExec Mode"
+                description="Exclude this SSH terminal from MultiExec broadcasting"/>
+
+        <action id="TermLab.EnableTerminalForMultiExec"
+                class="com.termlab.core.actions.EnableTerminalForMultiExecAction"
+                text="Enable This Terminal for MultiExec Mode"
+                description="Include this SSH terminal in MultiExec broadcasting"/>
+
+        <action id="TermLab.ExitMultiExec"
+                class="com.termlab.core.actions.ExitMultiExecAction"
+                text="Exit Multi-execution Mode"
+                description="Return to the previous editor layout and single-terminal control"/>
 
         <action id="TermLab.SelectTerminalTab1"
                 class="com.termlab.core.actions.SelectTerminalTabByNumberAction"

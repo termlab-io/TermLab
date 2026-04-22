@@ -1,5 +1,6 @@
 package com.termlab.core.terminal;
 
+import com.intellij.openapi.project.Project;
 import com.jediterm.terminal.CursorShape;
 import com.jediterm.terminal.TerminalDisplay;
 import com.jediterm.terminal.TerminalStarter;
@@ -41,10 +42,20 @@ import java.lang.reflect.Method;
 public class TermLabTerminalWidget extends JediTermWidget {
     private static final String BRACKETED_PASTE_PREFIX = "\u001b[200~";
     private static final String BRACKETED_PASTE_SUFFIX = "\u001b[201~";
+    private final @Nullable Project project;
+    private final @Nullable TermLabTerminalVirtualFile sourceFile;
     private StyleState styleState;
 
     public TermLabTerminalWidget(SettingsProvider settingsProvider) {
+        this(settingsProvider, null, null);
+    }
+
+    public TermLabTerminalWidget(SettingsProvider settingsProvider,
+                                 @Nullable Project project,
+                                 @Nullable TermLabTerminalVirtualFile sourceFile) {
         super(settingsProvider);
+        this.project = project;
+        this.sourceFile = sourceFile;
     }
 
     @Override
@@ -58,6 +69,8 @@ public class TermLabTerminalWidget extends JediTermWidget {
                                                      @NotNull TtyConnector connector) {
         return new TermLabTerminalStarter(
             terminal,
+            project,
+            sourceFile,
             connector,
             new TtyBasedArrayDataStream(connector, getTypeAheadManager()::onTerminalStateChanged),
             getTypeAheadManager(),
