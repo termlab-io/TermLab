@@ -10,6 +10,8 @@ import com.intellij.openapi.actionSystem.DefaultActionGroup;
 import com.intellij.openapi.editor.colors.EditorColorsListener;
 import com.intellij.openapi.editor.colors.EditorColorsManager;
 import com.intellij.openapi.editor.colors.EditorColorsScheme;
+import com.intellij.ide.ui.UISettings;
+import com.intellij.ide.ui.UISettingsListener;
 import com.intellij.openapi.fileEditor.FileEditor;
 import com.intellij.openapi.fileEditor.FileEditorManager;
 import com.intellij.openapi.fileEditor.FileEditorState;
@@ -126,19 +128,31 @@ public final class TermLabTerminalEditor extends UserDataHolderBase implements F
         messageBusConnection.subscribe(EditorColorsManager.TOPIC, new EditorColorsListener() {
             @Override
             public void globalSchemeChange(@Nullable EditorColorsScheme scheme) {
-                ApplicationManager.getApplication().invokeLater(() -> {
-                    if (project.isDisposed()) {
-                        return;
-                    }
-                    applyTerminalAppearance();
-                });
+                scheduleAppearanceRefresh();
+            }
+        });
+        messageBusConnection.subscribe(UISettingsListener.TOPIC, new UISettingsListener() {
+            @Override
+            public void uiSettingsChanged(@NotNull UISettings uiSettings) {
+                scheduleAppearanceRefresh();
             }
         });
     }
 
     private void applyTerminalAppearance() {
         terminalWidget.refreshAppearance();
+        terminalWidget.refreshFontMetrics();
         applyCursorShape();
+    }
+
+    private void scheduleAppearanceRefresh() {
+        ApplicationManager.getApplication().invokeLater(() -> {
+            if (project.isDisposed()) {
+                return;
+            }
+            applyTerminalAppearance();
+            scheduleTerminalResize();
+        });
     }
 
     private void applyCursorShape() {

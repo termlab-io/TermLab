@@ -1,6 +1,7 @@
 package com.termlab.core.terminal;
 
 import com.termlab.core.settings.TermLabTerminalConfig;
+import com.intellij.ide.ui.UISettingsUtils;
 import com.intellij.execution.process.ColoredOutputTypeRegistryImpl;
 import com.intellij.execution.ui.ConsoleViewContentType;
 import com.intellij.openapi.editor.colors.TextAttributesKey;
@@ -102,14 +103,8 @@ public final class TermLabTerminalSettings extends DefaultSettingsProvider {
     public @NotNull Font getTerminalFont() {
         TermLabTerminalConfig.State s = TermLabTerminalConfig.getInstance().getState();
         EditorColorsScheme scheme = EditorColorsManager.getInstance().getGlobalScheme();
-        FontPreferences prefs = scheme.getConsoleFontPreferences();
-        String family = prefs.getFontFamily();
-        if (family == null || family.isEmpty()) {
-            family = bestMonospace();
-        }
-
-        int size = scheme.getConsoleFontSize();
-        Font font = new Font(family, Font.PLAIN, size);
+        Font font = scheme.getFont(com.intellij.openapi.editor.colors.EditorFontType.CONSOLE_PLAIN)
+            .deriveFont(getTerminalFontSize());
 
         if (Math.abs(s.characterSpacing) > 0.001f) {
             java.util.Map<java.awt.font.TextAttribute, Object> attrs = new java.util.HashMap<>(font.getAttributes());
@@ -127,7 +122,8 @@ public final class TermLabTerminalSettings extends DefaultSettingsProvider {
         if (family == null || family.isEmpty()) {
             family = bestMonospace();
         }
-        return prefs.hasSize(family) ? prefs.getSize(family) : scheme.getConsoleFontSize();
+        float baseSize = prefs.hasSize(family) ? prefs.getSize2D(family) : scheme.getConsoleFontSize2D();
+        return UISettingsUtils.getInstance().scaleFontSize(baseSize);
     }
 
     @Override

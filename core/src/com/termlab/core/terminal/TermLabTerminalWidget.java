@@ -100,6 +100,12 @@ public class TermLabTerminalWidget extends JediTermWidget {
         myTerminalPanel.repaint();
     }
 
+    public void refreshFontMetrics() {
+        if (myTerminalPanel instanceof TermLabTerminalPanel panel) {
+            panel.refreshFontMetrics();
+        }
+    }
+
     /**
      * {@link JediTerminal} subclass that fixes upstream JediTerm's
      * dropped right-click mouse reporting. In JediTerm 3.64,
@@ -197,6 +203,10 @@ public class TermLabTerminalWidget extends JediTermWidget {
                            @NotNull StyleState styleState) {
             super(settings, buffer, styleState);
             this.settingsProvider = settings;
+        }
+
+        void refreshFontMetrics() {
+            reinitFontAndResize();
         }
 
         @Override
