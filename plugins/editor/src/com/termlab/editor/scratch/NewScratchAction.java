@@ -77,7 +77,7 @@ public final class NewScratchAction extends AnAction implements DumbAware {
 
     private static void createAndOpen(@NotNull Project project, @NotNull ScratchOption option) {
         int n = ScratchCounter.next();
-        String filename = "scratch-" + n + option.extension();
+        String filename = "untitled-" + n + option.extension();
         VirtualFile file = createScratchFile(project, filename);
         if (file == null) {
             return;
