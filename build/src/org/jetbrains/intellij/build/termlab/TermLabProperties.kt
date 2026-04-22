@@ -15,7 +15,7 @@ import org.jetbrains.intellij.build.macCustomizer
 import org.jetbrains.intellij.build.productLayout.CoreModuleSets
 import org.jetbrains.intellij.build.productLayout.ProductModulesContentSpec
 import org.jetbrains.intellij.build.productLayout.productModules
-import org.jetbrains.intellij.build.windowsCustomizer
+import java.nio.file.Files
 import java.nio.file.Path
 import kotlin.io.path.exists
 
@@ -177,11 +177,23 @@ class TermLabProperties(private val communityHomeDir: Path) : JetBrainsProductPr
   }
 
   override fun createWindowsCustomizer(projectHome: Path): WindowsDistributionCustomizer =
-    windowsCustomizer(projectHome) {
-      icoPath = "termlab/customization/resources/termlab.ico"
-      installerImagesPath = "termlab/customization/resources/win"
-      fullName { "TermLab" }
-      fullNameAndVendor { "TermLab" }
+    object : WindowsDistributionCustomizer() {
+      init {
+        icoPath = projectHome.resolve("termlab/customization/resources/termlab.ico")
+        installerImagesPath = projectHome.resolve("termlab/customization/resources/win")
+      }
+
+      override fun getFullNameIncludingEdition(appInfo: ApplicationInfoProperties): String {
+        return packagedProductName(appInfo)
+      }
+
+      override fun getFullNameIncludingEditionAndVendor(appInfo: ApplicationInfoProperties): String {
+        return packagedProductName(appInfo)
+      }
+
+      override fun getNameForInstallDirAndDesktopShortcut(appInfo: ApplicationInfoProperties, buildNumber: String): String {
+        return packagedProductName(appInfo)
+      }
     }
 
   override fun createLinuxCustomizer(projectHome: String): LinuxDistributionCustomizer =
@@ -193,12 +205,14 @@ class TermLabProperties(private val communityHomeDir: Path) : JetBrainsProductPr
     macCustomizer(projectHome) {
       icnsPath = "termlab/customization/resources/termlab.icns"
       bundleIdentifier = "com.termlab.terminal"
+      rootDirectoryName { appInfo, _ -> "${packagedProductName(appInfo)}.app" }
       // Multi-resolution TIFF (455x296 1x + 910x592 2x retina) with
       // the TermLab palette + "Drag to Applications" hint. Required for
       // MAC_DMG_STEP — without it the DMG build fails with
       // "Path to background image for DMG is not specified".
       dmgImagePath = "termlab/customization/resources/mac/dmg_background.tiff"
       copyAdditionalFiles { targetDir, _, context ->
+        normalizeMacBundleName(targetDir.resolve("Info.plist"), context.applicationInfo)
         if (!context.isMacCodeSignEnabled) {
           val baseFileName = context.productProperties.baseFileName
           removeMacSignatureIfPresent(targetDir.resolve("MacOS/$baseFileName"))
@@ -216,6 +230,27 @@ class TermLabProperties(private val communityHomeDir: Path) : JetBrainsProductPr
   }
 
   override fun getOutputDirectoryName(appInfo: ApplicationInfoProperties): String = "termlab"
+}
+
+private fun packagedProductName(appInfo: ApplicationInfoProperties): String {
+  return if (appInfo.isEAP) "TermLab EAP" else "TermLab"
+}
+
+private fun normalizeMacBundleName(infoPlistPath: Path, appInfo: ApplicationInfoProperties) {
+  if (!appInfo.isEAP || !infoPlistPath.exists()) {
+    return
+  }
+
+  val currentName = "${appInfo.fullProductName}-EAP"
+  val desiredName = packagedProductName(appInfo)
+  val original = Files.readString(infoPlistPath)
+  val updated = original.replace(
+    "<string>$currentName</string>",
+    "<string>$desiredName</string>",
+  )
+  if (updated != original) {
+    Files.writeString(infoPlistPath, updated)
+  }
 }
 
 private fun removeMacSignatureIfPresent(path: Path) {
