@@ -80,6 +80,14 @@ final class VaultGson {
                     if (kp.passphrase() != null) obj.addProperty("passphrase", kp.passphrase());
                     obj.addProperty("password", kp.password());
                 }
+                case AuthMethod.ApiToken token -> {
+                    obj.addProperty("type", "apiToken");
+                    obj.addProperty("token", token.token());
+                }
+                case AuthMethod.SecureNote note -> {
+                    obj.addProperty("type", "secureNote");
+                    obj.addProperty("note", note.note());
+                }
             }
             return obj;
         }
@@ -102,6 +110,8 @@ final class VaultGson {
                     obj.has("passphrase") ? obj.get("passphrase").getAsString() : null,
                     obj.get("password").getAsString()
                 );
+                case "apiToken" -> new AuthMethod.ApiToken(obj.get("token").getAsString());
+                case "secureNote" -> new AuthMethod.SecureNote(obj.get("note").getAsString());
                 default -> throw new com.google.gson.JsonParseException("unknown AuthMethod type: " + type);
             };
         }

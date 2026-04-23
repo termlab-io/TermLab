@@ -1,0 +1,64 @@
+load("@rules_java//java:defs.bzl", "java_binary")
+load("@rules_jvm//:jvm.bzl", "jvm_library", "resourcegroup")
+
+resourcegroup(
+    name = "proxmox_resources",
+    srcs = glob(["resources/**/*"]),
+    strip_prefix = "resources",
+)
+
+jvm_library(
+    name = "proxmox",
+    module_name = "intellij.termlab.proxmox",
+    visibility = ["//visibility:public"],
+    srcs = glob(["src/**/*.java"], allow_empty = True),
+    resources = [":proxmox_resources"],
+    deps = [
+        "//termlab/core",
+        "//termlab/sdk",
+        "//platform/core-api:core",
+        "//platform/core-ui",
+        "//platform/editor-ui-api:editor-ui",
+        "//platform/ide-core",
+        "//platform/platform-api:ide",
+        "//platform/platform-impl:ide-impl",
+        "//platform/projectModel-api:projectModel",
+        "//platform/util",
+        "//platform/util:util-ui",
+        "@lib//:gson",
+        "@lib//:jetbrains-annotations",
+        "@lib//:kotlin-stdlib",
+    ],
+)
+
+jvm_library(
+    name = "proxmox_test_lib",
+    module_name = "intellij.termlab.proxmox.tests",
+    visibility = ["//visibility:public"],
+    srcs = glob(["test/**/*.java"], allow_empty = True),
+    deps = [
+        ":proxmox",
+        "//termlab/sdk",
+        "//libraries/junit5",
+        "//libraries/junit5-jupiter",
+        "//libraries/junit5-launcher",
+        "//platform/core-api:core",
+        "//platform/editor-ui-api:editor-ui",
+        "//platform/util",
+        "@lib//:gson",
+        "@lib//:jetbrains-annotations",
+        "@lib//:kotlin-stdlib",
+    ],
+)
+
+java_binary(
+    name = "proxmox_test_runner",
+    main_class = "com.termlab.proxmox.TestRunner",
+    runtime_deps = [
+        ":proxmox_test_lib",
+        "//libraries/junit5-jupiter",
+        "//libraries/junit5-launcher",
+    ],
+)
+
+exports_files(["intellij.termlab.proxmox.iml"], visibility = ["//visibility:public"])

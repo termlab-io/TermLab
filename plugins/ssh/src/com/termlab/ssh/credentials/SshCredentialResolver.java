@@ -144,6 +144,8 @@ public final class SshCredentialResolver {
                     pw.clone()
                 );
             }
+            case API_TOKEN -> null;
+            case SECURE_NOTE -> null;
         };
     }
 

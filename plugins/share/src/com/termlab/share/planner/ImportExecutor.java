@@ -139,6 +139,8 @@ public final class ImportExecutor {
     private static VaultAccount rewriteAccountPaths(VaultAccount account, Map<UUID, String> materializedPaths) {
         AuthMethod rewritten = switch (account.auth()) {
             case AuthMethod.Password password -> password;
+            case AuthMethod.ApiToken token -> token;
+            case AuthMethod.SecureNote note -> note;
             case AuthMethod.Key key -> new AuthMethod.Key(
                 rewriteIfSentinel(key.keyPath(), materializedPaths),
                 key.passphrase()

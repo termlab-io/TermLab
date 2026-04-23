@@ -45,6 +45,7 @@ class TermLabProperties(private val communityHomeDir: Path) : JetBrainsProductPr
       "intellij.termlab.runner",
       "intellij.termlab.search",
       "intellij.termlab.sysinfo",
+      "intellij.termlab.proxmox",
       "intellij.classic.ui",
       "intellij.textmate.plugin",
     )
@@ -60,6 +61,7 @@ class TermLabProperties(private val communityHomeDir: Path) : JetBrainsProductPr
     //   vault (← core)
     //   ssh   (← core, vault)
     //   tunnels (← core, ssh, vault)
+    //   proxmox (← core, vault credentials via extension point)
     //
     // Library placement:
     //   - intellij.termlab.sdk           → core    (parent of everyone)

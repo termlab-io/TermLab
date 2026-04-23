@@ -57,6 +57,8 @@ final class VaultAccountCellRenderer extends JPanel implements ListCellRenderer<
             case AuthMethod.Password ignored -> "password";
             case AuthMethod.Key k -> "key: " + shortPath(k.keyPath());
             case AuthMethod.KeyAndPassword kp -> "key+pw: " + shortPath(kp.keyPath());
+            case AuthMethod.ApiToken ignored -> "api key";
+            case AuthMethod.SecureNote ignored -> "secure note";
         };
     }
 

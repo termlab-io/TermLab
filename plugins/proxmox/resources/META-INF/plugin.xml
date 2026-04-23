@@ -1,0 +1,27 @@
+<idea-plugin>
+    <id>com.termlab.proxmox</id>
+    <name>Proxmox</name>
+    <version>0.1.0</version>
+    <vendor>TermLab</vendor>
+    <description>
+        Proxmox VE manager for TermLab.
+    </description>
+
+    <depends>com.intellij.modules.platform</depends>
+    <depends>com.termlab.core</depends>
+
+    <extensions defaultExtensionNs="com.intellij">
+        <notificationGroup
+            id="TermLab Proxmox"
+            displayType="BALLOON"
+            toolWindowId="Proxmox"/>
+
+        <applicationService serviceImplementation="com.termlab.proxmox.model.PveClusterStore"/>
+
+        <toolWindow
+            id="Proxmox"
+            anchor="bottom"
+            icon="AllIcons.Nodes.DataTables"
+            factoryClass="com.termlab.proxmox.toolwindow.ProxmoxToolWindowFactory"/>
+    </extensions>
+</idea-plugin>

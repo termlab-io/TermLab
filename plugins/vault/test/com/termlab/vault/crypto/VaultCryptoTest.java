@@ -45,6 +45,50 @@ class VaultCryptoTest {
     }
 
     @Test
+    void roundTrip_apiToken() throws Exception {
+        Vault original = new Vault();
+        original.accounts.add(new VaultAccount(
+            UUID.randomUUID(),
+            "Proxmox Token",
+            "root@pam!termlab",
+            new AuthMethod.ApiToken("pve-secret"),
+            Instant.now(),
+            Instant.now()
+        ));
+
+        Vault decrypted = VaultCrypto.decrypt(
+            VaultCrypto.encrypt(original, "master password".getBytes()),
+            "master password".getBytes()
+        );
+
+        AuthMethod auth = decrypted.accounts.get(0).auth();
+        assertInstanceOf(AuthMethod.ApiToken.class, auth);
+        assertEquals("pve-secret", ((AuthMethod.ApiToken) auth).token());
+    }
+
+    @Test
+    void roundTrip_secureNote() throws Exception {
+        Vault original = new Vault();
+        original.accounts.add(new VaultAccount(
+            UUID.randomUUID(),
+            "Recovery Codes",
+            "",
+            new AuthMethod.SecureNote("one\ntwo"),
+            Instant.now(),
+            Instant.now()
+        ));
+
+        Vault decrypted = VaultCrypto.decrypt(
+            VaultCrypto.encrypt(original, "master password".getBytes()),
+            "master password".getBytes()
+        );
+
+        AuthMethod auth = decrypted.accounts.get(0).auth();
+        assertInstanceOf(AuthMethod.SecureNote.class, auth);
+        assertEquals("one\ntwo", ((AuthMethod.SecureNote) auth).note());
+    }
+
+    @Test
     void decrypt_wrongPassword_throws() {
         Vault v = new Vault();
         byte[] encrypted = VaultCrypto.encrypt(v, "right password".getBytes());

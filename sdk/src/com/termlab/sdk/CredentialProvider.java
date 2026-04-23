@@ -72,6 +72,11 @@ public interface CredentialProvider {
      * returns a {@link Credential} with {@code username} set and
      * {@code authMethod} matching the kind.
      *
+     * <p>For descriptors of kind {@link Kind#API_TOKEN}: returns a
+     * {@link Credential} with {@code username} set to the token identifier
+     * (for example {@code user@realm!tokenid}) and {@code password} set to
+     * the token secret.
+     *
      * <p>For descriptors of kind {@link Kind#SSH_KEY}: returns a
      * {@link Credential} with {@code authMethod=KEY}, {@code username=null}
      * (the consumer should prompt for it), {@code keyPath} set, and
@@ -110,6 +115,8 @@ public interface CredentialProvider {
      *   <li>{@link #ACCOUNT_PASSWORD} — username + password</li>
      *   <li>{@link #ACCOUNT_KEY} — username + SSH key (referenced by path)</li>
      *   <li>{@link #ACCOUNT_KEY_AND_PASSWORD} — username + key + password</li>
+     *   <li>{@link #API_TOKEN} — token identifier + secret</li>
+     *   <li>{@link #SECURE_NOTE} — encrypted note text</li>
      *   <li>{@link #SSH_KEY} — an SSH key with no associated username;
      *       the consumer prompts the user for a username at use time.</li>
      * </ul>
@@ -118,6 +125,8 @@ public interface CredentialProvider {
         ACCOUNT_PASSWORD,
         ACCOUNT_KEY,
         ACCOUNT_KEY_AND_PASSWORD,
+        API_TOKEN,
+        SECURE_NOTE,
         SSH_KEY
     }
 
@@ -144,5 +153,5 @@ public interface CredentialProvider {
         }
     }
 
-    enum AuthMethod { PASSWORD, KEY, KEY_AND_PASSWORD }
+    enum AuthMethod { PASSWORD, KEY, KEY_AND_PASSWORD, API_TOKEN, SECURE_NOTE }
 }

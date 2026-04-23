@@ -110,6 +110,14 @@ class VaultCredentialProviderTest {
             UUID.randomUUID(), "DB", "admin",
             new AuthMethod.Password("secret"),
             Instant.now(), Instant.now()));
+        vault.accounts.add(new VaultAccount(
+            UUID.randomUUID(), "PVE", "root@pam!termlab",
+            new AuthMethod.ApiToken("pve-secret"),
+            Instant.now(), Instant.now()));
+        vault.accounts.add(new VaultAccount(
+            UUID.randomUUID(), "Recovery Codes", "",
+            new AuthMethod.SecureNote("one\ntwo"),
+            Instant.now(), Instant.now()));
         vault.keys.add(new com.termlab.vault.model.VaultKey(
             UUID.randomUUID(),
             "Work Laptop",
@@ -126,12 +134,14 @@ class VaultCredentialProviderTest {
 
         VaultCredentialProvider provider = new VaultCredentialProvider(lm);
         var descriptors = provider.listCredentials();
-        assertEquals(2, descriptors.size());
+        assertEquals(4, descriptors.size());
 
         var kinds = descriptors.stream()
             .map(CredentialProvider.CredentialDescriptor::kind)
             .collect(java.util.stream.Collectors.toSet());
         assertTrue(kinds.contains(CredentialProvider.Kind.ACCOUNT_PASSWORD));
+        assertTrue(kinds.contains(CredentialProvider.Kind.API_TOKEN));
+        assertTrue(kinds.contains(CredentialProvider.Kind.SECURE_NOTE));
         assertTrue(kinds.contains(CredentialProvider.Kind.SSH_KEY));
     }
 

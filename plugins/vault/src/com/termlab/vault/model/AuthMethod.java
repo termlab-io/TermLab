@@ -16,7 +16,8 @@ import org.jetbrains.annotations.Nullable;
  * plan's "Risks and gotchas" section.
  */
 public sealed interface AuthMethod
-    permits AuthMethod.Password, AuthMethod.Key, AuthMethod.KeyAndPassword {
+    permits AuthMethod.Password, AuthMethod.Key, AuthMethod.KeyAndPassword, AuthMethod.ApiToken,
+            AuthMethod.SecureNote {
 
     record Password(String password) implements AuthMethod {}
 
@@ -24,4 +25,8 @@ public sealed interface AuthMethod
 
     record KeyAndPassword(String keyPath, @Nullable String passphrase, String password)
         implements AuthMethod {}
+
+    record ApiToken(String token) implements AuthMethod {}
+
+    record SecureNote(String note) implements AuthMethod {}
 }

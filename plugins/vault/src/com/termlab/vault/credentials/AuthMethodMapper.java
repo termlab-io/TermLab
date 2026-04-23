@@ -55,6 +55,24 @@ public final class AuthMethodMapper {
                 kp.keyPath(),
                 kp.passphrase() == null ? null : kp.passphrase().toCharArray()
             );
+            case AuthMethod.ApiToken token -> new CredentialProvider.Credential(
+                account.id(),
+                account.displayName(),
+                account.username(),
+                CredentialProvider.AuthMethod.API_TOKEN,
+                token.token().toCharArray(),
+                null,
+                null
+            );
+            case AuthMethod.SecureNote note -> new CredentialProvider.Credential(
+                account.id(),
+                account.displayName(),
+                null,
+                CredentialProvider.AuthMethod.SECURE_NOTE,
+                note.note().toCharArray(),
+                null,
+                null
+            );
         };
     }
 
@@ -84,13 +102,23 @@ public final class AuthMethodMapper {
             case AuthMethod.Password ignored -> CredentialProvider.Kind.ACCOUNT_PASSWORD;
             case AuthMethod.Key ignored -> CredentialProvider.Kind.ACCOUNT_KEY;
             case AuthMethod.KeyAndPassword ignored -> CredentialProvider.Kind.ACCOUNT_KEY_AND_PASSWORD;
+            case AuthMethod.ApiToken ignored -> CredentialProvider.Kind.API_TOKEN;
+            case AuthMethod.SecureNote ignored -> CredentialProvider.Kind.SECURE_NOTE;
         };
         return new CredentialProvider.CredentialDescriptor(
             account.id(),
             account.displayName(),
-            account.username(),
+            descriptorSubtitle(account),
             kind
         );
+    }
+
+    private static @NotNull String descriptorSubtitle(@NotNull VaultAccount account) {
+        return switch (account.auth()) {
+            case AuthMethod.ApiToken ignored -> account.username();
+            case AuthMethod.SecureNote ignored -> "Secure note";
+            default -> account.username();
+        };
     }
 
     /** Compact view used by {@link CredentialProvider#listCredentials()}. */

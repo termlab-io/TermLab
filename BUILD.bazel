@@ -57,6 +57,7 @@ java_binary(
         "//termlab/plugins/sftp",
         "//termlab/plugins/search",
         "//termlab/plugins/sysinfo",
+        "//termlab/plugins/proxmox",
         # Light editor: scratch files + SFTP-triggered file editing.
         "//termlab/plugins/editor",
         # Script runner: lightweight script execution on local/remote hosts.

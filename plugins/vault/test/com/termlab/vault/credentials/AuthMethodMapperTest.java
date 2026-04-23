@@ -58,6 +58,29 @@ class AuthMethodMapperTest {
     }
 
     @Test
+    void apiToken_yieldsApiTokenCredential() {
+        CredentialProvider.Credential cred = AuthMethodMapper.toCredential(
+            account(new AuthMethod.ApiToken("pve-secret")));
+        assertEquals(CredentialProvider.AuthMethod.API_TOKEN, cred.authMethod());
+        assertArrayEquals("pve-secret".toCharArray(), cred.password());
+        assertNull(cred.keyPath());
+        assertNull(cred.keyPassphrase());
+        assertEquals(CredentialProvider.Kind.API_TOKEN,
+            AuthMethodMapper.toDescriptor(account(new AuthMethod.ApiToken("pve-secret"))).kind());
+    }
+
+    @Test
+    void secureNote_yieldsSecureNoteCredential() {
+        CredentialProvider.Credential cred = AuthMethodMapper.toCredential(
+            account(new AuthMethod.SecureNote("remember this")));
+        assertEquals(CredentialProvider.AuthMethod.SECURE_NOTE, cred.authMethod());
+        assertArrayEquals("remember this".toCharArray(), cred.password());
+        assertNull(cred.username());
+        assertEquals(CredentialProvider.Kind.SECURE_NOTE,
+            AuthMethodMapper.toDescriptor(account(new AuthMethod.SecureNote("remember this"))).kind());
+    }
+
+    @Test
     void preservesAccountIdentityFields() {
         UUID id = UUID.randomUUID();
         VaultAccount account = new VaultAccount(
