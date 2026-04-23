@@ -66,6 +66,29 @@ TERMLAB_PERF_WARMUP_SEC ?= 90
 TERMLAB_PERF_SAMPLE_SEC ?= 5
 TERMLAB_PERF_DURATION_SEC ?= 300
 
+# Installer build-number injection.
+#
+# generate_version.py writes the IntelliJ-compatible build number to
+# out/build-number (e.g. 262.0.1.1 = <intellij-branch>.<major>.<minor>.<patch>).
+# Passing it via -Dbuild.number lets BuildOptions.buildNumber (platform-impl
+# BuildContextImpl) override the default 262.SNAPSHOT, which then flows into
+# artifact filenames, product-info.json, the stamped ApplicationInfo, and the
+# runtime value the updater compares against updates.xml. JAVA_TOOL_OPTIONS
+# is used rather than --jvmopt because the launched java_binary reliably
+# inherits process env regardless of bazel's launcher caching.
+#
+# Installer targets below bypass the $(BAZEL) convenience macro and write
+# out `cd ... && VAR=val bash bazel.cmd` explicitly, because in
+# `FOO=val cd ... && bash ...` the FOO assignment applies only to the `cd`
+# builtin and bash runs without it. Placing env right before bash fixes that
+# (and incidentally fixes the same latent bug in TERMLAB_REUSE_COMPILED_CLASSES
+# and TERMLAB_TARGET_OS — they already have the right shape now).
+#
+# Every installer target depends on termlab-version, so out/build-number is
+# always present by the time these recipes run.
+BUILD_NUMBER_FILE := $(WORKBENCH_DIR)/out/build-number
+INSTALLER_JVM = JAVA_TOOL_OPTIONS="-Dbuild.number=$$(cat $(BUILD_NUMBER_FILE))"
+
 TERMLAB_TEST_TARGETS := \
 	//termlab/core:core_test_runner \
 	//termlab/plugins/vault:vault_test_runner \
@@ -133,25 +156,25 @@ termlab-clean: check-intellij
 	$(BAZEL) clean
 
 termlab-installers: check-intellij termlab-version termlab-bootstrap-intellij
-	$(BAZEL) run //termlab/build:termlab_installers
+	cd $(INTELLIJ_ROOT) && $(INSTALLER_JVM) bash bazel.cmd run //termlab/build:termlab_installers
 	@echo "→ Installer artifacts in $(INTELLIJ_ROOT)/out/termlab/artifacts/"
 
 termlab-installers-fast: check-intellij termlab-version termlab-bootstrap-intellij
 	@echo "→ Building installers from existing compiled IDE output"
 	@echo "  Run 'Build Project' in IntelliJ first if outputs are stale or missing."
-	TERMLAB_REUSE_COMPILED_CLASSES=true $(BAZEL) run //termlab/build:termlab_installers
+	cd $(INTELLIJ_ROOT) && $(INSTALLER_JVM) TERMLAB_REUSE_COMPILED_CLASSES=true bash bazel.cmd run //termlab/build:termlab_installers
 	@echo "→ Installer artifacts in $(INTELLIJ_ROOT)/out/termlab/artifacts/"
 
 termlab-installers-mac: check-intellij termlab-version termlab-bootstrap-intellij
-	cd $(INTELLIJ_ROOT) && TERMLAB_TARGET_OS=mac bash bazel.cmd run //termlab/build:termlab_installers
+	cd $(INTELLIJ_ROOT) && $(INSTALLER_JVM) TERMLAB_TARGET_OS=mac bash bazel.cmd run //termlab/build:termlab_installers
 	@echo "→ Installer artifacts in $(INTELLIJ_ROOT)/out/termlab/artifacts/"
 
 termlab-installers-linux: check-intellij termlab-version termlab-bootstrap-intellij
-	cd $(INTELLIJ_ROOT) && TERMLAB_TARGET_OS=linux bash bazel.cmd run //termlab/build:termlab_installers
+	cd $(INTELLIJ_ROOT) && $(INSTALLER_JVM) TERMLAB_TARGET_OS=linux bash bazel.cmd run //termlab/build:termlab_installers
 	@echo "→ Installer artifacts in $(INTELLIJ_ROOT)/out/termlab/artifacts/"
 
 termlab-installers-windows: check-intellij termlab-version termlab-bootstrap-intellij
-	cd $(INTELLIJ_ROOT) && TERMLAB_TARGET_OS=windows bash bazel.cmd run //termlab/build:termlab_installers
+	cd $(INTELLIJ_ROOT) && $(INSTALLER_JVM) TERMLAB_TARGET_OS=windows bash bazel.cmd run //termlab/build:termlab_installers
 	@echo "→ Installer artifacts in $(INTELLIJ_ROOT)/out/termlab/artifacts/"
 
 termlab-perf-benchmark: check-intellij

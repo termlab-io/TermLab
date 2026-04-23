@@ -22,6 +22,16 @@ Optional release metadata can also be updated in place:
 Everything else — the <build> tag, motto, logos, themes, essential-plugin
 list, comments, whitespace — is preserved byte-for-byte.
 
+The script also emits the installer build number to out/build-number so
+the Makefile can pass it to the IntelliJ installer build via
+-Dbuild.number. The build number is `<intellij-branch>.<major*100+minor>.<patch>`
+(e.g. 262.1.1 for product version 0.1.1). Three-segment form is required
+because BuildContextImpl.pluginBuildNumber SemVer-checks it — 4-segment
+values fail. The middle segment packs major*100+minor so the sequence stays
+monotonic across both minor and major bumps: 0.1.1 → 262.1.1, 0.2.0 →
+262.2.0, 1.0.0 → 262.100.0, 1.2.3 → 262.102.3. The leading segment must
+match the base from intellij-community/build.txt per SnapshotBuildNumber.
+
 Inputs:
     $VERSION               If set, persisted to customization/version.properties
                            as product.version before the XML is rewritten.
@@ -46,6 +56,7 @@ WORKBENCH = HERE.parent
 
 VERSION_PROPS = WORKBENCH / "customization" / "version.properties"
 APP_INFO_XML = WORKBENCH / "customization" / "resources" / "idea" / "TermLabApplicationInfo.xml"
+BUILD_NUMBER_OUT = WORKBENCH / "out" / "build-number"
 
 
 def die(msg: str) -> None:
@@ -101,6 +112,16 @@ def decode_platform_version(build_raw: str) -> tuple[str, str]:
     if not prefix.isdigit() or len(prefix) < 3:
         die(f"cannot decode platform version from build.txt prefix '{prefix}'")
     return f"20{prefix[:2]}", prefix[2:]
+
+
+def intellij_branch(build_raw: str) -> str:
+    """'262.SNAPSHOT' -> '262'. The first segment is IntelliJ's branch
+    number; SnapshotBuildNumber.BASE in the platform requires any
+    supplied -Dbuild.number to start with it."""
+    prefix = build_raw.split(".", 1)[0]
+    if not prefix.isdigit():
+        die(f"cannot extract intellij branch from build.txt prefix '{prefix}'")
+    return prefix
 
 
 def decode_product_version(version: str) -> tuple[str, str, str]:
@@ -202,7 +223,7 @@ def main() -> None:
     product_version = props.get("product.version")
     if not product_version:
         die("product.version missing from version.properties")
-    _, _, patch = decode_product_version(product_version)
+    product_major, product_minor, patch = decode_product_version(product_version)
 
     intellij_root = resolve_intellij_root()
     build_txt = intellij_root / "build.txt"
@@ -210,6 +231,13 @@ def main() -> None:
         die(f"build.txt not found at {build_txt} — set INTELLIJ_ROOT or run ./setup.sh")
     build_raw = build_txt.read_text(encoding="utf-8").strip()
     platform_major, platform_minor = decode_platform_version(build_raw)
+    branch = intellij_branch(build_raw)
+    # Pack major+minor into one segment so the build number stays at 3
+    # segments (required by BuildContextImpl.pluginBuildNumber's SemVer
+    # check) while remaining monotonic across major bumps. Allots 100
+    # minors per major, which is far more than we'll ever ship.
+    packed_mid = int(product_major) * 100 + int(product_minor)
+    build_number = f"{branch}.{packed_mid}.{patch}"
 
     version_mode = resolve_version_mode()
     suffix = product_version if version_mode == "release" else f"{product_version} ({git_sha()})"
@@ -226,6 +254,9 @@ def main() -> None:
     if eap is not None:
         text = set_attribute(text, "version", "eap", "true" if eap else "false")
     APP_INFO_XML.write_text(text, encoding="utf-8")
+
+    BUILD_NUMBER_OUT.parent.mkdir(parents=True, exist_ok=True)
+    BUILD_NUMBER_OUT.write_text(build_number + "\n", encoding="utf-8")
 
     final_codename = get_attribute(text, "version", "codename")
     release_tag = (
@@ -247,6 +278,7 @@ def main() -> None:
         print(f"  eap             : {'true' if eap else 'false'}")
     if release_tag:
         print(f"  release tag     : {release_tag}")
+    print(f"  build number    : {build_number}  (written to {BUILD_NUMBER_OUT.relative_to(WORKBENCH)})")
 
 
 if __name__ == "__main__":

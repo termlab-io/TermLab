@@ -229,7 +229,13 @@ class TermLabProperties(private val communityHomeDir: Path) : JetBrainsProductPr
   }
 
   override fun getBaseArtifactName(appInfo: ApplicationInfoProperties, buildNumber: String): String {
-    return "termlab-$buildNumber"
+    // The buildNumber (e.g. 262.1.1) is structurally locked — leading
+    // IntelliJ branch + 3-segment SemVer cap leaves no room for the 0.x
+    // major in 0.1.1. Prepend the product version (from version@suffix,
+    // stripped of the dev-mode " (sha)" tail) so humans can read the
+    // real version off the filename.
+    val productVersion = appInfo.versionSuffix!!.substringBefore(' ')
+    return "termlab-$productVersion-$buildNumber"
   }
 
   override fun getOutputDirectoryName(appInfo: ApplicationInfoProperties): String = "termlab"

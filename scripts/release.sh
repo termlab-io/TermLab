@@ -14,6 +14,7 @@
 #      - check out the release's tag
 #      - sync intellij-community/android to the pinned SHAs
 #      - run `make termlab-installers`
+#      - generate updates.xml from the produced product-info.json files
 #      - restore the original branch/commit and any auto-stash
 #   4. Show the artifact list.
 #   5. If upload was requested, `gh release upload` everything.
@@ -294,6 +295,19 @@ if [ "$BUILD" -eq 1 ]; then
   echo "$(bold "Running 'make termlab-installers' — this takes a while on a cold cache.")"
   echo ""
   make termlab-installers
+
+  # --- 6b. Generate updates.xml --------------------------------------------
+  #
+  # Reads buildNumber/versionSuffix from the product-info.json files the
+  # build just wrote, calls gh for the release's publishedAt, and emits
+  # updates.xml into the artifact dir. The next step's find glob picks it
+  # up automatically so it's listed and uploaded along with the binaries.
+
+  echo ""
+  echo "$(bold "Generating updates.xml from product-info.json files...")"
+  python3 "$WORKBENCH_DIR/scripts/generate_updates_xml.py" \
+    --artifact-dir "$INTELLIJ_ROOT/out/termlab/artifacts" \
+    --tag "$TAG"
 fi
 
 # --- 7. List artifacts -------------------------------------------------------
@@ -307,7 +321,7 @@ fi
 
 mapfile -t FILES < <(find "$ARTIFACT_DIR" -maxdepth 1 -type f \
   \( -name '*.dmg' -o -name '*.sit' -o -name '*.tar.gz' \
-     -o -name '*.exe' -o -name '*.zip' \) | sort)
+     -o -name '*.exe' -o -name '*.win.zip' -o -name 'updates.xml' \) | sort)
 
 echo ""
 echo "$(bold "Artifacts in $ARTIFACT_DIR:")"
