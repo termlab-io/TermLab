@@ -44,6 +44,7 @@ class TermLabProperties(private val communityHomeDir: Path) : JetBrainsProductPr
       "intellij.termlab.editor",
       "intellij.termlab.runner",
       "intellij.termlab.search",
+      "intellij.termlab.sysinfo",
       "intellij.classic.ui",
       "intellij.textmate.plugin",
     )

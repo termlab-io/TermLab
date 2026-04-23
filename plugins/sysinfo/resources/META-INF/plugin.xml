@@ -1,0 +1,26 @@
+<idea-plugin>
+    <id>com.termlab.sysinfo</id>
+    <name>SysInfo</name>
+    <version>0.1.0</version>
+    <vendor>TermLab</vendor>
+    <description>
+        Local and remote system information monitor for TermLab.
+    </description>
+
+    <depends>com.intellij.modules.platform</depends>
+    <depends>com.termlab.core</depends>
+    <depends>com.termlab.ssh</depends>
+
+    <extensions defaultExtensionNs="com.intellij">
+        <notificationGroup
+            id="TermLab SysInfo"
+            displayType="BALLOON"
+            toolWindowId="SysInfo"/>
+
+        <toolWindow
+            id="SysInfo"
+            anchor="bottom"
+            icon="AllIcons.Actions.ProfileCPU"
+            factoryClass="com.termlab.sysinfo.toolwindow.SysInfoToolWindowFactory"/>
+    </extensions>
+</idea-plugin>

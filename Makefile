@@ -102,7 +102,8 @@ TERMLAB_TEST_TARGETS := \
 	//termlab/plugins/editor:editor_test_runner \
 	//termlab/plugins/runner:runner_test_runner \
 	//termlab/plugins/sftp:sftp_test_runner \
-	//termlab/plugins/search:search_test_runner
+	//termlab/plugins/search:search_test_runner \
+	//termlab/plugins/sysinfo:sysinfo_test_runner
 
 .PHONY: termlab termlab-build termlab-test termlab-clean termlab-installers termlab-installers-fast termlab-installers-mac termlab-installers-linux termlab-installers-windows check-intellij termlab-version termlab-memory-artifacts termlab-sync-idea-config termlab-bootstrap-intellij termlab-perf-benchmark termlab-perf-budget
 

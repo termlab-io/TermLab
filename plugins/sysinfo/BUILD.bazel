@@ -1,0 +1,62 @@
+load("@rules_java//java:defs.bzl", "java_binary")
+load("@rules_jvm//:jvm.bzl", "jvm_library", "resourcegroup")
+
+resourcegroup(
+    name = "sysinfo_resources",
+    srcs = glob(["resources/**/*"]),
+    strip_prefix = "resources",
+)
+
+jvm_library(
+    name = "sysinfo",
+    module_name = "intellij.termlab.sysinfo",
+    visibility = ["//visibility:public"],
+    srcs = glob(["src/**/*.java"], allow_empty = True),
+    resources = [":sysinfo_resources"],
+    deps = [
+        "//termlab/core",
+        "//termlab/plugins/ssh",
+        "//libraries/sshd-osgi",
+        "//platform/core-api:core",
+        "//platform/core-ui",
+        "//platform/editor-ui-api:editor-ui",
+        "//platform/ide-core",
+        "//platform/platform-api:ide",
+        "//platform/platform-impl:ide-impl",
+        "//platform/projectModel-api:projectModel",
+        "//platform/util",
+        "//platform/util:util-ui",
+        "@lib//:jetbrains-annotations",
+        "@lib//:kotlin-stdlib",
+    ],
+)
+
+jvm_library(
+    name = "sysinfo_test_lib",
+    module_name = "intellij.termlab.sysinfo.tests",
+    visibility = ["//visibility:public"],
+    srcs = glob(["test/**/*.java"], allow_empty = True),
+    deps = [
+        ":sysinfo",
+        "//termlab/plugins/ssh",
+        "//libraries/junit5",
+        "//libraries/junit5-jupiter",
+        "//libraries/junit5-launcher",
+        "//platform/core-api:core",
+        "//platform/util",
+        "@lib//:jetbrains-annotations",
+        "@lib//:kotlin-stdlib",
+    ],
+)
+
+java_binary(
+    name = "sysinfo_test_runner",
+    main_class = "com.termlab.sysinfo.TestRunner",
+    runtime_deps = [
+        ":sysinfo_test_lib",
+        "//libraries/junit5-jupiter",
+        "//libraries/junit5-launcher",
+    ],
+)
+
+exports_files(["intellij.termlab.sysinfo.iml"], visibility = ["//visibility:public"])
