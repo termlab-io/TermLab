@@ -1,6 +1,7 @@
 package com.termlab.core.terminal;
 
 import com.termlab.core.settings.TermLabTerminalConfig;
+import com.termlab.core.settings.TermLabTerminalSettingsListener;
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.actionSystem.ActionGroup;
 import com.intellij.openapi.actionSystem.ActionUpdateThread;
@@ -137,6 +138,7 @@ public final class TermLabTerminalEditor extends UserDataHolderBase implements F
                 scheduleAppearanceRefresh();
             }
         });
+        messageBusConnection.subscribe(TermLabTerminalSettingsListener.TOPIC, this::scheduleAppearanceRefresh);
     }
 
     private void applyTerminalAppearance() {

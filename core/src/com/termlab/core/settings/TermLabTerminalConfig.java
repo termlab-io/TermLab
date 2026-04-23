@@ -2,6 +2,7 @@ package com.termlab.core.settings;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.diagnostic.Logger;
 import org.jetbrains.annotations.NotNull;
 
@@ -50,6 +51,9 @@ public final class TermLabTerminalConfig {
             Files.writeString(tmp, json, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
             Files.move(tmp, CONFIG_FILE, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
             LOG.info("Terminal settings saved to " + CONFIG_FILE);
+            ApplicationManager.getApplication().getMessageBus()
+                .syncPublisher(TermLabTerminalSettingsListener.TOPIC)
+                .settingsChanged();
         } catch (IOException e) {
             LOG.error("Failed to save terminal settings", e);
         }

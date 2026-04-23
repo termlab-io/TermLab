@@ -42,13 +42,19 @@
             parentId="root"
             instance="com.termlab.core.settings.TermLabTerminalConfigurable"
             id="termlab.terminal.settings"
-            displayName="TermLab Terminal"/>
+            displayName="Terminal"/>
+
+        <applicationConfigurable
+            parentId="termlab.terminal.settings"
+            instance="com.termlab.core.settings.TermLabTerminalAppearanceConfigurable"
+            id="termlab.terminal.settings.appearance"
+            displayName="Appearance"/>
 
         <applicationConfigurable
             parentId="termlab.terminal.settings"
             instance="com.termlab.core.settings.TermLabTerminalTerminalConfigurable"
-            id="termlab.terminal.settings.terminal"
-            displayName="Terminal"/>
+            id="termlab.terminal.settings.general"
+            displayName="General"/>
 
         <notificationGroup
             id="TermLab Terminal"
@@ -211,11 +217,12 @@
 
         <!--
           Strips IDE-oriented Settings pages under Editor/ that don't affect
-          the terminal view. Keeps Font, Console Font, Color Scheme, and
-          General/Appearance, while pruning Language Defaults, Diff & Merge,
-          and By Scope from Color Scheme. Project-scoped pages are stripped
-          from TermLabStartupActivity per project open. See
-          TermLabEditorSettingsStripper for details.
+          the terminal view. Keeps Font, Color Scheme, and
+          General/Appearance, replaces Color Scheme with a TermLab variant
+          that removes the built-in Console Font child, and prunes Language
+          Defaults, Diff & Merge, and By Scope from Color Scheme.
+          Project-scoped pages are stripped from TermLabStartupActivity per
+          project open. See TermLabEditorSettingsStripper for details.
         -->
         <listener class="com.termlab.core.TermLabEditorSettingsStripper"
                   topic="com.intellij.ide.AppLifecycleListener"/>
@@ -238,9 +245,10 @@
                   topic="com.intellij.ide.AppLifecycleListener"/>
 
         <!--
-          Makes fresh-install Console Font defaults independent from Editor
-          Font so TermLab can start with console line spacing at 0.8 while
-          preserving any user-saved console-font.xml settings.
+          Migrates legacy console font sources into the dedicated
+          Terminal -> Appearance storage so the terminal can read its
+          font settings from one place while preserving existing users'
+          preferences.
         -->
         <listener class="com.termlab.core.TermLabConsoleFontCustomizer"
                   topic="com.intellij.ide.AppLifecycleListener"/>

@@ -1,13 +1,12 @@
 package com.termlab.core.terminal;
 
 import com.termlab.core.settings.TermLabTerminalConfig;
-import com.intellij.ide.ui.UISettingsUtils;
+import com.termlab.core.settings.TermLabConsoleFontSettings;
 import com.intellij.execution.process.ColoredOutputTypeRegistryImpl;
 import com.intellij.execution.ui.ConsoleViewContentType;
 import com.intellij.openapi.editor.colors.TextAttributesKey;
 import com.intellij.openapi.editor.colors.EditorColorsManager;
 import com.intellij.openapi.editor.colors.EditorColorsScheme;
-import com.intellij.openapi.editor.colors.FontPreferences;
 import com.intellij.openapi.editor.markup.TextAttributes;
 import com.jediterm.core.Color;
 import com.jediterm.terminal.TerminalColor;
@@ -22,7 +21,7 @@ import java.awt.*;
 /**
  * Terminal settings that:
  * - Use the current IntelliJ editor color scheme for colors (follows theme plugins)
- * - Use IntelliJ's Console Font settings for terminal font family/size/line spacing
+ * - Use the dedicated Terminal -> Appearance font settings for font family/size/line spacing
  * - Use TermLabTerminalConfig for terminal-specific behavior and extra spacing
  */
 public final class TermLabTerminalSettings extends DefaultSettingsProvider {
@@ -94,41 +93,19 @@ public final class TermLabTerminalSettings extends DefaultSettingsProvider {
         }
     }
 
-    // Font with cascading fallback
-    private static final String[] FONT_CANDIDATES = {
-        "JetBrains Mono", "Menlo", "Monaco", "Courier New", "Courier"
-    };
-
     @Override
     public @NotNull Font getTerminalFont() {
-        TermLabTerminalConfig.State s = TermLabTerminalConfig.getInstance().getState();
-        EditorColorsScheme scheme = EditorColorsManager.getInstance().getGlobalScheme();
-        Font font = scheme.getFont(com.intellij.openapi.editor.colors.EditorFontType.CONSOLE_PLAIN)
-            .deriveFont(getTerminalFontSize());
-
-        if (Math.abs(s.characterSpacing) > 0.001f) {
-            java.util.Map<java.awt.font.TextAttribute, Object> attrs = new java.util.HashMap<>(font.getAttributes());
-            attrs.put(java.awt.font.TextAttribute.TRACKING, s.characterSpacing);
-            font = font.deriveFont(attrs);
-        }
-        return font;
+        return TermLabConsoleFontSettings.createTerminalFont();
     }
 
     @Override
     public float getTerminalFontSize() {
-        EditorColorsScheme scheme = EditorColorsManager.getInstance().getGlobalScheme();
-        FontPreferences prefs = scheme.getConsoleFontPreferences();
-        String family = prefs.getFontFamily();
-        if (family == null || family.isEmpty()) {
-            family = bestMonospace();
-        }
-        float baseSize = prefs.hasSize(family) ? prefs.getSize2D(family) : scheme.getConsoleFontSize2D();
-        return UISettingsUtils.getInstance().scaleFontSize(baseSize);
+        return TermLabConsoleFontSettings.getScaledFontSize();
     }
 
     @Override
     public float getLineSpacing() {
-        return EditorColorsManager.getInstance().getGlobalScheme().getConsoleLineSpacing();
+        return TermLabConsoleFontSettings.getLineSpacing();
     }
 
     @Override public boolean useAntialiasing() { return true; }
@@ -137,15 +114,4 @@ public final class TermLabTerminalSettings extends DefaultSettingsProvider {
     @Override public boolean enableMouseReporting() { return TermLabTerminalConfig.getInstance().getState().enableMouseReporting; }
     @Override public int getBufferMaxLinesCount() { return TermLabTerminalConfig.getInstance().getState().scrollbackLines; }
     @Override public boolean scrollToBottomOnTyping() { return true; }
-
-    private static String bestMonospace() {
-        GraphicsEnvironment ge = GraphicsEnvironment.getLocalGraphicsEnvironment();
-        java.util.Set<String> available = java.util.Set.of(ge.getAvailableFontFamilyNames());
-        for (String name : FONT_CANDIDATES) {
-            if (available.contains(name)) {
-                return name;
-            }
-        }
-        return Font.MONOSPACED;
-    }
 }

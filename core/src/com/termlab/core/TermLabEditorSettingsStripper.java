@@ -117,10 +117,12 @@ public final class TermLabEditorSettingsStripper implements AppLifecycleListener
 
     @Override
     public void appFrameCreated(@NotNull List<String> commandLineArgs) {
+        ExtensionPoint<ConfigurableEP<Configurable>> appConfigurables = Configurable.APPLICATION_CONFIGURABLE.getPoint();
         stripFromExtensionPoint(
-            Configurable.APPLICATION_CONFIGURABLE.getPoint(),
+            appConfigurables,
             APP_CONFIGURABLE_IDS,
             "app configurable");
+        replaceColorSchemeConfigurable(appConfigurables);
 
         ExtensionsArea appArea = ApplicationManager.getApplication().getExtensionArea();
         ExtensionPoint<ConfigurableEP<Configurable>> editorOptionsEp =
@@ -192,6 +194,41 @@ public final class TermLabEditorSettingsStripper implements AppLifecycleListener
                 descriptorsEp,
                 Set.of(DIFF_COLORS_FACTORY_CLASS),
                 "color and font descriptor provider");
+        }
+    }
+
+    private static void replaceColorSchemeConfigurable(@NotNull ExtensionPoint<ConfigurableEP<Configurable>> ep) {
+        List<ConfigurableEP<Configurable>> snapshot = new ArrayList<>(ep.getExtensionList());
+        for (ConfigurableEP<Configurable> extension : snapshot) {
+            if (!"reference.settingsdialog.IDE.editor.colors".equals(extension.id)) {
+                continue;
+            }
+            if (TermLabColorAndFontOptions.class.getName().equals(extension.instanceClass)) {
+                return;
+            }
+            try {
+                ep.unregisterExtension(extension);
+
+                ConfigurableEP<Configurable> replacement = new ConfigurableEP<>(extension.getPluginDescriptor());
+                replacement.displayName = extension.displayName;
+                replacement.key = extension.key;
+                replacement.bundle = extension.bundle;
+                replacement.id = extension.id;
+                replacement.parentId = extension.parentId;
+                replacement.groupId = extension.groupId;
+                replacement.groupWeight = extension.groupWeight;
+                replacement.nonDefaultProject = extension.nonDefaultProject;
+                replacement.dynamic = extension.dynamic;
+                replacement.children = extension.children;
+                replacement.childrenEPName = extension.childrenEPName;
+                replacement.treeRendererClass = extension.treeRendererClass;
+                replacement.instanceClass = TermLabColorAndFontOptions.class.getName();
+                ep.registerExtension(replacement, extension.getPluginDescriptor(), ApplicationManager.getApplication());
+                LOG.info("TermLab: replaced Color Scheme configurable to strip Console Font");
+            } catch (Exception e) {
+                LOG.warn("TermLab: failed to replace Color Scheme configurable", e);
+            }
+            return;
         }
     }
 

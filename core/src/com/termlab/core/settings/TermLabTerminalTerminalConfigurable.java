@@ -11,7 +11,7 @@ import java.awt.*;
 
 public final class TermLabTerminalTerminalConfigurable implements SearchableConfigurable {
 
-    public static final String ID = "termlab.terminal.settings.terminal";
+    public static final String ID = "termlab.terminal.settings.general";
 
     private JPanel mainPanel;
     private JTextField shellProgramField;
@@ -23,7 +23,7 @@ public final class TermLabTerminalTerminalConfigurable implements SearchableConf
 
     @Override
     public @Nls(capitalization = Nls.Capitalization.Title) String getDisplayName() {
-        return "Terminal";
+        return "General";
     }
 
     @Override
