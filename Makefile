@@ -69,20 +69,24 @@ TERMLAB_PERF_DURATION_SEC ?= 300
 # Installer build-number injection.
 #
 # generate_version.py writes the IntelliJ-compatible build number to
-# out/build-number (e.g. 262.0.1.1 = <intellij-branch>.<major>.<minor>.<patch>).
+# out/build-number (e.g. 262.1.1 = <intellij-branch>.<major*100+minor>.<patch>).
 # Passing it via -Dbuild.number lets BuildOptions.buildNumber (platform-impl
-# BuildContextImpl) override the default 262.SNAPSHOT, which then flows into
-# artifact filenames, product-info.json, the stamped ApplicationInfo, and the
-# runtime value the updater compares against updates.xml. JAVA_TOOL_OPTIONS
-# is used rather than --jvmopt because the launched java_binary reliably
-# inherits process env regardless of bazel's launcher caching.
+# BuildContextImpl) override the default 262.SNAPSHOT *at build time* — it's
+# then baked into artifact filenames, product-info.json, the stamped
+# ApplicationInfo, and the runtime value the updater compares against
+# updates.xml. This only matters for the installer pipeline; source runs
+# (`make termlab`) read the build number from build.txt at runtime and
+# can't pick this up.
 #
-# Installer targets below bypass the $(BAZEL) convenience macro and write
-# out `cd ... && VAR=val bash bazel.cmd` explicitly, because in
+# JAVA_TOOL_OPTIONS is used rather than --jvmopt because the launched
+# java_binary reliably inherits process env regardless of bazel's launcher
+# caching. Installer targets below bypass the $(BAZEL) convenience macro
+# and write out `cd ... && VAR=val bash bazel.cmd` explicitly, because in
 # `FOO=val cd ... && bash ...` the FOO assignment applies only to the `cd`
-# builtin and bash runs without it. Placing env right before bash fixes that
-# (and incidentally fixes the same latent bug in TERMLAB_REUSE_COMPILED_CLASSES
-# and TERMLAB_TARGET_OS — they already have the right shape now).
+# builtin and bash runs without it. Placing env right before bash fixes
+# that (and incidentally fixes the same latent bug in
+# TERMLAB_REUSE_COMPILED_CLASSES and TERMLAB_TARGET_OS — they already have
+# the right shape now).
 #
 # Every installer target depends on termlab-version, so out/build-number is
 # always present by the time these recipes run.

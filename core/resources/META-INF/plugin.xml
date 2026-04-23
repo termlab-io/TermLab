@@ -26,6 +26,18 @@
             serviceImplementation="com.termlab.core.TermLabEmptyTextPainter"
             overrides="true"/>
 
+        <!--
+          Points the platform UpdateChecker at our updates.xml location.
+          Default is localhost (for local pipeline testing); override at
+          launch with -Dtermlab.update.url=<URL>. See
+          TermLabExternalProductResourceUrls for the migration path to the
+          real GitHub release-asset URL.
+        -->
+        <applicationService
+            serviceInterface="com.intellij.platform.ide.customization.ExternalProductResourceUrls"
+            serviceImplementation="com.termlab.core.TermLabExternalProductResourceUrls"
+            overrides="true"/>
+
         <applicationConfigurable
             parentId="root"
             instance="com.termlab.core.settings.TermLabTerminalConfigurable"

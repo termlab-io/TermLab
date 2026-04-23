@@ -156,6 +156,13 @@ class TermLabProperties(private val communityHomeDir: Path) : JetBrainsProductPr
     embeddedModule("intellij.platform.credentialStore.ui")
     embeddedModule("intellij.platform.credentialStore.impl")
 
+    // BuiltInServerManager service. Required by BrowserLauncherImpl.signUrl,
+    // which is called unconditionally from BrowserUtil.browse — so without
+    // this module any IDE-initiated browser launch (Download button on the
+    // update dialog, Help → Web Help, "Learn More" links, etc.) throws
+    // "Cannot find service org.jetbrains.ide.BuiltInServerManager".
+    embeddedModule("intellij.platform.builtInServer.impl")
+
     module("intellij.platform.settings.local")
     module("intellij.platform.backend")
     module("intellij.platform.project.backend")
@@ -213,7 +220,7 @@ class TermLabProperties(private val communityHomeDir: Path) : JetBrainsProductPr
     macCustomizer(projectHome) {
       icnsPath = "termlab/customization/resources/termlab.icns"
       bundleIdentifier = "com.termlab.terminal"
-      rootDirectoryName { appInfo, _ -> "${packagedProductName(appInfo)}.app" }
+      rootDirectoryName { appInfo, _ -> "${macBundleFileName(appInfo)}.app" }
       // Multi-resolution TIFF (455x296 1x + 910x592 2x retina) with
       // the TermLab palette + "Drag to Applications" hint. Required for
       // MAC_DMG_STEP — without it the DMG build fails with
@@ -243,6 +250,16 @@ class TermLabProperties(private val communityHomeDir: Path) : JetBrainsProductPr
 
 private fun packagedProductName(appInfo: ApplicationInfoProperties): String {
   return if (appInfo.isEAP) "TermLab EAP" else "TermLab"
+}
+
+private fun macBundleFileName(appInfo: ApplicationInfoProperties): String {
+  // On this macOS build, `hdiutil create -srcfolder` fails with
+  // "could not access /Volumes/TermLab EAP/TermLab EAP.app" when the
+  // EAP bundle filename and DMG volume label both contain the spaced
+  // "TermLab EAP" form. Keep the bundle filename hyphenated for DMG
+  // packaging while `normalizeMacBundleName` preserves the nicer
+  // display name inside Info.plist.
+  return if (appInfo.isEAP) "${appInfo.fullProductName}-EAP" else packagedProductName(appInfo)
 }
 
 private fun normalizeMacBundleName(infoPlistPath: Path, appInfo: ApplicationInfoProperties) {

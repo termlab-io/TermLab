@@ -3,6 +3,11 @@
 # release.sh — build TermLab installer artifacts locally and optionally
 # upload them to an existing GitHub release.
 #
+# Usage:
+#   ./scripts/release.sh                — interactive release flow
+#   ./scripts/release.sh --dry-run|-n   — local pipeline test, no GitHub
+#   ./scripts/release.sh --help|-h      — show this header
+#
 # Flow:
 #   1. Pick a GitHub release (draft/prerelease/latest) interactively.
 #   2. Choose one mode:
@@ -18,6 +23,13 @@
 #      - restore the original branch/commit and any auto-stash
 #   4. Show the artifact list.
 #   5. If upload was requested, `gh release upload` everything.
+#
+# Dry-run mode (--dry-run): skips steps 1, 2, the tag checkout in 3, and the
+# upload in 5. Stays on the current branch, synthesizes a tag like
+# `dryrun-<branch>-<sha>` for use in updates.xml URLs, allows a dirty
+# workbench tree, runs the bootstrap + build + updates.xml generation, then
+# stops. Use this to verify the full pipeline (including updates.xml shape)
+# locally before cutting a real release on GitHub.
 
 set -euo pipefail
 
@@ -106,73 +118,115 @@ ask() {
   done
 }
 
-command -v gh >/dev/null 2>&1 || { echo "$(red "gh (GitHub CLI) not found on PATH.")"; exit 1; }
+# --- 0. Argument parsing -----------------------------------------------------
+
+DRY_RUN=0
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --dry-run|-n)
+      DRY_RUN=1
+      shift
+      ;;
+    -h|--help)
+      sed -n '2,/^$/p' "$0" | sed 's/^# \?//'
+      exit 0
+      ;;
+    *)
+      echo "$(red "Unknown argument: $1")"
+      echo "Run with --help for usage."
+      exit 1
+      ;;
+  esac
+done
+
+# Real-release mode needs gh for the release picker and upload. Dry-run
+# bypasses both, so gh is only required when we're actually going to talk
+# to GitHub.
+if [ "$DRY_RUN" -eq 0 ]; then
+  command -v gh >/dev/null 2>&1 || { echo "$(red "gh (GitHub CLI) not found on PATH.")"; exit 1; }
+fi
 
 FALLBACK_ANDROID_REF=""
 if [ -f "$WORKBENCH_DIR/ANDROID_REF" ]; then
   FALLBACK_ANDROID_REF="$(tr -d '[:space:]' < "$WORKBENCH_DIR/ANDROID_REF")"
 fi
 
-# --- 1. Pick a release -------------------------------------------------------
+if [ "$DRY_RUN" -eq 1 ]; then
+  # --- 1+2. Dry-run: synthesize a tag from the current ref, force the
+  # build-only path. The synthesized tag flows into updates.xml's <button>
+  # URL so the produced file is shape-correct even though the URL points
+  # at a release that doesn't exist.
+  CURRENT_BRANCH="$(git -C "$WORKBENCH_DIR" symbolic-ref -q --short HEAD || echo detached)"
+  CURRENT_SHA="$(git -C "$WORKBENCH_DIR" rev-parse --short HEAD)"
+  TAG="dryrun-${CURRENT_BRANCH}-${CURRENT_SHA}"
+  BUILD=1
+  UPLOAD=0
+  echo ""
+  echo "$(bold "Dry-run mode") — building from $(bold "${CURRENT_BRANCH}@${CURRENT_SHA}")"
+  echo "  Synthetic tag : $TAG"
+  echo "  $(dim "(no GitHub release will be touched, no upload will happen)")"
+else
+  # --- 1. Pick a release -----------------------------------------------------
 
-echo ""
-echo "$(bold "Fetching releases from GitHub...")"
-mapfile -t RELEASES < <(gh release list --limit 30 \
-  --json tagName,isDraft,isPrerelease,isLatest,publishedAt \
-  --jq '.[] | [.tagName, (.isDraft|tostring), (.isPrerelease|tostring), (.isLatest|tostring), (.publishedAt // "-")] | @tsv')
+  echo ""
+  echo "$(bold "Fetching releases from GitHub...")"
+  mapfile -t RELEASES < <(gh release list --limit 30 \
+    --json tagName,isDraft,isPrerelease,isLatest,publishedAt \
+    --jq '.[] | [.tagName, (.isDraft|tostring), (.isPrerelease|tostring), (.isLatest|tostring), (.publishedAt // "-")] | @tsv')
 
-if [ "${#RELEASES[@]}" -eq 0 ]; then
-  echo "$(red "No releases found on origin.") Run the Prepare Release workflow first."
-  exit 1
-fi
-
-echo ""
-echo "$(bold "Available releases:")"
-for i in "${!RELEASES[@]}"; do
-  IFS=$'\t' read -r TAG IS_DRAFT IS_PRE IS_LATEST PUBLISHED <<< "${RELEASES[$i]}"
-  flags=""
-  [ "$IS_DRAFT" = "true" ]  && flags+=" [draft]"
-  [ "$IS_PRE" = "true" ]    && flags+=" [pre]"
-  [ "$IS_LATEST" = "true" ] && flags+=" [latest]"
-  printf "  %2d) %-40s%s  %s\n" "$((i+1))" "$TAG" "$flags" "$(dim "${PUBLISHED%T*}")"
-done
-
-echo ""
-read -r -p "Pick a release [1-${#RELEASES[@]}]: " CHOICE
-if ! [[ "$CHOICE" =~ ^[0-9]+$ ]] || [ "$CHOICE" -lt 1 ] || [ "$CHOICE" -gt "${#RELEASES[@]}" ]; then
-  echo "$(red "Invalid choice: $CHOICE")"
-  exit 1
-fi
-IFS=$'\t' read -r TAG _ _ _ _ <<< "${RELEASES[$((CHOICE-1))]}"
-echo "Selected: $(bold "$TAG")"
-
-# --- 2. Pick a mode ----------------------------------------------------------
-
-echo ""
-echo "$(bold "What do you want to do with $TAG?")"
-echo "  1) Build fresh artifacts and upload them"
-echo "  2) Build fresh artifacts only"
-echo "  3) Upload existing artifacts only"
-echo ""
-read -r -p "Pick an action [1-3]: " ACTION
-case "${ACTION:-}" in
-  1)
-    BUILD=1
-    UPLOAD=1
-    ;;
-  2)
-    BUILD=1
-    UPLOAD=0
-    ;;
-  3)
-    BUILD=0
-    UPLOAD=1
-    ;;
-  *)
-    echo "$(red "Invalid choice: ${ACTION:-}")"
+  if [ "${#RELEASES[@]}" -eq 0 ]; then
+    echo "$(red "No releases found on origin.") Run the Prepare Release workflow first."
     exit 1
-    ;;
-esac
+  fi
+
+  echo ""
+  echo "$(bold "Available releases:")"
+  for i in "${!RELEASES[@]}"; do
+    IFS=$'\t' read -r TAG IS_DRAFT IS_PRE IS_LATEST PUBLISHED <<< "${RELEASES[$i]}"
+    flags=""
+    [ "$IS_DRAFT" = "true" ]  && flags+=" [draft]"
+    [ "$IS_PRE" = "true" ]    && flags+=" [pre]"
+    [ "$IS_LATEST" = "true" ] && flags+=" [latest]"
+    printf "  %2d) %-40s%s  %s\n" "$((i+1))" "$TAG" "$flags" "$(dim "${PUBLISHED%T*}")"
+  done
+
+  echo ""
+  read -r -p "Pick a release [1-${#RELEASES[@]}]: " CHOICE
+  if ! [[ "$CHOICE" =~ ^[0-9]+$ ]] || [ "$CHOICE" -lt 1 ] || [ "$CHOICE" -gt "${#RELEASES[@]}" ]; then
+    echo "$(red "Invalid choice: $CHOICE")"
+    exit 1
+  fi
+  IFS=$'\t' read -r TAG _ _ _ _ <<< "${RELEASES[$((CHOICE-1))]}"
+  echo "Selected: $(bold "$TAG")"
+
+  # --- 2. Pick a mode --------------------------------------------------------
+
+  echo ""
+  echo "$(bold "What do you want to do with $TAG?")"
+  echo "  1) Build fresh artifacts and upload them"
+  echo "  2) Build fresh artifacts only"
+  echo "  3) Upload existing artifacts only"
+  echo ""
+  read -r -p "Pick an action [1-3]: " ACTION
+  case "${ACTION:-}" in
+    1)
+      BUILD=1
+      UPLOAD=1
+      ;;
+    2)
+      BUILD=1
+      UPLOAD=0
+      ;;
+    3)
+      BUILD=0
+      UPLOAD=1
+      ;;
+    *)
+      echo "$(red "Invalid choice: ${ACTION:-}")"
+      exit 1
+      ;;
+  esac
+fi
 
 INTELLIJ_ROOT_FILE="$WORKBENCH_DIR/.intellij-root"
 if [ -n "${INTELLIJ_ROOT:-}" ]; then
@@ -184,54 +238,56 @@ else
 fi
 
 if [ "$BUILD" -eq 1 ]; then
-  # --- 3. Require clean tree -------------------------------------------------
+  if [ "$DRY_RUN" -eq 0 ]; then
+    # --- 3. Require clean tree -----------------------------------------------
 
-  STASHED=0
-  if ! git diff --quiet \
-     || ! git diff --cached --quiet \
-     || [ -n "$(git ls-files --others --exclude-standard)" ]; then
-    echo "$(red "Working tree is not clean:")"
-    git status --short
-    echo ""
-    if ask "Stash changes (including untracked) before continuing?"; then
-      git stash push --include-untracked -m "release.sh auto-stash $(date +%s)" >/dev/null
-      STASHED=1
-      echo "$(dim "Stashed. Will prompt to pop at the end.")"
-    else
-      echo "Aborting."
-      exit 1
-    fi
-  fi
-
-  # Capture the ref we return to when we're done. Prefer branch name; fall
-  # back to the commit SHA for detached HEAD.
-  ORIGINAL_REF="$(git symbolic-ref -q --short HEAD || git rev-parse HEAD)"
-
-  cleanup() {
-    local ec=$?
-    echo ""
-    echo "Restoring original ref: $(bold "$ORIGINAL_REF")"
-    git restore --source=HEAD --staged --worktree customization/resources/idea/TermLabApplicationInfo.xml 2>/dev/null || true
-    git checkout --quiet "$ORIGINAL_REF" 2>/dev/null || \
-      echo "$(red "Could not restore to $ORIGINAL_REF — check 'git status'.")"
-    if [ "$STASHED" -eq 1 ]; then
+    STASHED=0
+    if ! git diff --quiet \
+       || ! git diff --cached --quiet \
+       || [ -n "$(git ls-files --others --exclude-standard)" ]; then
+      echo "$(red "Working tree is not clean:")"
+      git status --short
       echo ""
-      if ask "Pop the auto-stash now?"; then
-        git stash pop
+      if ask "Stash changes (including untracked) before continuing?"; then
+        git stash push --include-untracked -m "release.sh auto-stash $(date +%s)" >/dev/null
+        STASHED=1
+        echo "$(dim "Stashed. Will prompt to pop at the end.")"
       else
-        echo "$(dim "Stash kept — list with: git stash list")"
+        echo "Aborting."
+        exit 1
       fi
     fi
-    exit "$ec"
-  }
-  trap cleanup EXIT
 
-  # --- 4. Check out the tag --------------------------------------------------
+    # Capture the ref we return to when we're done. Prefer branch name; fall
+    # back to the commit SHA for detached HEAD.
+    ORIGINAL_REF="$(git symbolic-ref -q --short HEAD || git rev-parse HEAD)"
 
-  echo ""
-  echo "$(bold "Fetching and checking out tag $TAG...")"
-  git fetch --force origin "refs/tags/$TAG:refs/tags/$TAG"
-  git checkout --quiet "refs/tags/$TAG"
+    cleanup() {
+      local ec=$?
+      echo ""
+      echo "Restoring original ref: $(bold "$ORIGINAL_REF")"
+      git restore --source=HEAD --staged --worktree customization/resources/idea/TermLabApplicationInfo.xml 2>/dev/null || true
+      git checkout --quiet "$ORIGINAL_REF" 2>/dev/null || \
+        echo "$(red "Could not restore to $ORIGINAL_REF — check 'git status'.")"
+      if [ "$STASHED" -eq 1 ]; then
+        echo ""
+        if ask "Pop the auto-stash now?"; then
+          git stash pop
+        else
+          echo "$(dim "Stash kept — list with: git stash list")"
+        fi
+      fi
+      exit "$ec"
+    }
+    trap cleanup EXIT
+
+    # --- 4. Check out the tag ------------------------------------------------
+
+    echo ""
+    echo "$(bold "Fetching and checking out tag $TAG...")"
+    git fetch --force origin "refs/tags/$TAG:refs/tags/$TAG"
+    git checkout --quiet "refs/tags/$TAG"
+  fi
 
   # --- 5. Sync intellij-community to the tag's pinned SHAs -------------------
   #
@@ -343,6 +399,10 @@ if [ "$UPLOAD" -eq 1 ]; then
   echo ""
   echo "$(bold "Upload complete.")"
   gh release view "$TAG" --web >/dev/null 2>&1 || true
+elif [ "$DRY_RUN" -eq 1 ]; then
+  echo ""
+  echo "$(bold "Dry-run complete.") Pipeline ran end-to-end against synthetic tag $(bold "$TAG")."
+  echo "$(dim "Inspect $ARTIFACT_DIR/updates.xml to verify the produced metadata.")"
 else
   echo ""
   echo "$(dim "Skipping upload. Run 'gh release upload $TAG <files> --clobber' to publish later.")"
