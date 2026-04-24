@@ -1,5 +1,5 @@
 <component xmlns="http://jetbrains.org/intellij/schema/application-info">
-  <version major="2026" minor="2" eap="true" codename="Uplink" patch="2" suffix="0.1.2"/>
+  <version major="2026" minor="2" eap="true" codename="Uplink" patch="3" suffix="0.1.3"/>
   <company name="TermLab.IO" shortName="TermLab.IO" url="https://termlab.io"/>
   <build number="TL-__BUILD__" date="__BUILD_DATE__" majorReleaseDate="20260419"/>
   <logo url="/termlab_logo.png"/>
