@@ -21,6 +21,10 @@
 
         <postStartupActivity
             implementation="com.termlab.editor.sftp.LegacyTempDirCleanup"/>
+        <postStartupActivity
+            implementation="com.termlab.editor.scratch.EditorTabCloseInterceptorStartupActivity"/>
+        <virtualFilePreCloseCheck
+            implementation="com.termlab.editor.scratch.ScratchFilePreCloseCheck"/>
     </extensions>
 
     <applicationListeners>

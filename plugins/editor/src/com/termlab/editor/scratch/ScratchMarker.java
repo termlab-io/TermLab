@@ -17,6 +17,8 @@ public final class ScratchMarker {
         Key.create("termlab.editor.pendingCloseHandling");
     public static final Key<Boolean> PENDING_CLOSE_WAS_MODIFIED_KEY =
         Key.create("termlab.editor.pendingCloseWasModified");
+    public static final Key<Boolean> PRE_CLOSE_HANDLED_KEY =
+        Key.create("termlab.editor.preCloseHandled");
 
     private ScratchMarker() {}
 
