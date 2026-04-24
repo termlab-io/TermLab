@@ -28,7 +28,7 @@ public final class SplitTerminalVerticalAction extends AnAction implements DumbA
         if (current == null) return;
 
         TermLabTerminalVirtualFile terminalFile = new TermLabTerminalVirtualFile("Terminal", ptyProvider);
-        current.split(
+        EditorWindow newWindow = current.split(
             JSplitPane.VERTICAL_SPLIT,
             true,
             terminalFile,
@@ -36,6 +36,7 @@ public final class SplitTerminalVerticalAction extends AnAction implements DumbA
             true,
             true
         );
+        TerminalSplitSupport.normalizeNewSplit(newWindow);
     }
 
     @Override

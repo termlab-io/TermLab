@@ -39,6 +39,22 @@ public final class TermLabActionConfigurationCustomizer implements ActionConfigu
         "SwitcherIterateItemsFallback",
         "DeleteRecentFilesFallback",
         "ConfigureEditorTabs",
+        "SplitVertically",
+        "SplitHorizontally",
+        "MoveTabRight",
+        "MoveTabDown",
+        "SplitChooser",
+        "SplitChooser.NextWindow",
+        "SplitChooser.PreviousWindow",
+        "SplitChooser.Exit",
+        "SplitChooser.Split",
+        "SplitChooser.Duplicate",
+        "SplitChooser.SplitCenter",
+        "SplitChooser.SplitTop",
+        "SplitChooser.SplitLeft",
+        "SplitChooser.SplitDown",
+        "SplitChooser.SplitRight",
+        "MoveEditorToOppositeTabGroup",
         "NewFile",
         "NewDir",
         "NewScratchFile",
@@ -54,6 +70,7 @@ public final class TermLabActionConfigurationCustomizer implements ActionConfigu
         "OpenElementInNewWindow",
         "OpenInRightSplit",
         "FileChooser.NewFile",
+        "FileChooser.GotoDesktop",
     };
 
     /**
@@ -143,6 +160,14 @@ public final class TermLabActionConfigurationCustomizer implements ActionConfigu
         "BookmarksView.OpenInPreviewTab",
         "BookmarksView.AutoscrollToSource",
         "BookmarksView.AutoscrollFromSource",
+        // Diff / compare actions inherited from IDE and VCS surfaces.
+        // They reserve Cmd/Ctrl+D in the default file chooser keymap even
+        // though TermLab does not support diff or file comparison workflows.
+        "CompareTwoFiles",
+        "Compare.SameVersion",
+        "Diff.ShowDiff",
+        // Execution console action inherited from the IDE run console.
+        "SendEOF",
     };
 
     /**

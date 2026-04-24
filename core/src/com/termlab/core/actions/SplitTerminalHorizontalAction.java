@@ -28,7 +28,7 @@ public final class SplitTerminalHorizontalAction extends AnAction implements Dum
         if (current == null) return;
 
         TermLabTerminalVirtualFile terminalFile = new TermLabTerminalVirtualFile("Terminal", ptyProvider);
-        current.split(
+        EditorWindow newWindow = current.split(
             JSplitPane.HORIZONTAL_SPLIT,
             true,
             terminalFile,
@@ -36,6 +36,7 @@ public final class SplitTerminalHorizontalAction extends AnAction implements Dum
             true,
             true
         );
+        TerminalSplitSupport.normalizeNewSplit(newWindow);
     }
 
     @Override

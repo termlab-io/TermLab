@@ -1,5 +1,6 @@
 package com.termlab.core.terminal;
 
+import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.fileEditor.ex.FileEditorManagerEx;
 import com.intellij.openapi.fileEditor.impl.EditorWindow;
 import com.intellij.openapi.keymap.KeymapUtil;
@@ -56,6 +57,10 @@ public final class TermLabTabNumberSupport {
     public static @Nullable String getShortcutHint(@NotNull Project project,
                                                    @Nullable EditorWindow preferredWindow,
                                                    @NotNull VirtualFile file) {
+        if (!ApplicationManager.getApplication().isDispatchThread()) {
+            return null;
+        }
+
         EditorWindow window = resolveWindow(project, preferredWindow, file);
         if (window == null) {
             return null;

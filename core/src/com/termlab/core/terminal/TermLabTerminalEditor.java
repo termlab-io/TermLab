@@ -7,7 +7,6 @@ import com.intellij.openapi.actionSystem.ActionGroup;
 import com.intellij.openapi.actionSystem.ActionUpdateThread;
 import com.intellij.openapi.actionSystem.AnAction;
 import com.intellij.openapi.actionSystem.AnActionEvent;
-import com.intellij.openapi.actionSystem.DefaultActionGroup;
 import com.intellij.openapi.editor.colors.EditorColorsListener;
 import com.intellij.openapi.editor.colors.EditorColorsManager;
 import com.intellij.openapi.editor.colors.EditorColorsScheme;
@@ -91,7 +90,7 @@ public final class TermLabTerminalEditor extends UserDataHolderBase implements F
         this.terminalWidget = session.getWidget();
         this.connector = session.getConnector();
         this.messageBusConnection = ApplicationManager.getApplication().getMessageBus().connect();
-        this.tabActions = new DefaultActionGroup(new SelectTabNumberHintAction(project, file));
+        this.tabActions = new TabShortcutActionGroup(project, file);
         this.rootPanel = new JPanel(new BorderLayout());
         rootPanel.add(terminalWidget, BorderLayout.CENTER);
         installAppearanceListeners();
@@ -293,6 +292,29 @@ public final class TermLabTerminalEditor extends UserDataHolderBase implements F
             e.getPresentation().setText("");
             e.getPresentation().setDescription("Shortcut for selecting this tab");
             e.getPresentation().setIcon(icon);
+            e.getPresentation().setEnabledAndVisible(true);
+        }
+
+        @Override
+        public @NotNull ActionUpdateThread getActionUpdateThread() {
+            return ActionUpdateThread.EDT;
+        }
+    }
+
+    private static final class TabShortcutActionGroup extends ActionGroup {
+        private final AnAction[] children;
+
+        private TabShortcutActionGroup(@NotNull Project project, @NotNull VirtualFile file) {
+            this.children = new AnAction[] { new SelectTabNumberHintAction(project, file) };
+        }
+
+        @Override
+        public AnAction @NotNull [] getChildren(@Nullable AnActionEvent e) {
+            return children;
+        }
+
+        @Override
+        public void update(@NotNull AnActionEvent e) {
             e.getPresentation().setEnabledAndVisible(true);
         }
 

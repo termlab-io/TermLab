@@ -4,6 +4,8 @@ import com.termlab.sdk.TerminalSessionProvider;
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.fileEditor.FileEditorManagerKeys;
 import com.intellij.openapi.fileEditor.FileEditorManager;
+import com.intellij.openapi.fileEditor.ex.FileEditorManagerEx;
+import com.intellij.openapi.fileEditor.impl.EditorWindow;
 import com.intellij.openapi.project.Project;
 import com.intellij.testFramework.LightVirtualFile;
 import com.intellij.util.concurrency.AppExecutorUtil;
@@ -32,6 +34,7 @@ public final class TermLabTerminalVirtualFile extends LightVirtualFile {
         this.sessionId = UUID.randomUUID().toString();
         this.provider = provider;
         putUserData(FileEditorManagerKeys.FORBID_PREVIEW_TAB, true);
+        putUserData(FileEditorManagerKeys.FORBID_TAB_SPLIT, true);
     }
 
     public @NotNull String getSessionId() { return sessionId; }
@@ -239,12 +242,23 @@ public final class TermLabTerminalVirtualFile extends LightVirtualFile {
                     if (!project.isDisposed()
                         && !isDisposed()
                         && file.getUserData(FileEditorManagerKeys.CLOSING_TO_REOPEN) != Boolean.TRUE) {
-                        FileEditorManager.getInstance(project).closeFile(file);
+                        closeInOwningWindow(project, file);
                     }
                 });
             }, "TermLab-exit-watcher-" + file.getSessionId());
             watcher.setDaemon(true);
             watcher.start();
+        }
+
+        private static void closeInOwningWindow(@NotNull Project project,
+                                                @NotNull TermLabTerminalVirtualFile file) {
+            FileEditorManagerEx manager = FileEditorManagerEx.getInstanceEx(project);
+            for (EditorWindow window : manager.getWindows()) {
+                if (window != null && !window.isDisposed() && window.isFileOpen(file)) {
+                    window.closeFile(file);
+                    return;
+                }
+            }
         }
 
         private static void updateTabTitle(@NotNull Project project,
