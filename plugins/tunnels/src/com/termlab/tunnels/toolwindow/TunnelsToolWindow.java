@@ -2,17 +2,12 @@ package com.termlab.tunnels.toolwindow;
 
 import com.termlab.ssh.client.TermLabServerKeyVerifier;
 import com.termlab.ssh.client.TermLabSshClient;
-import com.termlab.ssh.client.KeyFileInspector;
 import com.termlab.ssh.client.SshConnectException;
 import com.termlab.ssh.client.SshResolvedCredential;
-import com.termlab.ssh.credentials.SshCredentialPicker;
-import com.termlab.ssh.credentials.SshCredentialResolver;
+import com.termlab.ssh.credentials.HostCredentialBundle;
 import com.termlab.ssh.model.HostStore;
-import com.termlab.ssh.model.KeyFileAuth;
 import com.termlab.ssh.model.PromptPasswordAuth;
 import com.termlab.ssh.model.SshHost;
-import com.termlab.ssh.model.VaultAuth;
-import com.termlab.ssh.ui.InlineCredentialPromptDialog;
 import com.termlab.tunnels.client.TunnelConnectionManager;
 import com.termlab.tunnels.model.InternalHost;
 import com.termlab.tunnels.model.SshConfigHost;
@@ -48,7 +43,6 @@ import java.awt.*;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.io.IOException;
-import java.nio.file.Path;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
@@ -244,7 +238,8 @@ public final class TunnelsToolWindow extends JPanel {
         SshHost host = resolveHost(tunnel);
         if (host == null) return;
 
-        SshResolvedCredential initialCredential = resolveCredential(host);
+        HostCredentialBundle.AuthSource authSource = HostCredentialBundle.authSourceFor(host);
+        SshResolvedCredential initialCredential = authSource.fetch(host);
         if (initialCredential == null) return;
 
         // Resolve bastion credentials upfront for proxy-jump tunnels so
@@ -253,7 +248,7 @@ public final class TunnelsToolWindow extends JPanel {
         // Mirrors SshSessionProvider.resolveBastionForTarget.
         TermLabSshClient.BastionAuth bastionAuth = null;
         if (host.proxyJump() != null && !host.proxyJump().isBlank()) {
-            bastionAuth = resolveBastionAuthForTarget(host);
+            bastionAuth = HostCredentialBundle.resolveBastionFor(host);
         }
 
         TermLabSshClient client = getClient();
@@ -287,7 +282,7 @@ public final class TunnelsToolWindow extends JPanel {
                 SshConnectException.Kind kind = outcome.failure.kind();
 
                 if (kind == SshConnectException.Kind.AUTH_FAILED && attemptsLeft > 0) {
-                    SshResolvedCredential retry = resolveCredential(host);
+                    SshResolvedCredential retry = authSource.fetch(host);
                     if (retry == null) return;
                     current = retry;
                     continue;
@@ -315,67 +310,6 @@ public final class TunnelsToolWindow extends JPanel {
                 bastionAuth.credential().close();
             }
         }
-    }
-
-    /**
-     * Look up the bastion host in {@link HostStore} and resolve its
-     * credentials via the same dispatch as the tunnel's target host.
-     * Returns {@code null} if the bastion isn't in the store, the user
-     * cancelled a credential prompt, or resolution failed.
-     */
-    private @Nullable TermLabSshClient.BastionAuth resolveBastionAuthForTarget(
-        @NotNull SshHost target
-    ) {
-        String proxyJump = target.proxyJump();
-        if (proxyJump == null) return null;
-
-        String spec = proxyJump;
-        int at = spec.indexOf('@');
-        if (at > 0) spec = spec.substring(at + 1);
-
-        String bastionHost = spec;
-        int bastionPort = SshHost.DEFAULT_PORT;
-        int colon = spec.lastIndexOf(':');
-        if (colon > 0 && colon < spec.length() - 1) {
-            try {
-                bastionPort = Integer.parseInt(spec.substring(colon + 1));
-                bastionHost = spec.substring(0, colon);
-            } catch (NumberFormatException ignored) {
-                // not a port number
-            }
-        }
-
-        HostStore store = ApplicationManager.getApplication() == null
-            ? null
-            : ApplicationManager.getApplication().getService(HostStore.class);
-        if (store == null) return null;
-
-        SshHost stored = null;
-        for (SshHost candidate : store.getHosts()) {
-            if (candidate.host().equalsIgnoreCase(bastionHost)
-                && candidate.port() == bastionPort) {
-                stored = candidate;
-                break;
-            }
-        }
-        if (stored == null) {
-            LOG.info("TermLab tunnel: no HostStore entry for bastion "
-                + bastionHost + ":" + bastionPort
-                + " (proxy-jump will use ~/.ssh/id_* fallback)");
-            return null;
-        }
-
-        SshResolvedCredential cred = resolveCredential(stored);
-        if (cred == null) {
-            LOG.info("TermLab tunnel: bastion credential resolution cancelled or failed for "
-                + stored.host() + ":" + stored.port());
-            return null;
-        }
-
-        LOG.info("TermLab tunnel: resolved bastion credential "
-            + stored.host() + ":" + stored.port()
-            + " user=" + cred.username() + " mode=" + cred.mode());
-        return new TermLabSshClient.BastionAuth(stored.host(), stored.port(), cred);
     }
 
     /**
@@ -411,48 +345,6 @@ public final class TunnelsToolWindow extends JPanel {
                 System.getProperty("user.name"),
                 new PromptPasswordAuth()
             );
-        };
-    }
-
-    /**
-     * Resolve credentials for the given host. Dispatches on auth type,
-     * mirroring {@code SshSessionProvider}'s credential resolution.
-     */
-    private @Nullable SshResolvedCredential resolveCredential(@NotNull SshHost host) {
-        return switch (host.auth()) {
-            case VaultAuth v -> {
-                if (v.credentialId() != null) {
-                    SshCredentialResolver resolver = new SshCredentialResolver();
-                    SshResolvedCredential saved = resolver.resolve(v.credentialId(), host.username());
-                    if (saved != null) yield saved;
-                }
-                SshCredentialPicker picker = new SshCredentialPicker();
-                yield picker.pick(host);
-            }
-            case PromptPasswordAuth p -> {
-                char[] pw = InlineCredentialPromptDialog.promptPassword(null, host);
-                if (pw == null) yield null;
-                yield SshResolvedCredential.password(host.username(), pw);
-            }
-            case KeyFileAuth k -> {
-                Path keyPath = Path.of(k.keyFilePath());
-                KeyFileInspector.Encryption encryption;
-                try {
-                    encryption = KeyFileInspector.inspect(keyPath);
-                } catch (IOException e) {
-                    Messages.showErrorDialog(project,
-                        "Could not read SSH key file:\n" + keyPath + "\n\n" + e.getMessage(),
-                        "SSH Key File Unreadable");
-                    yield null;
-                }
-                if (encryption == KeyFileInspector.Encryption.NONE) {
-                    yield SshResolvedCredential.key(host.username(), keyPath, null);
-                }
-                char[] passphrase = InlineCredentialPromptDialog.promptPassphrase(
-                    null, host, k.keyFilePath());
-                if (passphrase == null) yield null;
-                yield SshResolvedCredential.key(host.username(), keyPath, passphrase);
-            }
         };
     }
 

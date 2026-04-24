@@ -14,6 +14,7 @@ jvm_library(
         "//platform/main/intellij.platform.monolith.main:monolith-main",
         "//platform/bootstrap",
         "//platform/starter",
+        "//platform/tips-of-the-day:tips",
         "//termlab/customization",
         "//termlab/core",
         "//termlab/sdk",
@@ -43,6 +44,7 @@ java_binary(
         "//platform/boot",
         "//platform/bootstrap",
         "//platform/starter",
+        "//platform/tips-of-the-day:tips",
 
         # TermLab modules
         "//termlab/customization",
@@ -175,7 +177,7 @@ java_binary(
         "-Didea.system.path=$${BUILD_WORKSPACE_DIRECTORY}/system/termlab",
         "-Didea.trust.all.projects=true",
         "-Dsplash=true",
-        "-Dide.no.tips.dialog=true",
+        "-Dide.show.tips.on.startup.default.value=true",
         # Disable telemetry metric exporters and statistics collection for
         # terminal-first TermLab dev sessions to reduce idle CPU/background work.
         "-Didea.diagnostic.opentelemetry.metrics.file=",

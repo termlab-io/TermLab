@@ -24,6 +24,7 @@ public final class TermLabSearchableOptionContributor extends SearchableOptionCo
         contributeConfigurable(processor, new TermLabTerminalConfigurable(), "Terminal");
         contributeConfigurable(processor, new TermLabTerminalAppearanceConfigurable(), "Terminal");
         contributeConfigurable(processor, new TermLabTerminalTerminalConfigurable(), "Terminal");
+        contributeConfigurable(processor, new TermLabTipsConfigurable(), "Tips");
     }
 
     private static void contributeConfigurable(@NotNull SearchableOptionProcessor processor,

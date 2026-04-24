@@ -18,6 +18,9 @@
         <extensionPoint name="fileSourceProvider"
                         interface="com.termlab.core.filepicker.FileSourceProvider"
                         dynamic="true"/>
+        <extensionPoint qualifiedName="com.intellij.tipAndTrickPromotionFactory"
+                        interface="com.intellij.ide.util.TipAndTrickPromotionFactory"
+                        dynamic="true"/>
     </extensionPoints>
 
     <extensions defaultExtensionNs="com.intellij">
@@ -38,6 +41,10 @@
             serviceImplementation="com.termlab.core.TermLabExternalProductResourceUrls"
             overrides="true"/>
 
+        <applicationService
+            serviceInterface="com.intellij.ide.util.TipAndTrickManager"
+            serviceImplementation="com.intellij.ide.util.TipAndTrickManagerImpl"/>
+
         <applicationConfigurable
             parentId="root"
             instance="com.termlab.core.settings.TermLabTerminalConfigurable"
@@ -56,12 +63,23 @@
             id="termlab.terminal.settings.general"
             displayName="General"/>
 
+        <applicationConfigurable
+            parentId="root"
+            instance="com.termlab.core.settings.TermLabTipsConfigurable"
+            id="termlab.tips.settings"
+            displayName="Tips"/>
+
         <notificationGroup
             id="TermLab Terminal"
             displayType="BALLOON"/>
 
         <search.optionContributor
             implementation="com.termlab.core.settings.TermLabSearchableOptionContributor"/>
+
+        <tipAndTrick file="TermLabMultiExec.html"/>
+        <tipAndTrick file="TermLabNewTerminalWindow.html"/>
+        <tipAndTrick file="TermLabDisablePlugins.html"/>
+        <tipAndTrick file="TermLabUndockPlugins.html"/>
 
         <!--
           Skip the platform welcome frame entirely and open ~ as the
@@ -116,6 +134,9 @@
 
         <postStartupActivity
             implementation="com.termlab.core.TermLabStartupActivity"/>
+
+        <postStartupActivity
+            implementation="com.termlab.core.TermLabTipsStartupActivity"/>
 
         <projectFrameCapabilitiesProvider
             implementation="com.termlab.core.TermLabProjectFrameCapabilitiesProvider"/>

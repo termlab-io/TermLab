@@ -99,6 +99,9 @@ class TermLabProperties(private val communityHomeDir: Path) : JetBrainsProductPr
       "-Dstderr.encoding=UTF-8",
       // Force packaged fresh installs onto the branded default LaF.
       "-Dlaf.name.for.new.installation=TermLab Dark",
+      // TermLab registers its own tip set through the platform Tip of
+      // the Day extension point. Users can disable this in Settings.
+      "-Dide.show.tips.on.startup.default.value=true",
       // Disable the native fsnotifier. TermLab has no project
       // indexing so filewatcher events are useless overhead, and on
       // Linux it pops an "inotify watch limit reached" balloon on
@@ -158,6 +161,7 @@ class TermLabProperties(private val communityHomeDir: Path) : JetBrainsProductPr
 
     embeddedModule("intellij.platform.credentialStore.ui")
     embeddedModule("intellij.platform.credentialStore.impl")
+    embeddedModule("intellij.platform.tips")
 
     // BuiltInServerManager service. Required by BrowserLauncherImpl.signUrl,
     // which is called unconditionally from BrowserUtil.browse — so without
