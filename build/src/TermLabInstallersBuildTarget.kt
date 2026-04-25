@@ -31,6 +31,16 @@ object TermLabInstallersBuildTarget {
     }
     val reuseCompiledClasses = (System.getenv("TERMLAB_REUSE_COMPILED_CLASSES") ?: "false").toBoolean()
     val windowsOnlyBuild = targetOs == "windows"
+    // TERMLAB_BUILD_MODE explicitly toggles isInDevelopmentMode (used by IDEA run
+    // configs). When unset (Bazel/make path), fall back to the legacy
+    // Windows-only-build behavior so NSIS still emits .exe on macOS hosts.
+    val buildMode = System.getenv("TERMLAB_BUILD_MODE")?.trim()?.lowercase()
+    val isDevMode = when (buildMode) {
+      "dev"  -> true
+      "prod" -> false
+      null, "" -> windowsOnlyBuild
+      else -> error("Invalid TERMLAB_BUILD_MODE: '$buildMode' (expected 'dev' or 'prod', or unset)")
+    }
     patchMacDmgScript()
     cleanupDevSeededThirdPartyLicenseFiles()
     val proprietaryBuildTools = createTermLabProprietaryBuildTools()
@@ -59,7 +69,7 @@ object TermLabInstallersBuildTarget {
         // build is marked as development-mode. TermLab exposes that path via
         // `make termlab-installers-windows` so local Windows installer testing
         // still works without weakening the all-platform/macOS packaging flow.
-        isInDevelopmentMode = windowsOnlyBuild
+        isInDevelopmentMode = isDevMode
         if (macSigningEnabled) {
           buildStepsToSkip -= BuildOptions.MAC_SIGN_STEP
         }
