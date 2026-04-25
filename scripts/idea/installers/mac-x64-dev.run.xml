@@ -1,0 +1,27 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false"
+                 name="TermLab Installer · macOS x64 · dev"
+                 type="JetRunConfigurationType"
+                 folderName="Installers (dev)">
+    <option name="ALTERNATIVE_JRE_PATH" value="BUNDLED" />
+    <option name="ALTERNATIVE_JRE_PATH_ENABLED" value="true" />
+    <option name="MAIN_CLASS_NAME" value="TermLabInstallersBuildTarget" />
+    <module name="intellij.termlab.build" />
+    <shortenClasspath name="ARGS_FILE" />
+    <envs>
+      <env name="TERMLAB_TARGET_OS" value="mac" />
+      <env name="TERMLAB_TARGET_ARCH" value="x64" />
+      <env name="TERMLAB_BUILD_MODE" value="dev" />
+      <env name="TERMLAB_REUSE_COMPILED_CLASSES" value="true" />
+      <env name="TERMLAB_MAC_CODESIGN_TEAM_NAME" value="" />
+      <env name="TERMLAB_MAC_CODESIGN_TEAM_ID" value="" />
+      <env name="APPLE_ISSUER_ID" value="" />
+      <env name="APPLE_KEY_ID" value="" />
+      <env name="APPLE_PRIVATE_KEY" value="" />
+    </envs>
+    <option name="VM_PARAMETERS" value="-Xmx4g -ea" />
+    <method v="2">
+      <option name="MakeProject" enabled="true" />
+    </method>
+  </configuration>
+</component>
