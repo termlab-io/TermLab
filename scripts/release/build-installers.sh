@@ -92,6 +92,7 @@ rm -f "$LOGS_DIR"/*.log "$LOGS_DIR"/*.state
 
 # --- Renderer (background sidecar) ------------------------------------------
 RENDERER_PID=""
+RENDERER_SLOT=0   # incremented to 1 when start_renderer actually launches the sidecar
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 RENDERER_SCRIPT="$SCRIPT_DIR/render-progress.sh"
 
@@ -99,6 +100,7 @@ start_renderer() {
   if [ -x "$RENDERER_SCRIPT" ]; then
     "$RENDERER_SCRIPT" "$LOGS_DIR" &
     RENDERER_PID=$!
+    RENDERER_SLOT=1
   fi
 }
 
@@ -162,11 +164,12 @@ echo "Phase 2: fanning out ${#PHASE_2_MATRIX[@]} platforms with concurrency limi
 BUILD_PIDS=()
 for combo in "${PHASE_2_MATRIX[@]}"; do
   read -r os arch <<< "$combo"
-  while [ "$(jobs -r | wc -l)" -ge "$((JOBS + 1))" ]; do
+  # +RENDERER_SLOT to leave room for the background renderer in the job count.
+  while [ "$(jobs -r | wc -l)" -ge "$((JOBS + RENDERER_SLOT))" ]; do
     wait -n || true
   done
   build_one "$os" "$arch" "true" &
-  BUILD_PIDS+=($!)
+  BUILD_PIDS+=("$!")
 done
 
 # Drain remaining build jobs (wait for specific PIDs, not the renderer).
