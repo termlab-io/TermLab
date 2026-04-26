@@ -41,7 +41,6 @@ object TermLabInstallersBuildTarget {
       null, "" -> windowsOnlyBuild
       else -> error("Invalid TERMLAB_BUILD_MODE: '$buildMode' (expected 'dev' or 'prod', or unset)")
     }
-    patchMacDmgScript()
     cleanupDevSeededThirdPartyLicenseFiles()
     val proprietaryBuildTools = createTermLabProprietaryBuildTools()
     val macSigningEnabled = proprietaryBuildTools.signTool.signNativeFileMode != SignNativeFileMode.DISABLED
@@ -117,60 +116,6 @@ object TermLabInstallersBuildTarget {
     val licenseDir = COMMUNITY_ROOT.communityRoot.resolve("license")
     for (fileName in GENERATED_THIRD_PARTY_LICENSE_FILES) {
       Files.deleteIfExists(licenseDir.resolve(fileName))
-    }
-  }
-
-  private fun patchMacDmgScript() {
-    val script = COMMUNITY_ROOT.communityRoot.resolve("platform/build-scripts/tools/mac/scripts/makedmg.sh")
-    if (!Files.exists(script)) {
-      return
-    }
-
-    val marker = "TermLab local DMG create workaround"
-    val original = Files.readString(script)
-
-    var updated = original.replace(
-      """
-log "Creating unpacked r/w disk image ${'$'}{VOLNAME}..."
-hdiutil create -srcfolder "${'$'}{EXPLODED}" -volname "${'$'}VOLNAME" -anyowners -nospotlight -fs HFS+ -fsargs "-c c=64,a=16,e=16" -format UDRW "${'$'}TEMP_DMG"
-      """.trimIndent(),
-      """
-log "Creating unpacked r/w disk image ${'$'}{VOLNAME}..."
-# $marker: hdiutil create -srcfolder can fail with
-# "could not access /Volumes/<volume>/<app>.app - Operation not permitted" on
-# local macOS release builds. Create an empty image instead, then copy the
-# exploded app into the mounted image after attach.
-DMG_SIZE_MB=${'$'}(du -sm "${'$'}EXPLODED" | awk '{print int(${'$'}1 * 14 / 10 + 256)}')
-hdiutil create -size "${'$'}{DMG_SIZE_MB}m" -volname "${'$'}VOLNAME" -anyowners -nospotlight -fs HFS+ -fsargs "-c c=64,a=16,e=16" "${'$'}TEMP_DMG"
-      """.trimIndent(),
-    )
-    updated = updated.replace(
-      """
-DMG_SIZE_MB=${'$'}(du -sm "${'$'}EXPLODED" | awk '{print int(${'$'}1 * 14 / 10 + 256)}')
-hdiutil create -size "${'$'}{DMG_SIZE_MB}m" -volname "${'$'}VOLNAME" -anyowners -nospotlight -fs HFS+ -fsargs "-c c=64,a=16,e=16" -format UDRW "${'$'}TEMP_DMG"
-      """.trimIndent(),
-      """
-DMG_SIZE_MB=${'$'}(du -sm "${'$'}EXPLODED" | awk '{print int(${'$'}1 * 14 / 10 + 256)}')
-hdiutil create -size "${'$'}{DMG_SIZE_MB}m" -volname "${'$'}VOLNAME" -anyowners -nospotlight -fs HFS+ -fsargs "-c c=64,a=16,e=16" "${'$'}TEMP_DMG"
-      """.trimIndent(),
-    )
-    updated = updated.replace(
-      """
-log "Mounted as ${'$'}device"
-sleep 10
-find "${'$'}MOUNT_POINT" -maxdepth 1
-      """.trimIndent(),
-      """
-log "Mounted as ${'$'}device"
-sleep 10
-log "Copying exploded app contents into mounted disk image..."
-ditto "${'$'}EXPLODED/" "${'$'}MOUNT_POINT/"
-find "${'$'}MOUNT_POINT" -maxdepth 1
-      """.trimIndent(),
-    )
-
-    if (updated != original) {
-      Files.writeString(script, updated)
     }
   }
 }
