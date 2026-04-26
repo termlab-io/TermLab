@@ -48,69 +48,29 @@ bold() { printf '\033[1m%s\033[0m' "$*"; }
 red()  { printf '\033[31m%s\033[0m' "$*"; }
 dim()  { printf '\033[2m%s\033[0m' "$*"; }
 
-sync_termlab_idea_config() {
-  local intellij_dir="$1"
-  local modules_xml="$intellij_dir/.idea/modules.xml"
-  local run_config_dir="$intellij_dir/.idea/runConfigurations"
-  local run_config_src="$WORKBENCH_DIR/scripts/idea/TermLab.run.xml"
-  local run_config_dest="$run_config_dir/TermLab.xml"
-  local anchor='intellij.compose.ide.plugin.shared.tests.iml'
-
-  mkdir -p "$run_config_dir"
-  cp "$run_config_src" "$run_config_dest"
-
-  if [ ! -f "$modules_xml" ]; then
-    echo "$(red "Missing IntelliJ modules.xml at $modules_xml")"
+# Reads paths from BOTH sections (managed + allow-dirty) of
+# scripts/intellij-managed-paths.txt. Used by check_dirty() to build the
+# git pathspec exclusion list.
+read_manifest_all_paths() {
+  local manifest="$WORKBENCH_DIR/scripts/intellij-managed-paths.txt"
+  if [ ! -f "$manifest" ]; then
+    echo "ERROR: manifest not found: $manifest" >&2
     exit 1
   fi
-
-  mapfile -t termlab_modules < <(python3 - "$WORKBENCH_DIR" <<'PYEOF'
-import os
+  python3 - "$manifest" <<'PYEOF'
 import sys
-
-root = sys.argv[1]
-modules = []
-
-for dirpath, dirnames, filenames in os.walk(root):
-    dirnames[:] = [d for d in dirnames if d not in {".git", ".idea", "out"}]
-    for filename in filenames:
-        if not filename.startswith("intellij.termlab") or not filename.endswith(".iml"):
+manifest = sys.argv[1]
+section = None
+with open(manifest) as f:
+    for raw in f:
+        line = raw.strip()
+        if not line or line.startswith("#"):
             continue
-        rel_path = os.path.relpath(os.path.join(dirpath, filename), root).replace(os.sep, "/")
-        modules.append(f"termlab/{rel_path}")
-
-for module in sorted(modules):
-    print(module)
-PYEOF
-  )
-
-  python3 - "$modules_xml" "$anchor" "${termlab_modules[@]}" <<'PYEOF'
-import sys
-
-path, anchor, *modules = sys.argv[1:]
-desired_lines = [
-    f'      <module fileurl="file://$PROJECT_DIR$/{module}" filepath="$PROJECT_DIR$/{module}" />\n'
-    for module in modules
-]
-
-with open(path, encoding="utf-8") as fh:
-    lines = fh.readlines()
-
-filtered = []
-anchor_index = None
-for line in lines:
-    if 'fileurl="file://$PROJECT_DIR$/termlab/' in line:
-        continue
-    filtered.append(line)
-    if anchor in line and anchor_index is None:
-        anchor_index = len(filtered)
-
-if anchor_index is None:
-    sys.exit("anchor not found")
-
-updated = filtered[:anchor_index] + desired_lines + filtered[anchor_index:]
-with open(path, "w", encoding="utf-8") as fh:
-    fh.writelines(updated)
+        if line.startswith("[") and line.endswith("]"):
+            section = line[1:-1]
+            continue
+        if section in ("managed", "allow-dirty"):
+            print(line)
 PYEOF
 }
 
@@ -346,11 +306,12 @@ if [ "$BUILD" -eq 1 ]; then
     [ -d "$dir/.git" ] || return 0
     local -a status_lines=()
     if [ "$name" = "intellij-community" ]; then
+      local -a pathspec=()
+      while IFS= read -r p; do
+        pathspec+=(":!/$p")
+      done < <(read_manifest_all_paths)
       mapfile -t status_lines < <(
-        git -C "$dir" status --short --untracked-files=all \
-          -- ':!/.idea/modules.xml' \
-             ':!/.idea/runConfigurations/TermLab.xml' \
-             ':!/termlab'
+        git -C "$dir" status --short --untracked-files=all -- "${pathspec[@]}"
       )
     else
       mapfile -t status_lines < <(git -C "$dir" status --short --untracked-files=all)
@@ -371,7 +332,7 @@ if [ "$BUILD" -eq 1 ]; then
   echo ""
   echo "$(bold "Syncing intellij-community + android to pinned SHAs...")"
   ANDROID_REF="$PINNED_ANDROID" bash "$WORKBENCH_DIR/scripts/ci/bootstrap_intellij.sh" "$INTELLIJ_ROOT"
-  sync_termlab_idea_config "$INTELLIJ_ROOT"
+  "$WORKBENCH_DIR/scripts/install-idea-config.sh" "$INTELLIJ_ROOT"
 
   # --- 6. Build --------------------------------------------------------------
 
