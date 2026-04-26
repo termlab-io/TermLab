@@ -92,7 +92,9 @@ public final class VaultLockStatusBarWidget implements StatusBarWidget, StatusBa
     private void handleClick() {
         if (lockManager.isLocked()) {
             if (!VaultFile.exists(lockManager.getVaultPath())) {
-                new CreateVaultDialog(project).showAndGet();
+                if (new CreateVaultDialog(project).showAndGet()) {
+                    new VaultDialog(project, lockManager).show();
+                }
                 return;
             }
             if (new UnlockDialog(project, lockManager).showAndGet()) {

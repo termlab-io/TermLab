@@ -285,7 +285,7 @@ public final class TermLabTerminalEditor extends UserDataHolderBase implements F
                 return;
             }
 
-            TextIcon icon = new TextIcon(shortcutHint, UIUtil.getLabelForeground(), Gray.TRANSPARENT, 0);
+            TextIcon icon = new TextIcon(shortcutHint, UIUtil.getContextHelpForeground(), Gray.TRANSPARENT, 0);
             icon.setFont(JBFont.label().deriveFont(UIUtil.getFontSize(UIUtil.FontSize.MINI) - 1));
             icon.setInsets(0, 6, 0, 2);
 
