@@ -217,6 +217,38 @@ PYEOF
   fi
 }
 
+# Patcher: insert the TermLab product entry into intellij-community/build/dev-build.json
+patch_dev_build_json() {
+  local target="$INTELLIJ_DIR/build/dev-build.json"
+  if [ ! -f "$target" ]; then
+    echo "ERROR: $target not found; intellij-community checkout incomplete?" >&2
+    exit 1
+  fi
+  python3 - "$target" <<'PYEOF'
+import json, sys
+path = sys.argv[1]
+with open(path) as f:
+    data = json.load(f)
+products = data.setdefault("products", {})
+desired = {
+    "modules": [
+        "intellij.termlab.build",
+        "intellij.idea.community.build.dependencies",
+        "intellij.platform.buildScripts",
+    ],
+    "class": "org.jetbrains.intellij.build.termlab.TermLabProperties",
+}
+if products.get("TermLab") == desired:
+    print("==> dev-build.json: TermLab product entry already present")
+    sys.exit(0)
+products["TermLab"] = desired
+with open(path, "w") as f:
+    json.dump(data, f, indent=2)
+    f.write("\n")
+print(f"==> dev-build.json: TermLab product entry written ({path})")
+PYEOF
+}
+
 # --- Dispatch ----------------------------------------------------------------
 #
 # For each path in the manifest's [managed] section, run the appropriate
@@ -243,9 +275,7 @@ apply_managed_patch() {
       # catch-all error arm below.
       ;;
     build/dev-build.json)
-      # TODO(Task 3): replace with `patch_dev_build_json`. Silent no-op until
-      # the patcher lands so the complete manifest from Task 1 doesn't trip
-      # the catch-all error arm below.
+      patch_dev_build_json
       ;;
     platform/build-scripts/tools/mac/scripts/makedmg.sh)
       # TODO(Task 5): replace with `patch_makedmg_sh`. Silent no-op until the
