@@ -249,6 +249,35 @@ print(f"==> dev-build.json: TermLab product entry written ({path})")
 PYEOF
 }
 
+# Patcher: register the termlab/ symlinked checkout as a Git VCS mapping in
+# intellij-community/.idea/vcs.xml so IDEA tracks it as a separate repo.
+patch_vcs_xml() {
+  local target="$INTELLIJ_DIR/.idea/vcs.xml"
+  if [ ! -f "$target" ]; then
+    echo "ERROR: $target not found; intellij-community checkout incomplete?" >&2
+    exit 1
+  fi
+  python3 - "$target" <<'PYEOF'
+import re, sys
+path = sys.argv[1]
+text = open(path).read()
+if 'directory="$PROJECT_DIR$/termlab"' in text:
+    print(f"==> vcs.xml: termlab mapping already present")
+    sys.exit(0)
+mapping = '    <mapping directory="$PROJECT_DIR$/termlab" vcs="Git" />\n'
+new_text, n = re.subn(
+    r'(\s*</component>\s*</project>\s*\Z)',
+    f'{mapping}\\1',
+    text,
+    count=1,
+)
+if n != 1:
+    sys.exit(f"vcs.xml shape changed; can't insert mapping (no </component></project> match)")
+open(path, "w").write(new_text)
+print(f"==> vcs.xml: termlab mapping written ({path})")
+PYEOF
+}
+
 # --- Dispatch ----------------------------------------------------------------
 #
 # For each path in the manifest's [managed] section, run the appropriate
@@ -270,9 +299,7 @@ apply_managed_patch() {
       # Symlink — created by setup.sh; install-idea-config.sh has nothing to do.
       ;;
     .idea/vcs.xml)
-      # TODO(Task 4): replace with `patch_vcs_xml`. Silent no-op until the
-      # patcher lands so the complete manifest from Task 1 doesn't trip the
-      # catch-all error arm below.
+      patch_vcs_xml
       ;;
     build/dev-build.json)
       patch_dev_build_json
