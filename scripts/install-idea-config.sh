@@ -278,6 +278,59 @@ print(f"==> vcs.xml: termlab mapping written ({path})")
 PYEOF
 }
 
+# Patcher: apply TermLab's local DMG-creation workaround to upstream's
+# makedmg.sh. Idempotent via a marker comment in the patched section.
+# The same logic was previously applied at runtime by TermLabInstallersBuild
+# Target.patchMacDmgScript(); that runtime call is removed in the next task.
+patch_makedmg_sh() {
+  local target="$INTELLIJ_DIR/platform/build-scripts/tools/mac/scripts/makedmg.sh"
+  if [ ! -f "$target" ]; then
+    echo "ERROR: $target not found; intellij-community checkout incomplete?" >&2
+    exit 1
+  fi
+  python3 - "$target" <<'PYEOF'
+import re, sys
+path = sys.argv[1]
+MARKER = "# TermLab local DMG create workaround"
+text = open(path).read()
+if MARKER in text:
+    print(f"==> makedmg.sh: TermLab patch already present")
+    sys.exit(0)
+
+ORIGINAL_LINE = (
+    'hdiutil create -srcfolder "${EXPLODED}" -volname "$VOLNAME" -anyowners '
+    '-nospotlight -fs HFS+ -fsargs "-c c=64,a=16,e=16" -format UDRW "$TEMP_DMG"'
+)
+REPLACEMENT = (
+    f"{MARKER}: hdiutil create -srcfolder can fail with\n"
+    "# \"could not access /Volumes/<volume>/<app>.app - Operation not permitted\" on\n"
+    "# local macOS release builds. Create an empty image instead, then copy the\n"
+    "# exploded app into the mounted image after attach.\n"
+    'DMG_SIZE_MB=$(du -sm "$EXPLODED" | awk \'{print int($1 * 14 / 10 + 256)}\')\n'
+    'hdiutil create -size "${DMG_SIZE_MB}m" -volname "$VOLNAME" -anyowners '
+    '-nospotlight -fs HFS+ -fsargs "-c c=64,a=16,e=16" "$TEMP_DMG"'
+)
+if ORIGINAL_LINE not in text:
+    sys.exit("makedmg.sh shape changed; can't patch (hdiutil create line not found)")
+text = text.replace(ORIGINAL_LINE, REPLACEMENT, 1)
+
+DITTO_INSERT = (
+    'log "Copying exploded app contents into mounted disk image..."\n'
+    'ditto "$EXPLODED/" "$MOUNT_POINT/"\n'
+)
+new_text, n = re.subn(
+    r'(log "Mounted as \$device"\nsleep 10\n)',
+    f'\\1{DITTO_INSERT}',
+    text,
+    count=1,
+)
+if n != 1:
+    sys.exit("makedmg.sh shape changed; can't insert ditto step (mount marker not found)")
+open(path, "w").write(new_text)
+print(f"==> makedmg.sh: TermLab patch applied")
+PYEOF
+}
+
 # --- Dispatch ----------------------------------------------------------------
 #
 # For each path in the manifest's [managed] section, run the appropriate
@@ -305,9 +358,7 @@ apply_managed_patch() {
       patch_dev_build_json
       ;;
     platform/build-scripts/tools/mac/scripts/makedmg.sh)
-      # TODO(Task 5): replace with `patch_makedmg_sh`. Silent no-op until the
-      # patcher lands so the complete manifest from Task 1 doesn't trip the
-      # catch-all error arm below.
+      patch_makedmg_sh
       ;;
     *)
       echo "ERROR: install-idea-config.sh has no patcher for managed path: $p" >&2
