@@ -38,6 +38,12 @@ set -euo pipefail
 WORKBENCH_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
 cd "$WORKBENCH_DIR"
 
+BUILD_INSTALLERS_SH="$WORKBENCH_DIR/scripts/release/build-installers.sh"
+if [ ! -x "$BUILD_INSTALLERS_SH" ]; then
+  echo "ERROR: missing or non-executable: $BUILD_INSTALLERS_SH" >&2
+  exit 1
+fi
+
 bold() { printf '\033[1m%s\033[0m' "$*"; }
 red()  { printf '\033[31m%s\033[0m' "$*"; }
 dim()  { printf '\033[2m%s\033[0m' "$*"; }
@@ -132,6 +138,16 @@ while [ $# -gt 0 ]; do
       shift
       ;;
     --jobs|-j)
+      if [ $# -lt 2 ] || [[ "$2" =~ ^- ]]; then
+        echo "$(red "$1 requires a numeric value (1-6).")"
+        echo "Run with --help for usage."
+        exit 1
+      fi
+      if ! [[ "$2" =~ ^[1-6]$ ]]; then
+        echo "$(red "$1 must be an integer between 1 and 6, got: $2")"
+        echo "Run with --help for usage."
+        exit 1
+      fi
       JOBS="$2"
       shift 2
       ;;
@@ -366,7 +382,7 @@ if [ "$BUILD" -eq 1 ]; then
   if [ "$NO_WARMUP" -eq 1 ]; then
     BUILD_INSTALLERS_ARGS+=(--no-warmup)
   fi
-  "$WORKBENCH_DIR/scripts/release/build-installers.sh" "${BUILD_INSTALLERS_ARGS[@]}"
+  "$BUILD_INSTALLERS_SH" "${BUILD_INSTALLERS_ARGS[@]}"
 
   # --- 6b. Generate updates.xml --------------------------------------------
   #
