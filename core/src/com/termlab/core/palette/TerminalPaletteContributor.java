@@ -14,6 +14,7 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import javax.swing.*;
+import java.util.Locale;
 
 public final class TerminalPaletteContributor implements SearchEverywhereContributor<Object> {
 
@@ -37,15 +38,15 @@ public final class TerminalPaletteContributor implements SearchEverywhereContrib
                                @NotNull ProgressIndicator progressIndicator,
                                @NotNull Processor<? super Object> consumer) {
         FileEditorManager manager = FileEditorManager.getInstance(project);
-        String lowerPattern = pattern.toLowerCase();
+        String lowerPattern = pattern.toLowerCase(Locale.ROOT);
 
         for (VirtualFile file : manager.getOpenFiles()) {
             if (progressIndicator.isCanceled()) return;
             if (file instanceof TermLabTerminalVirtualFile termFile) {
                 String displayName = termFile.getTerminalTitle();
-                String title = (displayName != null ? displayName : termFile.getName()).toLowerCase();
+                String title = (displayName != null ? displayName : termFile.getName()).toLowerCase(Locale.ROOT);
                 String cwd = termFile.getCurrentWorkingDirectory();
-                String cwdLower = cwd != null ? cwd.toLowerCase() : "";
+                String cwdLower = cwd != null ? cwd.toLowerCase(Locale.ROOT) : "";
 
                 if (lowerPattern.isEmpty()
                     || title.contains(lowerPattern)

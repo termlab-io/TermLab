@@ -9,6 +9,7 @@ import com.intellij.openapi.fileEditor.impl.EditorWindow;
 import com.intellij.openapi.project.Project;
 import com.intellij.testFramework.LightVirtualFile;
 import com.intellij.util.concurrency.AppExecutorUtil;
+import com.jediterm.terminal.Terminal;
 import com.jediterm.terminal.TtyConnector;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -233,8 +234,9 @@ public final class TermLabTerminalVirtualFile extends LightVirtualFile {
 
         private void startExitWatcher() {
             Thread watcher = new Thread(() -> {
+                int exitCode;
                 try {
-                    connector.waitFor();
+                    exitCode = connector.waitFor();
                 } catch (InterruptedException ignored) {
                     return;
                 }
@@ -242,12 +244,31 @@ public final class TermLabTerminalVirtualFile extends LightVirtualFile {
                     if (!project.isDisposed()
                         && !isDisposed()
                         && file.getUserData(FileEditorManagerKeys.CLOSING_TO_REOPEN) != Boolean.TRUE) {
-                        closeInOwningWindow(project, file);
+                        if (file.getProvider().closeTabOnSessionEnd()) {
+                            closeInOwningWindow(project, file);
+                        } else {
+                            showDisconnectedState(exitCode);
+                        }
                     }
                 });
             }, "TermLab-exit-watcher-" + file.getSessionId());
             watcher.setDaemon(true);
             watcher.start();
+        }
+
+        private void showDisconnectedState(int exitCode) {
+            Terminal terminal = widget.getTerminal();
+            terminal.disconnected();
+            terminal.carriageReturn();
+            terminal.newLine();
+            terminal.writeCharacters(file.getProvider().getDisplayName() + " session disconnected");
+            if (exitCode != 0) {
+                terminal.writeCharacters(" (exit " + exitCode + ")");
+            }
+            terminal.writeCharacters(". The terminal tab was kept open.");
+            terminal.carriageReturn();
+            terminal.newLine();
+            widget.getTerminalPanel().repaint();
         }
 
         private static void closeInOwningWindow(@NotNull Project project,

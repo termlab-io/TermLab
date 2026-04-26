@@ -67,28 +67,14 @@ public final class TermLabTerminalConfigurable implements SearchableConfigurable
     }
 
     private JComponent createShortcutRow(String label, String description, String configurableId) {
-        Color borderColor = UIManager.getColor("Component.borderColor");
-        if (borderColor == null) {
-            borderColor = UIManager.getColor("Separator.foreground");
-        }
         JPanel row = new JPanel();
         row.setLayout(new BoxLayout(row, BoxLayout.Y_AXIS));
         row.setAlignmentX(Component.LEFT_ALIGNMENT);
-        row.setBorder(BorderFactory.createCompoundBorder(
-            BorderFactory.createLineBorder(borderColor),
-            BorderFactory.createEmptyBorder(10, 12, 10, 12)
-        ));
-        row.setMaximumSize(new Dimension(Integer.MAX_VALUE, row.getPreferredSize().height));
 
         ActionLink link = new ActionLink(label, (ActionListener)e -> selectConfigurable(configurableId));
         link.setAlignmentX(Component.LEFT_ALIGNMENT);
         row.add(link);
 
-        JLabel details = new JLabel(description);
-        details.setAlignmentX(Component.LEFT_ALIGNMENT);
-        details.setForeground(UIManager.getColor("Label.disabledForeground"));
-        details.setBorder(BorderFactory.createEmptyBorder(4, 0, 0, 0));
-        row.add(details);
         return row;
     }
 

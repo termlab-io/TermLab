@@ -105,7 +105,7 @@ public final class TermLabTerminalEditor extends UserDataHolderBase implements F
     @Override public @Nullable JComponent getPreferredFocusedComponent() { return terminalWidget; }
     @Override public @NotNull String getName() { return "Terminal"; }
     @Override public boolean isModified() { return false; }
-    @Override public boolean isValid() { return connector != null && connector.isConnected(); }
+    @Override public boolean isValid() { return !session.isDisposed(); }
     @Override public VirtualFile getFile() { return file; }
     @Override public @Nullable ActionGroup getTabActions() { return tabActions; }
     @Override public void setState(@NotNull FileEditorState state) {}
@@ -196,7 +196,7 @@ public final class TermLabTerminalEditor extends UserDataHolderBase implements F
         resizeQueued = true;
         ApplicationManager.getApplication().invokeLater(() -> {
             resizeQueued = false;
-            if (project.isDisposed() || !isValid()) {
+            if (project.isDisposed() || !isValid() || connector == null || !connector.isConnected()) {
                 return;
             }
             if (!terminalWidget.isShowing() || terminalWidget.getTerminalPanel().getWidth() <= 0

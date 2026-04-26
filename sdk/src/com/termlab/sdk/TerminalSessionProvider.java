@@ -29,6 +29,16 @@ public interface TerminalSessionProvider {
     boolean canQuickOpen();
 
     /**
+     * Whether the owning terminal editor tab should close automatically when
+     * the backing session exits or disconnects. Process-like providers such as
+     * local PTYs keep the historical behavior; long-lived remote providers can
+     * opt out so the user sees the disconnect state instead of losing the tab.
+     */
+    default boolean closeTabOnSessionEnd() {
+        return true;
+    }
+
+    /**
      * Create a new terminal session. May show UI to collect parameters
      * (e.g., host picker for SSH). Returns null if the user cancels.
      *

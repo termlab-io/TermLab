@@ -54,8 +54,41 @@ final class ProcessTableModel extends AbstractTableModel {
             case 3 -> process.memoryPercent();
             case 4 -> process.rssKb();
             case 5 -> process.vszKb();
-            case 6 -> process.command();
+            case 6 -> displayName(process.command());
             default -> "";
         };
+    }
+
+    static @NotNull String displayName(@NotNull String command) {
+        String trimmed = command.trim();
+        if (trimmed.isEmpty()) return "";
+
+        String executable = firstCommandToken(trimmed);
+        int slash = Math.max(executable.lastIndexOf('/'), executable.lastIndexOf('\\'));
+        String name = slash >= 0 ? executable.substring(slash + 1) : executable;
+        return name.isBlank() ? trimmed : name;
+    }
+
+    private static @NotNull String firstCommandToken(@NotNull String command) {
+        char first = command.charAt(0);
+        if (first == '"' || first == '\'') {
+            int closing = command.indexOf(first, 1);
+            if (closing > 1) {
+                return command.substring(1, closing);
+            }
+        }
+
+        if (command.startsWith("/Applications/") && !command.contains(".app/")) {
+            return command;
+        }
+
+        int whitespace = -1;
+        for (int i = 0; i < command.length(); i++) {
+            if (Character.isWhitespace(command.charAt(i))) {
+                whitespace = i;
+                break;
+            }
+        }
+        return whitespace > 0 ? command.substring(0, whitespace) : command;
     }
 }

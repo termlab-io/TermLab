@@ -93,6 +93,11 @@ public final class SshSessionProvider implements TerminalSessionProvider {
     }
 
     @Override
+    public boolean closeTabOnSessionEnd() {
+        return false;
+    }
+
+    @Override
     public @Nullable TtyConnector createSession(@NotNull SessionContext context) {
         if (!(context instanceof SshSessionContext sshContext)) {
             Messages.showErrorDialog(

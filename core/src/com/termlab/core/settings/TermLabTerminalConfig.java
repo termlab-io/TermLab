@@ -4,6 +4,7 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.diagnostic.Logger;
+import com.intellij.platform.eel.fs.EelFiles;
 import org.jetbrains.annotations.NotNull;
 
 import java.io.IOException;
@@ -62,7 +63,7 @@ public final class TermLabTerminalConfig {
     private static @NotNull State load() {
         if (Files.exists(CONFIG_FILE)) {
             try {
-                String json = Files.readString(CONFIG_FILE);
+                String json = EelFiles.readString(CONFIG_FILE);
                 State loaded = GSON.fromJson(json, State.class);
                 if (loaded != null) {
                     LOG.info("Terminal settings loaded from " + CONFIG_FILE);
