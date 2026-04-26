@@ -10,7 +10,10 @@ import com.intellij.openapi.actionSystem.DefaultActionGroup;
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.ui.Messages;
+import com.intellij.openapi.util.Disposer;
 import com.intellij.openapi.wm.ToolWindow;
+import com.intellij.openapi.wm.ToolWindowManager;
+import com.intellij.openapi.wm.ex.ToolWindowManagerListener;
 import com.intellij.ui.CollectionComboBoxModel;
 import com.intellij.ui.JBColor;
 import com.intellij.ui.components.JBLabel;
@@ -48,6 +51,7 @@ import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.GridLayout;
+import java.awt.event.HierarchyEvent;
 import java.awt.Toolkit;
 import java.awt.datatransfer.StringSelection;
 import java.io.IOException;
@@ -110,9 +114,11 @@ public final class SysInfoToolWindow extends JPanel {
         add(buildTopPanel(), BorderLayout.NORTH);
         add(buildCenterPanel(), BorderLayout.CENTER);
         add(statusLabel, BorderLayout.SOUTH);
+        installVisibilityResumeHooks(project);
 
         refreshTargets();
         hostStore.addChangeListener(this::refreshTargetsOnEdt);
+        Disposer.register(toolWindow.getDisposable(), this::disposePanel);
 
         targetCombo.addActionListener(e -> {
             SystemTarget selected = selectedTarget();
@@ -128,17 +134,57 @@ public final class SysInfoToolWindow extends JPanel {
         });
 
         refreshTimer = new Timer(REFRESH_MS, e -> {
-            if (collectionRunning && toolWindow.isVisible()) collectNow();
+            if (collectionRunning && shouldCollectWhileVisible()) collectNow();
         });
     }
 
-    @Override
-    public void removeNotify() {
+    private void disposePanel() {
         refreshTimer.stop();
         hostStore.removeChangeListener(this::refreshTargetsOnEdt);
         Future<?> job = currentJob;
         if (job != null) job.cancel(true);
-        super.removeNotify();
+    }
+
+    private void installVisibilityResumeHooks(@NotNull Project project) {
+        addHierarchyListener(e -> {
+            if ((e.getChangeFlags() & HierarchyEvent.SHOWING_CHANGED) != 0) {
+                resumeCollectionIfVisible();
+            }
+        });
+
+        project.getMessageBus().connect(toolWindow.getDisposable()).subscribe(ToolWindowManagerListener.TOPIC, new ToolWindowManagerListener() {
+            @Override
+            public void toolWindowShown(@NotNull ToolWindow shownToolWindow) {
+                if (shownToolWindow == toolWindow || SysInfoToolWindowFactory.ID.equals(shownToolWindow.getId())) {
+                    resumeCollectionIfVisible();
+                }
+            }
+
+            @Override
+            public void stateChanged(@NotNull ToolWindowManager toolWindowManager,
+                                     @NotNull ToolWindow shownToolWindow,
+                                     @NotNull ToolWindowManagerListener.ToolWindowManagerEventType changeType) {
+                if ((shownToolWindow == toolWindow || SysInfoToolWindowFactory.ID.equals(shownToolWindow.getId()))
+                    && (changeType == ToolWindowManagerListener.ToolWindowManagerEventType.ShowToolWindow
+                        || changeType == ToolWindowManagerListener.ToolWindowManagerEventType.ActivateToolWindow)) {
+                    resumeCollectionIfVisible();
+                }
+            }
+        });
+    }
+
+    private boolean shouldCollectWhileVisible() {
+        return toolWindow.isVisible() || toolWindow.isActive() || isShowing();
+    }
+
+    private void resumeCollectionIfVisible() {
+        if (!collectionRunning || !shouldCollectWhileVisible()) {
+            return;
+        }
+        if (!refreshTimer.isRunning()) {
+            refreshTimer.start();
+        }
+        collectNow();
     }
 
     private @NotNull JPanel buildTopPanel() {
