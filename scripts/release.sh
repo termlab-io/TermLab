@@ -6,6 +6,8 @@
 # Usage:
 #   ./scripts/release.sh                — interactive release flow
 #   ./scripts/release.sh --dry-run|-n   — local pipeline test, no GitHub
+#   ./scripts/release.sh --jobs N|-j N  — parallel build concurrency (1-6, default 3)
+#   ./scripts/release.sh --no-warmup    — skip serial warmup, fan out all 6
 #   ./scripts/release.sh --help|-h      — show this header
 #
 # Flow:
@@ -121,10 +123,20 @@ ask() {
 # --- 0. Argument parsing -----------------------------------------------------
 
 DRY_RUN=0
+JOBS=3
+NO_WARMUP=0
 while [ $# -gt 0 ]; do
   case "$1" in
     --dry-run|-n)
       DRY_RUN=1
+      shift
+      ;;
+    --jobs|-j)
+      JOBS="$2"
+      shift 2
+      ;;
+    --no-warmup)
+      NO_WARMUP=1
       shift
       ;;
     -h|--help)
@@ -348,9 +360,13 @@ if [ "$BUILD" -eq 1 ]; then
   # --- 6. Build --------------------------------------------------------------
 
   echo ""
-  echo "$(bold "Running 'make termlab-installers' — this takes a while on a cold cache.")"
+  echo "$(bold "Building installer artifacts via jps-bootstrap (jobs=$JOBS)...")"
   echo ""
-  make termlab-installers
+  BUILD_INSTALLERS_ARGS=("$INTELLIJ_ROOT" --jobs "$JOBS")
+  if [ "$NO_WARMUP" -eq 1 ]; then
+    BUILD_INSTALLERS_ARGS+=(--no-warmup)
+  fi
+  "$WORKBENCH_DIR/scripts/release/build-installers.sh" "${BUILD_INSTALLERS_ARGS[@]}"
 
   # --- 6b. Generate updates.xml --------------------------------------------
   #
