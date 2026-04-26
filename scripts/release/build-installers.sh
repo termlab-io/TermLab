@@ -133,8 +133,41 @@ else
   PHASE_2_MATRIX=("${MATRIX[@]:1}")
 fi
 
-# --- Phase 2 (added in Task 2) -----------------------------------------------
-# Stub: in this commit we exit after Phase 1. Task 2 replaces this block
-# with the real fan-out + aggregation logic.
-echo "Stub: Phase 2 fan-out lands in the next commit. ${#PHASE_2_MATRIX[@]} platforms would build here."
+# --- Phase 2: parallel fan-out -----------------------------------------------
+echo "Phase 2: fanning out ${#PHASE_2_MATRIX[@]} platforms with concurrency limit $JOBS"
+
+for combo in "${PHASE_2_MATRIX[@]}"; do
+  read -r os arch <<< "$combo"
+  while [ "$(jobs -r | wc -l)" -ge "$JOBS" ]; do
+    wait -n || true
+  done
+  build_one "$os" "$arch" "true" &
+done
+
+# Drain remaining background jobs.
+wait || true
+
+# --- Aggregate result --------------------------------------------------------
+FAILED=()
+for combo in "${MATRIX[@]}"; do
+  read -r os arch <<< "$combo"
+  state="$(cat "$LOGS_DIR/${os}-${arch}.state" 2>/dev/null || echo missing)"
+  if [ "$state" != "done" ]; then
+    FAILED+=("${os}-${arch} ($state)")
+  fi
+done
+
+if [ "${#FAILED[@]}" -gt 0 ]; then
+  echo "" >&2
+  echo "ERROR: ${#FAILED[@]} platform(s) did not complete successfully:" >&2
+  for f in "${FAILED[@]}"; do
+    echo "  - $f" >&2
+  done
+  echo "" >&2
+  echo "See per-platform logs under $LOGS_DIR/" >&2
+  exit 1
+fi
+
+echo ""
+echo "All 6 platforms built successfully."
 exit 0
