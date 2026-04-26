@@ -43,17 +43,59 @@ fi
 
 MODULES_XML="$INTELLIJ_DIR/.idea/modules.xml"
 RUN_CONFIG_DIR="$INTELLIJ_DIR/.idea/runConfigurations"
-RUN_CONFIG_DEST="$RUN_CONFIG_DIR/TermLab.xml"
-RUN_CONFIG_SRC="$WORKBENCH_DIR/scripts/idea/TermLab.run.xml"
+RUN_CONFIG_SRC_DIR="$WORKBENCH_DIR/scripts/idea"
+RUN_CONFIG_INSTALLERS_DIR="$RUN_CONFIG_SRC_DIR/installers"
+TERMLAB_RUN_CONFIG_SRC="$RUN_CONFIG_SRC_DIR/TermLab.run.xml"
+TERMLAB_RUN_CONFIG_DEST="$RUN_CONFIG_DIR/TermLab.xml"
 
-# --- 1. Install the run configuration ----------------------------------------
+# --- 1. Install the run configurations ---------------------------------------
+#
+# Copy:
+#   1) The TermLab dev-run config (scripts/idea/TermLab.run.xml).
+#   2) Each installer template under scripts/idea/installers/*.run.xml.
+#
+# Destination filenames mirror IDEA's own writer: derived from the run
+# config's name= attribute, with every non-alphanumeric character
+# replaced by an underscore (e.g. "TermLab Installer · macOS aarch64
+# · dev" -> "TermLab_Installer___macOS_aarch64___dev.xml"). That keeps
+# the on-disk file name aligned with what IDEA shows in its dropdown.
 
 mkdir -p "$RUN_CONFIG_DIR"
-if [ -f "$RUN_CONFIG_DEST" ] && cmp -s "$RUN_CONFIG_SRC" "$RUN_CONFIG_DEST"; then
-  echo "==> Run configuration already installed: $RUN_CONFIG_DEST"
-else
-  cp "$RUN_CONFIG_SRC" "$RUN_CONFIG_DEST"
-  echo "==> Installed run configuration: $RUN_CONFIG_DEST"
+
+install_run_config() {
+  local src="$1"
+  local dest="$2"
+  if [ -f "$dest" ] && cmp -s "$src" "$dest"; then
+    echo "==> Run configuration already installed: $dest"
+  else
+    cp "$src" "$dest"
+    echo "==> Installed run configuration: $dest"
+  fi
+}
+
+install_run_config "$TERMLAB_RUN_CONFIG_SRC" "$TERMLAB_RUN_CONFIG_DEST"
+
+# Iterate every installer template, derive the destination filename
+# from its name= attribute, and copy.
+if [ -d "$RUN_CONFIG_INSTALLERS_DIR" ]; then
+  for src in "$RUN_CONFIG_INSTALLERS_DIR"/*.run.xml; do
+    [ -f "$src" ] || continue
+    config_name="$(python3 - "$src" <<'PYEOF'
+import re, sys
+text = open(sys.argv[1], encoding="utf-8").read()
+m = re.search(r'<configuration[^>]*\bname="([^"]+)"', text)
+if not m:
+    sys.exit(f"no name= attribute found in {sys.argv[1]}")
+print(m.group(1))
+PYEOF
+)"
+    sanitized="$(python3 - "$config_name" <<'PYEOF'
+import re, sys
+print(re.sub(r'[^A-Za-z0-9]', '_', sys.argv[1]))
+PYEOF
+)"
+    install_run_config "$src" "$RUN_CONFIG_DIR/${sanitized}.xml"
+  done
 fi
 
 # --- 2. Sync TermLab modules in modules.xml -----------------------------------
