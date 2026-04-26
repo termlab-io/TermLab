@@ -142,6 +142,9 @@ PYEOF
 # than only appending new ones. That avoids stale module references when a tag
 # predates a newer .iml file or when the module set changes over time.
 patch_modules_xml() {
+  local ANCHOR SYNC_RESULT
+  local -a TERMLAB_MODULES
+
   mapfile -t TERMLAB_MODULES < <(python3 - "$WORKBENCH_DIR" <<'PYEOF'
 import os
 import sys
@@ -234,8 +237,20 @@ apply_managed_patch() {
     termlab)
       # Symlink — created by setup.sh; install-idea-config.sh has nothing to do.
       ;;
-    .idea/vcs.xml | build/dev-build.json | platform/build-scripts/tools/mac/scripts/makedmg.sh)
-      # Managed by other scripts (setup.sh / build pipeline); nothing to do here.
+    .idea/vcs.xml)
+      # TODO(Task 4): replace with `patch_vcs_xml`. Silent no-op until the
+      # patcher lands so the complete manifest from Task 1 doesn't trip the
+      # catch-all error arm below.
+      ;;
+    build/dev-build.json)
+      # TODO(Task 3): replace with `patch_dev_build_json`. Silent no-op until
+      # the patcher lands so the complete manifest from Task 1 doesn't trip
+      # the catch-all error arm below.
+      ;;
+    platform/build-scripts/tools/mac/scripts/makedmg.sh)
+      # TODO(Task 5): replace with `patch_makedmg_sh`. Silent no-op until the
+      # patcher lands so the complete manifest from Task 1 doesn't trip the
+      # catch-all error arm below.
       ;;
     *)
       echo "ERROR: install-idea-config.sh has no patcher for managed path: $p" >&2
