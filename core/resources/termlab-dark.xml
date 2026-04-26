@@ -33,6 +33,7 @@
     <option name="WHITESPACES" value="384453" />
     <option name="VISUAL_INDENT_GUIDE" value="384453" />
     <option name="TEARLINE_COLOR" value="384453" />
+    <option name="TAB_UNDERLINE_INACTIVE" value="21252B" />
   </colors>
 
   <attributes>
@@ -41,6 +42,12 @@
       <value>
         <option name="FOREGROUND" value="DEDFDF" />
         <option name="BACKGROUND" value="111823" />
+      </value>
+    </option>
+
+    <option name="TAB_SELECTED_INACTIVE">
+      <value>
+        <option name="BACKGROUND" value="21252B" />
       </value>
     </option>
 

@@ -171,7 +171,8 @@
     "EditorPane.inactiveBackground": "#282c34",
 
     "EditorTabs": {
-      "underlinedTabBackground": "#3d424b"
+      "underlinedTabBackground": "#3d424b",
+      "inactiveUnderlinedTabBackground": "backgroundColor"
     },
 
     "FileColor": {
