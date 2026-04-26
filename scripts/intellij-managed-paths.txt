@@ -1,0 +1,24 @@
+# scripts/intellij-managed-paths.txt
+#
+# TermLab-managed paths within the intellij-community working tree.
+# Read by install-idea-config.sh (sync) and release.sh (dirty-tree allowlist).
+#
+# Sections:
+#   [managed]     — TermLab is source of truth. install-idea-config.sh applies
+#                   the corresponding patcher; release.sh ignores in dirty check.
+#                   Lines may be exact paths or sh-style globs (* matches any
+#                   non-/ characters within a single path component).
+#   [allow-dirty] — TermLab tolerates personal drift. install-idea-config.sh
+#                   does NOT touch these. release.sh ignores in dirty check.
+
+[managed]
+.idea/modules.xml
+.idea/runConfigurations/TermLab.xml
+.idea/runConfigurations/TermLab_Installer___*.xml
+.idea/vcs.xml
+build/dev-build.json
+platform/build-scripts/tools/mac/scripts/makedmg.sh
+termlab
+
+[allow-dirty]
+.idea/misc.xml
