@@ -90,6 +90,29 @@ LOGS_DIR="out/release-logs"
 mkdir -p "$LOGS_DIR"
 rm -f "$LOGS_DIR"/*.log "$LOGS_DIR"/*.state
 
+# --- Renderer (background sidecar) ------------------------------------------
+RENDERER_PID=""
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+RENDERER_SCRIPT="$SCRIPT_DIR/render-progress.sh"
+
+start_renderer() {
+  if [ -x "$RENDERER_SCRIPT" ]; then
+    "$RENDERER_SCRIPT" "$LOGS_DIR" &
+    RENDERER_PID=$!
+  fi
+}
+
+stop_renderer() {
+  if [ -n "$RENDERER_PID" ] && kill -0 "$RENDERER_PID" 2>/dev/null; then
+    kill "$RENDERER_PID" 2>/dev/null || true
+    wait "$RENDERER_PID" 2>/dev/null || true
+  fi
+}
+
+trap stop_renderer EXIT
+
+start_renderer
+
 # --- Build runner ------------------------------------------------------------
 # Runs one platform via jps-bootstrap. Writes log + state files.
 # Returns 0 on success, non-zero on failure.
@@ -136,16 +159,20 @@ fi
 # --- Phase 2: parallel fan-out -----------------------------------------------
 echo "Phase 2: fanning out ${#PHASE_2_MATRIX[@]} platforms with concurrency limit $JOBS"
 
+BUILD_PIDS=()
 for combo in "${PHASE_2_MATRIX[@]}"; do
   read -r os arch <<< "$combo"
-  while [ "$(jobs -r | wc -l)" -ge "$JOBS" ]; do
+  while [ "$(jobs -r | wc -l)" -ge "$((JOBS + 1))" ]; do
     wait -n || true
   done
   build_one "$os" "$arch" "true" &
+  BUILD_PIDS+=($!)
 done
 
-# Drain remaining background jobs.
-wait || true
+# Drain remaining build jobs (wait for specific PIDs, not the renderer).
+for pid in "${BUILD_PIDS[@]}"; do
+  wait "$pid" || true
+done
 
 # --- Aggregate result --------------------------------------------------------
 FAILED=()
