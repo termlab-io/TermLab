@@ -42,6 +42,16 @@ cleanup() {
 }
 trap cleanup EXIT
 
+on_term() {
+  if [ "$TTY_MODE" -eq 1 ]; then
+    render_tty
+  else
+    render_non_tty
+  fi
+  exit 0
+}
+trap on_term TERM
+
 elapsed_str() {
   local now elapsed
   now="$(date +%s)"
