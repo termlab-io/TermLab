@@ -7,23 +7,14 @@
 # Usage:
 #   make termlab                    — build and run TermLab
 #   make termlab-build              — build only (no run)
-#   make termlab-test               — run the full TermLab unit/integration test suite
 #   make termlab-clean              — clean build artifacts
-#   make termlab-installers         — build all-platform distributions
-#   make termlab-installers-fast    — build all-platform distributions reusing existing compiled IDE output
-#   make termlab-installers-mac     — build macOS distributions only (.dmg)
-#   make termlab-installers-linux   — build Linux distributions only (.tar.gz)
-#   make termlab-installers-windows — build Windows distributions only (.win.zip, .exe)
 #   make termlab-version            — regenerate TermLabApplicationInfo.xml
 #
 # Product version: pass VERSION=X.Y.Z on any build/run target to override and
 # persist the version in customization/version.properties, e.g.:
 #   VERSION=0.1.0 make termlab
-#   VERSION=0.2.0 make termlab-installers
 # The generated TermLabApplicationInfo.xml is a build artifact (gitignored);
 # the template lives at customization/TermLabApplicationInfo.xml.tmpl.
-#
-# Installer artifacts land in: $(INTELLIJ_ROOT)/out/termlab/artifacts/
 #
 # INTELLIJ_ROOT resolution order:
 #   1. Environment variable / `make INTELLIJ_ROOT=...`
@@ -66,69 +57,7 @@ TERMLAB_PERF_WARMUP_SEC ?= 90
 TERMLAB_PERF_SAMPLE_SEC ?= 5
 TERMLAB_PERF_DURATION_SEC ?= 300
 
-# Installer build-number injection.
-#
-# generate_version.py writes the IntelliJ-compatible build number to
-# out/build-number (e.g. 262.1.1 = <intellij-branch>.<major*100+minor>.<patch>).
-# Passing it via -Dbuild.number lets BuildOptions.buildNumber (platform-impl
-# BuildContextImpl) override the default 262.SNAPSHOT *at build time* — it's
-# then baked into artifact filenames, product-info.json, the stamped
-# ApplicationInfo, and the runtime value the updater compares against
-# updates.xml. This only matters for the installer pipeline; source runs
-# (`make termlab`) read the build number from build.txt at runtime and
-# can't pick this up.
-#
-# JAVA_TOOL_OPTIONS is used rather than --jvmopt because the launched
-# java_binary reliably inherits process env regardless of bazel's launcher
-# caching. Installer targets below bypass the $(BAZEL) convenience macro
-# and write out `cd ... && VAR=val bash bazel.cmd` explicitly, because in
-# `FOO=val cd ... && bash ...` the FOO assignment applies only to the `cd`
-# builtin and bash runs without it. Placing env right before bash fixes
-# that (and incidentally fixes the same latent bug in
-# TERMLAB_REUSE_COMPILED_CLASSES and TERMLAB_TARGET_OS — they already have
-# the right shape now).
-#
-# Every installer target depends on termlab-version, so out/build-number is
-# always present by the time these recipes run.
-BUILD_NUMBER_FILE := $(WORKBENCH_DIR)/out/build-number
-INSTALLER_JVM = JAVA_TOOL_OPTIONS="-Dbuild.number=$$(cat $(BUILD_NUMBER_FILE))"
-INSTALLER_OUTPUT_ROOT := $(INTELLIJ_ROOT)/out/termlab
-INSTALLER_STAGING_ROOT := $(INTELLIJ_ROOT)/out/termlab-installers
-INSTALLER_BAZEL_TARGET := //termlab/build:termlab_installers
-
-define RUN_INSTALLER
-	cd $(INTELLIJ_ROOT) && JAVA_TOOL_OPTIONS="-Dbuild.number=$$(cat $(BUILD_NUMBER_FILE)) -Dintellij.build.output.root=$(1)" $(2) bash bazel.cmd run $(INSTALLER_BAZEL_TARGET)
-endef
-
-define COPY_INSTALLER_ARTIFACTS
-	mkdir -p "$(INSTALLER_OUTPUT_ROOT)/artifacts"
-	cp -R "$(1)/artifacts/." "$(INSTALLER_OUTPUT_ROOT)/artifacts/"
-endef
-
-define CLEAN_MAC_DMG_MOUNTS
-	@set -e; \
-	for volume in /Volumes/TermLab-EAP /Volumes/TermLab-EAP\ [0-9]*; do \
-		if [ -d "$$volume" ]; then \
-			echo "→ Detaching stale TermLab DMG volume: $$volume"; \
-			hdiutil detach "$$volume" || hdiutil detach -force "$$volume"; \
-		fi; \
-	done
-endef
-
-TERMLAB_TEST_TARGETS := \
-	//termlab/core:core_test_runner \
-	//termlab/plugins/vault:vault_test_runner \
-	//termlab/plugins/ssh:ssh_test_runner \
-	//termlab/plugins/tunnels:tunnels_test_runner \
-	//termlab/plugins/share:share_test_runner \
-	//termlab/plugins/editor:editor_test_runner \
-	//termlab/plugins/runner:runner_test_runner \
-	//termlab/plugins/sftp:sftp_test_runner \
-	//termlab/plugins/search:search_test_runner \
-	//termlab/plugins/sysinfo:sysinfo_test_runner \
-	//termlab/plugins/proxmox:proxmox_test_runner
-
-.PHONY: termlab termlab-build termlab-test termlab-clean termlab-installers termlab-installers-fast termlab-installers-mac termlab-installers-linux termlab-installers-windows check-intellij termlab-version termlab-memory-artifacts termlab-sync-idea-config termlab-bootstrap-intellij termlab-perf-benchmark termlab-perf-budget
+.PHONY: termlab termlab-build termlab-clean check-intellij termlab-version termlab-memory-artifacts termlab-sync-idea-config termlab-bootstrap-intellij termlab-perf-benchmark termlab-perf-budget
 
 check-intellij:
 	@test -f "$(INTELLIJ_ROOT)/bazel.cmd" || { \
@@ -171,65 +100,8 @@ termlab: check-intellij termlab-version termlab-memory-artifacts
 termlab-build: check-intellij termlab-version
 	$(BAZEL) build //termlab:termlab_run
 
-termlab-test: check-intellij termlab-version
-	@echo "→ Running full TermLab test suite"
-	@set -e; \
-	for target in $(TERMLAB_TEST_TARGETS); do \
-		echo ""; \
-		echo "--- $$target"; \
-		$(BAZEL) run $$target; \
-	done
-
 termlab-clean: check-intellij
 	$(BAZEL) clean
-
-termlab-installers: check-intellij termlab-version termlab-bootstrap-intellij
-	rm -rf "$(INSTALLER_OUTPUT_ROOT)/artifacts"
-	$(call RUN_INSTALLER,$(INSTALLER_STAGING_ROOT)/linux,TERMLAB_TARGET_OS=linux)
-	$(call COPY_INSTALLER_ARTIFACTS,$(INSTALLER_STAGING_ROOT)/linux)
-	$(call RUN_INSTALLER,$(INSTALLER_STAGING_ROOT)/windows,TERMLAB_TARGET_OS=windows)
-	$(call COPY_INSTALLER_ARTIFACTS,$(INSTALLER_STAGING_ROOT)/windows)
-	$(call CLEAN_MAC_DMG_MOUNTS)
-	$(call RUN_INSTALLER,$(INSTALLER_STAGING_ROOT)/mac-x64,TERMLAB_TARGET_OS=mac TERMLAB_TARGET_ARCH=x64)
-	$(call COPY_INSTALLER_ARTIFACTS,$(INSTALLER_STAGING_ROOT)/mac-x64)
-	$(call CLEAN_MAC_DMG_MOUNTS)
-	$(call RUN_INSTALLER,$(INSTALLER_STAGING_ROOT)/mac-aarch64,TERMLAB_TARGET_OS=mac TERMLAB_TARGET_ARCH=aarch64)
-	$(call COPY_INSTALLER_ARTIFACTS,$(INSTALLER_STAGING_ROOT)/mac-aarch64)
-	@echo "→ Installer artifacts in $(INTELLIJ_ROOT)/out/termlab/artifacts/"
-
-termlab-installers-fast: check-intellij termlab-version termlab-bootstrap-intellij
-	@echo "→ Building installers from existing compiled IDE output"
-	@echo "  Run 'Build Project' in IntelliJ first if outputs are stale or missing."
-	rm -rf "$(INSTALLER_OUTPUT_ROOT)/artifacts"
-	$(call RUN_INSTALLER,$(INSTALLER_STAGING_ROOT)/linux,TERMLAB_REUSE_COMPILED_CLASSES=true TERMLAB_TARGET_OS=linux)
-	$(call COPY_INSTALLER_ARTIFACTS,$(INSTALLER_STAGING_ROOT)/linux)
-	$(call RUN_INSTALLER,$(INSTALLER_STAGING_ROOT)/windows,TERMLAB_REUSE_COMPILED_CLASSES=true TERMLAB_TARGET_OS=windows)
-	$(call COPY_INSTALLER_ARTIFACTS,$(INSTALLER_STAGING_ROOT)/windows)
-	$(call CLEAN_MAC_DMG_MOUNTS)
-	$(call RUN_INSTALLER,$(INSTALLER_STAGING_ROOT)/mac-x64,TERMLAB_REUSE_COMPILED_CLASSES=true TERMLAB_TARGET_OS=mac TERMLAB_TARGET_ARCH=x64)
-	$(call COPY_INSTALLER_ARTIFACTS,$(INSTALLER_STAGING_ROOT)/mac-x64)
-	$(call CLEAN_MAC_DMG_MOUNTS)
-	$(call RUN_INSTALLER,$(INSTALLER_STAGING_ROOT)/mac-aarch64,TERMLAB_REUSE_COMPILED_CLASSES=true TERMLAB_TARGET_OS=mac TERMLAB_TARGET_ARCH=aarch64)
-	$(call COPY_INSTALLER_ARTIFACTS,$(INSTALLER_STAGING_ROOT)/mac-aarch64)
-	@echo "→ Installer artifacts in $(INTELLIJ_ROOT)/out/termlab/artifacts/"
-
-termlab-installers-mac: check-intellij termlab-version termlab-bootstrap-intellij
-	rm -rf "$(INSTALLER_OUTPUT_ROOT)/artifacts"
-	$(call CLEAN_MAC_DMG_MOUNTS)
-	$(call RUN_INSTALLER,$(INSTALLER_STAGING_ROOT)/mac-x64,TERMLAB_TARGET_OS=mac TERMLAB_TARGET_ARCH=x64)
-	$(call COPY_INSTALLER_ARTIFACTS,$(INSTALLER_STAGING_ROOT)/mac-x64)
-	$(call CLEAN_MAC_DMG_MOUNTS)
-	$(call RUN_INSTALLER,$(INSTALLER_STAGING_ROOT)/mac-aarch64,TERMLAB_TARGET_OS=mac TERMLAB_TARGET_ARCH=aarch64)
-	$(call COPY_INSTALLER_ARTIFACTS,$(INSTALLER_STAGING_ROOT)/mac-aarch64)
-	@echo "→ Installer artifacts in $(INTELLIJ_ROOT)/out/termlab/artifacts/"
-
-termlab-installers-linux: check-intellij termlab-version termlab-bootstrap-intellij
-	cd $(INTELLIJ_ROOT) && $(INSTALLER_JVM) TERMLAB_TARGET_OS=linux bash bazel.cmd run //termlab/build:termlab_installers
-	@echo "→ Installer artifacts in $(INTELLIJ_ROOT)/out/termlab/artifacts/"
-
-termlab-installers-windows: check-intellij termlab-version termlab-bootstrap-intellij
-	cd $(INTELLIJ_ROOT) && $(INSTALLER_JVM) TERMLAB_TARGET_OS=windows bash bazel.cmd run //termlab/build:termlab_installers
-	@echo "→ Installer artifacts in $(INTELLIJ_ROOT)/out/termlab/artifacts/"
 
 termlab-perf-benchmark: check-intellij
 	mkdir -p "$(TERMLAB_PERF_WORKSPACE)"

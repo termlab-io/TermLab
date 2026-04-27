@@ -71,10 +71,6 @@ Useful targets:
 | `make termlab` | Build and run TermLab |
 | `make termlab-build` | Build without launching |
 | `make termlab-clean` | Clean Bazel build artifacts |
-| `make termlab-installers` | Build installer artifacts for supported platforms |
-| `make termlab-installers-mac` | Build macOS installers |
-| `make termlab-installers-linux` | Build Linux installers |
-| `make termlab-installers-windows` | Build Windows installers |
 | `make termlab-perf-benchmark` | Run the idle-footprint benchmark harness |
 | `make termlab-perf-budget` | Check the latest benchmark against budget thresholds |
 
