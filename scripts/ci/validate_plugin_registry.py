@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Validate that every TermLab plugin in source is registered with the
-installer's pluginLayouts list, and that every essential-plugin
+installer's bundledPluginModules list, and that every essential-plugin
 declared in TermLabApplicationInfo.xml is packaged. Fails CI if either
 property is violated.
 
@@ -31,15 +31,30 @@ def collect_source_plugin_ids() -> set[str]:
     return ids
 
 
-def collect_layout_plugin_ids() -> set[str]:
-    """Plugins listed in TermLabProperties.kt's pluginLayouts list."""
+def collect_bundled_plugin_ids() -> set[str]:
+    """Plugins listed in TermLabProperties.kt's productLayout.bundledPluginModules.
+
+    Looks for the persistentListOf(...) block assigned to bundledPluginModules
+    and extracts every "intellij.termlab.X" string inside it.
+    """
     props_path = REPO / "build/src/org/jetbrains/intellij/build/termlab/TermLabProperties.kt"
     props_text = props_path.read_text(encoding="utf-8")
-    matches = re.findall(
-        r'PluginLayout\.plugin\(mainModuleName\s*=\s*"intellij\.termlab\.(\w+)"',
+
+    # Find the productLayout.bundledPluginModules = persistentListOf( ... ) block.
+    block_match = re.search(
+        r'productLayout\.bundledPluginModules\s*=\s*persistentListOf\s*\(\s*([^)]*?)\s*\)',
         props_text,
+        re.DOTALL,
     )
-    return {f"com.termlab.{m}" for m in matches}
+    if not block_match:
+        raise RuntimeError(
+            "Could not find productLayout.bundledPluginModules = persistentListOf(...) "
+            "block in TermLabProperties.kt"
+        )
+
+    block_text = block_match.group(1)
+    modules = re.findall(r'"intellij\.termlab\.(\w+)"', block_text)
+    return {f"com.termlab.{m}" for m in modules}
 
 
 def collect_essential_plugin_ids() -> set[str]:
@@ -52,29 +67,29 @@ def collect_essential_plugin_ids() -> set[str]:
 
 def main() -> int:
     source_plugins = collect_source_plugin_ids()
-    layout_plugins = collect_layout_plugin_ids()
+    bundled_plugins = collect_bundled_plugin_ids()
     essential_plugins = collect_essential_plugin_ids()
 
     errors: list[str] = []
 
-    missing_from_layout = source_plugins - layout_plugins
-    if missing_from_layout:
+    missing_from_bundled = source_plugins - bundled_plugins
+    if missing_from_bundled:
         errors.append(
-            "Plugins exist in source but are missing from TermLabProperties.pluginLayouts; "
-            f"they will NOT ship in the installer: {sorted(missing_from_layout)}"
+            "Plugins exist in source but are missing from TermLabProperties.bundledPluginModules; "
+            f"they will NOT ship in the installer: {sorted(missing_from_bundled)}"
         )
 
-    phantom = layout_plugins - source_plugins
+    phantom = bundled_plugins - source_plugins
     if phantom:
         errors.append(
-            "TermLabProperties.pluginLayouts references plugins with no matching source: "
+            "TermLabProperties.bundledPluginModules references plugins with no matching source: "
             f"{sorted(phantom)}"
         )
 
-    missing_essential = essential_plugins - layout_plugins
+    missing_essential = essential_plugins - bundled_plugins
     if missing_essential:
         errors.append(
-            "essential-plugin entries declared in TermLabApplicationInfo.xml are NOT in pluginLayouts; "
+            "essential-plugin entries declared in TermLabApplicationInfo.xml are NOT in bundledPluginModules; "
             f"the app will fail to start: {sorted(missing_essential)}"
         )
 
