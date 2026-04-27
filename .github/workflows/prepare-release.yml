@@ -20,9 +20,18 @@ on:
         required: true
         default: false
         type: boolean
+      replace_existing_tag:
+        description: Force-replace an existing tag with the same name (destructive — invalidates the previous release's artifacts)
+        required: true
+        default: false
+        type: boolean
 
 permissions:
   contents: write
+
+concurrency:
+  group: prepare-release
+  cancel-in-progress: false
 
 jobs:
   authorize:
@@ -151,15 +160,18 @@ jobs:
             git rebase origin/main
           done
 
-      - name: Replace existing release tag
+      - name: Refuse if tag exists (unless replace_existing_tag is set)
         run: |
           TAG="${{ steps.metadata.outputs.tag }}"
-
-          if git rev-parse -q --verify "refs/tags/$TAG" >/dev/null; then
-            git tag -d "$TAG"
-          fi
-
           if git ls-remote --exit-code --tags origin "refs/tags/$TAG" >/dev/null 2>&1; then
+            if [ "${{ inputs.replace_existing_tag }}" != "true" ]; then
+              echo "::error::Tag $TAG already exists. Bump the suffix to release a new version, or re-run this workflow with replace_existing_tag=true (destructive — invalidates the previous release's artifacts)."
+              exit 1
+            fi
+            echo "::warning::Replacing existing tag $TAG (destructive — opted in via replace_existing_tag input)"
+            if git rev-parse -q --verify "refs/tags/$TAG" >/dev/null; then
+              git tag -d "$TAG"
+            fi
             git push origin ":refs/tags/$TAG"
           fi
 
@@ -181,7 +193,7 @@ jobs:
             exit 0
           fi
 
-          args=(release create "$TAG" --draft --title "$TAG" --latest=false --notes "Release $TAG. Installer artifacts will be uploaded from a local build via scripts/release.sh.")
+          args=(release create "$TAG" --draft --title "$TAG" --latest=false --notes "Build pipeline running. Artifacts will appear here when the build-release workflow completes.")
           if [ "$PRERELEASE" = "true" ]; then
             args+=(--prerelease)
           fi
