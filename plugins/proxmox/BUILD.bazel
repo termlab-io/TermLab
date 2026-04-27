@@ -17,6 +17,7 @@ jvm_library(
         "//termlab/core",
         "//termlab/sdk",
         "//platform/core-api:core",
+        "//platform/core-impl",
         "//platform/core-ui",
         "//platform/editor-ui-api:editor-ui",
         "//platform/ide-core",
