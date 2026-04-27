@@ -1,0 +1,64 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+      - name: Validate plugin registry
+        run: python3 scripts/ci/validate_plugin_registry.py
+      - name: Validate iml ↔ BUILD.bazel parity
+        run: python3 scripts/ci/validate_iml_build_parity.py
+
+  test:
+    needs: validate
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Compute INTELLIJ_ROOT
+        run: |
+          INTELLIJ_ROOT="$(dirname "$(pwd -P)")/intellij-community"
+          echo "INTELLIJ_ROOT=$INTELLIJ_ROOT" >> "$GITHUB_ENV"
+      - name: Cache intellij-community clone
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.INTELLIJ_ROOT }}
+          key: intellij-community-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('INTELLIJ_REF', 'ANDROID_REF') }}
+      - name: Cache Maven dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2/repository
+          key: m2-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('INTELLIJ_REF') }}
+      - name: Cache jps-bootstrap self-build
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.INTELLIJ_ROOT }}/out/jps-bootstrap
+          key: jps-bootstrap-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('INTELLIJ_REF') }}
+      - name: Bootstrap intellij-community
+        run: ./scripts/ci/bootstrap_intellij.sh "$INTELLIJ_ROOT"
+      - name: Apply intellij-community overlay
+        run: ./scripts/install-idea-config.sh "$INTELLIJ_ROOT"
+      - name: Run module test runners
+        run: ./scripts/ci/run_test_runners.sh
