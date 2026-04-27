@@ -31,6 +31,7 @@ jvm_library(
         "//platform/util",
         "//platform/util/text-matching",
         "//platform/util:util-ui",
+        "//libraries/junit5-launcher",
         "//libraries/sshd-osgi",
         "@lib//:jetbrains-annotations",
         "@lib//:kotlin-stdlib",

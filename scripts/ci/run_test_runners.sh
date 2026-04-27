@@ -19,17 +19,17 @@ fi
 
 # Each entry: <human_name>:<iml_module_name>:<main_class_fqcn>
 TEST_MODULES=(
-  "core:intellij.termlab.core.tests:com.termlab.core.TestRunner"
-  "vault:intellij.termlab.vault.tests:com.termlab.vault.TestRunner"
-  "ssh:intellij.termlab.ssh.tests:com.termlab.ssh.TestRunner"
-  "sftp:intellij.termlab.sftp.tests:com.termlab.sftp.TestRunner"
-  "share:intellij.termlab.share.tests:com.termlab.share.TestRunner"
-  "tunnels:intellij.termlab.tunnels.tests:com.termlab.tunnels.TestRunner"
-  "editor:intellij.termlab.editor.tests:com.termlab.editor.TestRunner"
-  "search:intellij.termlab.search.tests:com.termlab.search.TestRunner"
-  "sysinfo:intellij.termlab.sysinfo.tests:com.termlab.sysinfo.TestRunner"
-  "runner:intellij.termlab.runner.tests:com.termlab.runner.TestRunner"
-  "proxmox:intellij.termlab.proxmox.tests:com.termlab.proxmox.TestRunner"
+  "core:intellij.termlab.core:com.termlab.core.TestRunner"
+  "vault:intellij.termlab.vault:com.termlab.vault.TestRunner"
+  "ssh:intellij.termlab.ssh:com.termlab.ssh.TestRunner"
+  "sftp:intellij.termlab.sftp:com.termlab.sftp.TestRunner"
+  "share:intellij.termlab.share:com.termlab.share.TestRunner"
+  "tunnels:intellij.termlab.tunnels:com.termlab.tunnels.TestRunner"
+  "editor:intellij.termlab.editor:com.termlab.editor.TestRunner"
+  "search:intellij.termlab.search:com.termlab.search.TestRunner"
+  "sysinfo:intellij.termlab.sysinfo:com.termlab.sysinfo.TestRunner"
+  "runner:intellij.termlab.runner:com.termlab.runner.TestRunner"
+  "proxmox:intellij.termlab.proxmox:com.termlab.proxmox.TestRunner"
 )
 
 failures=()

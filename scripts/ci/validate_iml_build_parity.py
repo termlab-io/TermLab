@@ -22,6 +22,14 @@ REPO = Path(__file__).resolve().parents[2]
 # Bazel target path (without leading //) → iml module/library name.
 # Targets ending with :name use the explicit suffix; targets without
 # explicit suffix default to the directory name.
+# Bazel target path (without leading //) → iml project-library name.
+# These are targets that surface as <orderEntry type="library" name="..."> in
+# the iml (not as module deps). Used for entries like //libraries/junit5-launcher
+# whose IDEA representation is a named project library rather than an iml module.
+BAZEL_TO_IML_LIBRARY = {
+    "libraries/junit5-launcher": "JUnit6Launcher",
+}
+
 BAZEL_TO_IML_MODULE = {
     # platform modules
     "platform/analysis-api:analysis": "intellij.platform.analysis",
@@ -161,7 +169,9 @@ def parse_build_bazel(build_path: Path, target_name: str) -> tuple[set[str], set
         if norm is None:
             unknown.append(raw)
             continue
-        if norm in BAZEL_TO_IML_MODULE:
+        if norm in BAZEL_TO_IML_LIBRARY:
+            libraries.add(BAZEL_TO_IML_LIBRARY[norm])
+        elif norm in BAZEL_TO_IML_MODULE:
             modules.add(BAZEL_TO_IML_MODULE[norm])
         else:
             unknown.append(raw)

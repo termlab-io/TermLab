@@ -28,6 +28,7 @@ jvm_library(
         "//platform/util-ex",
         "//platform/credential-store",
         "//libraries/bouncy-castle-provider",
+        "//libraries/junit5-launcher",
         "@lib//:jetbrains-annotations",
         "@lib//:gson",
         "@lib//:kotlin-stdlib",

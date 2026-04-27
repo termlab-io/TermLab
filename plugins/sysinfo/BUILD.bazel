@@ -16,6 +16,7 @@ jvm_library(
     deps = [
         "//termlab/core",
         "//termlab/plugins/ssh",
+        "//libraries/junit5-launcher",
         "//libraries/sshd-osgi",
         "//platform/core-api:core",
         "//platform/core-impl",

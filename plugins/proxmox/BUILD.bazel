@@ -26,6 +26,7 @@ jvm_library(
         "//platform/projectModel-api:projectModel",
         "//platform/util",
         "//platform/util:util-ui",
+        "//libraries/junit5-launcher",
         "@lib//:gson",
         "@lib//:jetbrains-annotations",
         "@lib//:kotlin-stdlib",

@@ -35,6 +35,7 @@ jvm_library(
         "//platform/util:util-ui",
         "//libraries/jediterm-core:jediterm-core",
         "//libraries/jediterm-ui:jediterm-ui",
+        "//libraries/junit5-launcher",
         "//libraries/pty4j",
         "@lib//:jetbrains-annotations",
         "@lib//:gson",
