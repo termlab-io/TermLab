@@ -1,0 +1,205 @@
+name: Build Release
+
+on:
+  push:
+    tags:
+      - '*-2*-*'   # Codename-YYYY.M-suffix, e.g. Uplink-2026.4-0.1.4
+
+concurrency:
+  group: build-release-${{ github.ref }}
+  cancel-in-progress: true   # superseded re-tag (replace_existing_tag) cancels stale build
+
+permissions:
+  contents: write   # for gh release upload
+
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+      - name: Validate plugin registry
+        run: python3 scripts/ci/validate_plugin_registry.py
+      - name: Validate iml ↔ BUILD.bazel parity
+        run: python3 scripts/ci/validate_iml_build_parity.py
+
+  test:
+    needs: validate
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Compute INTELLIJ_ROOT
+        run: |
+          INTELLIJ_ROOT="$(dirname "$(pwd -P)")/intellij-community"
+          echo "INTELLIJ_ROOT=$INTELLIJ_ROOT" >> "$GITHUB_ENV"
+      - name: Cache intellij-community clone
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.INTELLIJ_ROOT }}
+          key: intellij-community-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('INTELLIJ_REF', 'ANDROID_REF') }}
+      - name: Cache Maven dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2/repository
+          key: m2-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('INTELLIJ_REF') }}
+      - name: Cache jps-bootstrap self-build
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.INTELLIJ_ROOT }}/out/jps-bootstrap
+          key: jps-bootstrap-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('INTELLIJ_REF') }}
+      - name: Bootstrap intellij-community
+        run: ./scripts/ci/bootstrap_intellij.sh "$INTELLIJ_ROOT"
+      - name: Apply intellij-community overlay
+        run: ./scripts/install-idea-config.sh "$INTELLIJ_ROOT"
+      - name: Run module test runners
+        run: ./scripts/ci/run_test_runners.sh
+
+  build:
+    needs: test
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-15
+            target_os: mac
+            target_arch: aarch64
+            sign: 'true'
+          - os: macos-13
+            target_os: mac
+            target_arch: x64
+            sign: 'true'
+          - os: ubuntu-24.04
+            target_os: linux
+            target_arch: x64
+            sign: 'false'
+          - os: ubuntu-24.04-arm
+            target_os: linux
+            target_arch: aarch64
+            sign: 'false'
+          - os: windows-2022
+            target_os: windows
+            target_arch: x64
+            sign: 'false'
+          - os: windows-11-arm
+            target_os: windows
+            target_arch: aarch64
+            sign: 'false'
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Compute INTELLIJ_ROOT (unix)
+        if: runner.os != 'Windows'
+        run: |
+          INTELLIJ_ROOT="$(dirname "$(pwd -P)")/intellij-community"
+          echo "INTELLIJ_ROOT=$INTELLIJ_ROOT" >> "$GITHUB_ENV"
+        shell: bash
+      - name: Compute INTELLIJ_ROOT (windows)
+        if: runner.os == 'Windows'
+        run: |
+          INTELLIJ_ROOT="$(dirname "$(pwd -W)")/intellij-community"
+          echo "INTELLIJ_ROOT=$INTELLIJ_ROOT" >> "$GITHUB_ENV"
+        shell: bash
+      - name: Cache intellij-community clone
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.INTELLIJ_ROOT }}
+          key: intellij-community-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('INTELLIJ_REF', 'ANDROID_REF') }}
+      - name: Cache Maven dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2/repository
+          key: m2-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('INTELLIJ_REF') }}
+      - name: Cache jps-bootstrap self-build
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.INTELLIJ_ROOT }}/out/jps-bootstrap
+          key: jps-bootstrap-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('INTELLIJ_REF') }}
+      - name: Bootstrap intellij-community
+        run: ./scripts/ci/bootstrap_intellij.sh "$INTELLIJ_ROOT"
+        shell: bash
+      - name: Apply intellij-community overlay
+        run: ./scripts/install-idea-config.sh "$INTELLIJ_ROOT"
+        shell: bash
+      - name: Set up signing identity (mac only)
+        if: matrix.sign == 'true'
+        env:
+          P12_BASE64: ${{ secrets.APPLE_DEVELOPER_ID_P12 }}
+          P12_PASSWORD: ${{ secrets.APPLE_DEVELOPER_ID_P12_PASSWORD }}
+        run: ./scripts/ci/setup_mac_signing.sh
+      - name: Stage Apple API key (mac only)
+        if: matrix.sign == 'true'
+        env:
+          APPLE_API_KEY_P8: ${{ secrets.APPLE_API_KEY_P8 }}
+        run: ./scripts/ci/stage_apple_api_key.sh
+      - name: Build installer
+        env:
+          TERMLAB_TARGET_OS: ${{ matrix.target_os }}
+          TERMLAB_TARGET_ARCH: ${{ matrix.target_arch }}
+          TERMLAB_BUILD_MODE: prod
+          TERMLAB_REUSE_COMPILED_CLASSES: 'false'
+          TERMLAB_MAC_CODESIGN_TEAM_NAME: ${{ vars.TERMLAB_MAC_CODESIGN_TEAM_NAME }}
+          TERMLAB_MAC_CODESIGN_TEAM_ID: ${{ vars.TERMLAB_MAC_CODESIGN_TEAM_ID }}
+          APPLE_ISSUER_ID: ${{ secrets.APPLE_API_ISSUER_ID }}
+          APPLE_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+        run: |
+          "$INTELLIJ_ROOT/platform/jps-bootstrap/jps-bootstrap.sh" \
+            "$INTELLIJ_ROOT" intellij.termlab.build TermLabInstallersBuildTarget
+        shell: bash
+      - name: Upload artifacts to draft release
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: ./scripts/ci/upload_artifacts.sh "$RELEASE_TAG"
+        shell: bash
+      - name: Cleanup keychain
+        if: always() && matrix.sign == 'true'
+        run: security delete-keychain "$RUNNER_TEMP/build.keychain" 2>/dev/null || true
+
+  finalize:
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+      - name: Download artifacts from draft release
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          mkdir -p release-artifacts
+          gh release download "$RELEASE_TAG" --dir release-artifacts
+      - name: Generate updates.xml
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          python3 scripts/generate_updates_xml.py \
+            --tag "$RELEASE_TAG" \
+            --artifact-dir release-artifacts
+      - name: Upload updates.xml to draft release
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: gh release upload "$RELEASE_TAG" release-artifacts/updates.xml --clobber
+      - name: Update release notes
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          gh release edit "$RELEASE_TAG" \
+            --notes "Build complete. Review the artifacts below, then publish this draft release manually when ready."
