@@ -1,10 +1,13 @@
 package com.termlab.core;
 
 import com.intellij.ide.AppLifecycleListener;
+import com.intellij.ide.plugins.IdeaPluginDescriptor;
+import com.intellij.ide.plugins.PluginManagerCore;
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.extensions.ExtensionPoint;
 import com.intellij.openapi.extensions.ExtensionsArea;
+import com.intellij.openapi.extensions.PluginId;
 import com.intellij.openapi.options.Configurable;
 import com.intellij.openapi.options.ConfigurableEP;
 import com.intellij.openapi.options.colors.ColorAndFontDescriptorsProvider;
@@ -67,6 +70,7 @@ public final class TermLabEditorSettingsStripper implements AppLifecycleListener
         "com.intellij.openapi.diff.impl.settings.DiffColorsPageFactory";
     private static final String SCOPE_COLORS_FACTORY_CLASS =
         "com.intellij.application.options.colors.ScopeColorsPageFactory";
+    private static final PluginId TERMLAB_CORE_PLUGIN_ID = PluginId.getId("com.termlab.core");
 
     /**
      * Top-level or nested application-scoped pages under the Editor group we
@@ -207,9 +211,14 @@ public final class TermLabEditorSettingsStripper implements AppLifecycleListener
                 return;
             }
             try {
+                IdeaPluginDescriptor termLabDescriptor = PluginManagerCore.getPlugin(TERMLAB_CORE_PLUGIN_ID);
+                if (termLabDescriptor == null) {
+                    LOG.warn("TermLab: failed to replace Color Scheme configurable, core plugin descriptor is missing");
+                    return;
+                }
                 ep.unregisterExtension(extension);
 
-                ConfigurableEP<Configurable> replacement = new ConfigurableEP<>(extension.getPluginDescriptor());
+                ConfigurableEP<Configurable> replacement = new ConfigurableEP<>(termLabDescriptor);
                 replacement.displayName = extension.displayName;
                 replacement.key = extension.key;
                 replacement.bundle = extension.bundle;
@@ -223,7 +232,7 @@ public final class TermLabEditorSettingsStripper implements AppLifecycleListener
                 replacement.childrenEPName = extension.childrenEPName;
                 replacement.treeRendererClass = extension.treeRendererClass;
                 replacement.instanceClass = TermLabColorAndFontOptions.class.getName();
-                ep.registerExtension(replacement, extension.getPluginDescriptor(), ApplicationManager.getApplication());
+                ep.registerExtension(replacement, termLabDescriptor, ApplicationManager.getApplication());
                 LOG.info("TermLab: replaced Color Scheme configurable to strip Console Font");
             } catch (Exception e) {
                 LOG.warn("TermLab: failed to replace Color Scheme configurable", e);

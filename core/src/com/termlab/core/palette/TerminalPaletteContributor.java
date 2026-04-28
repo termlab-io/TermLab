@@ -5,6 +5,7 @@ import com.intellij.icons.AllIcons;
 import com.intellij.ide.actions.searcheverywhere.SearchEverywhereContributor;
 import com.intellij.ide.actions.searcheverywhere.SearchEverywhereContributorFactory;
 import com.intellij.openapi.actionSystem.AnActionEvent;
+import com.intellij.openapi.actionSystem.CommonDataKeys;
 import com.intellij.openapi.fileEditor.FileEditorManager;
 import com.intellij.openapi.progress.ProgressIndicator;
 import com.intellij.openapi.project.Project;
@@ -88,7 +89,16 @@ public final class TerminalPaletteContributor implements SearchEverywhereContrib
 
     @Override
     public @Nullable Object getDataForItem(@NotNull Object element, @NotNull String dataId) {
-        return element;
+        if (!(element instanceof TermLabTerminalVirtualFile file)) {
+            return null;
+        }
+        if (CommonDataKeys.VIRTUAL_FILE.is(dataId)) {
+            return file;
+        }
+        if (CommonDataKeys.VIRTUAL_FILE_ARRAY.is(dataId)) {
+            return new VirtualFile[] { file };
+        }
+        return null;
     }
 
     public static final class Factory implements SearchEverywhereContributorFactory<Object> {
