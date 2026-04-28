@@ -26,7 +26,6 @@ jvm_library(
         "//platform/projectModel-api:projectModel",
         "//platform/util",
         "//platform/util:util-ui",
-        "//libraries/junit5-launcher",
         "@lib//:gson",
         "@lib//:jetbrains-annotations",
         "@lib//:kotlin-stdlib",
@@ -50,16 +49,6 @@ jvm_library(
         "@lib//:gson",
         "@lib//:jetbrains-annotations",
         "@lib//:kotlin-stdlib",
-    ],
-)
-
-java_binary(
-    name = "proxmox_test_runner",
-    main_class = "com.termlab.proxmox.TestRunner",
-    runtime_deps = [
-        ":proxmox_test_lib",
-        "//libraries/junit5-jupiter",
-        "//libraries/junit5-launcher",
     ],
 )
 

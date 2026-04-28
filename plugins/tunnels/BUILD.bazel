@@ -27,7 +27,6 @@ jvm_library(
         "//platform/platform-impl:ide-impl",
         "//platform/projectModel-api:projectModel",
         "//platform/util:util-ui",
-        "//libraries/junit5-launcher",
         "//libraries/sshd-osgi",
         "//libraries/bouncy-castle-provider",
         "@lib//:jetbrains-annotations",
@@ -51,16 +50,6 @@ jvm_library(
         "//libraries/sshd-osgi",
         "@lib//:jetbrains-annotations",
         "@lib//:gson",
-    ],
-)
-
-java_binary(
-    name = "tunnels_test_runner",
-    main_class = "com.termlab.tunnels.TestRunner",
-    runtime_deps = [
-        ":tunnels_test_lib",
-        "//libraries/junit5-jupiter",
-        "//libraries/junit5-launcher",
     ],
 )
 

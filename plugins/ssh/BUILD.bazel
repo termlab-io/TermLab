@@ -29,7 +29,6 @@ jvm_library(
         "//platform/util",
         "//platform/util:util-ui",
         "//libraries/jediterm-core:jediterm-core",
-        "//libraries/junit5-launcher",
         "//libraries/sshd-osgi",
         "//libraries/bouncy-castle-provider",
         "@lib//:jetbrains-annotations",
@@ -59,14 +58,4 @@ jvm_library(
 )
 
 # Standalone test runner — same pattern as plugins/vault.
-java_binary(
-    name = "ssh_test_runner",
-    main_class = "com.termlab.ssh.TestRunner",
-    runtime_deps = [
-        ":ssh_test_lib",
-        "//libraries/junit5-jupiter",
-        "//libraries/junit5-launcher",
-    ],
-)
-
 exports_files(["intellij.termlab.ssh.iml"], visibility = ["//visibility:public"])

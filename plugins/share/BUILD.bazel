@@ -31,7 +31,6 @@ jvm_library(
         "//platform/projectModel-api:projectModel",
         "//platform/util:util-ui",
         "//libraries/bouncy-castle-provider",
-        "//libraries/junit5-launcher",
         "@lib//:jetbrains-annotations",
         "@lib//:gson",
         "@lib//:kotlin-stdlib",
@@ -56,16 +55,6 @@ jvm_library(
         "@lib//:jetbrains-annotations",
         "@lib//:gson",
         "@lib//:kotlin-stdlib",
-    ],
-)
-
-java_binary(
-    name = "share_test_runner",
-    main_class = "com.termlab.share.TestRunner",
-    runtime_deps = [
-        ":share_test_lib",
-        "//libraries/junit5-jupiter",
-        "//libraries/junit5-launcher",
     ],
 )
 

@@ -34,7 +34,7 @@
     <orderEntry type="library" name="kotlin-stdlib" level="project" />
     <orderEntry type="library" name="gson" level="project" />
     <orderEntry type="library" scope="TEST" name="JUnit5" level="project" />
-    <orderEntry type="library" name="JUnit6Launcher" level="project" />
+    <orderEntry type="library" scope="TEST" name="JUnit6Launcher" level="project" />
     <orderEntry type="module" module-name="intellij.platform.eel" />
   </component>
 </module>

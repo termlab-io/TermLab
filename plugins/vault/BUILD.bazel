@@ -28,7 +28,6 @@ jvm_library(
         "//platform/util-ex",
         "//platform/credential-store",
         "//libraries/bouncy-castle-provider",
-        "//libraries/junit5-launcher",
         "@lib//:jetbrains-annotations",
         "@lib//:gson",
         "@lib//:kotlin-stdlib",
@@ -53,20 +52,6 @@ jvm_library(
         "@lib//:jetbrains-annotations",
         "@lib//:gson",
         "@lib//:kotlin-stdlib",
-    ],
-)
-
-# Standalone test runner: runs the full vault Phase 1 test tree via the
-# JUnit 5 platform launcher. Invoke with:
-#     bash bazel.cmd run //termlab/plugins/vault:vault_test_runner
-# Exits 0 on all-pass, non-zero on any failure.
-java_binary(
-    name = "vault_test_runner",
-    main_class = "com.termlab.vault.TestRunner",
-    runtime_deps = [
-        ":vault_test_lib",
-        "//libraries/junit5-jupiter",
-        "//libraries/junit5-launcher",
     ],
 )
 

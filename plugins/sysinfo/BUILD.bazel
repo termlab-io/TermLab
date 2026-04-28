@@ -16,7 +16,6 @@ jvm_library(
     deps = [
         "//termlab/core",
         "//termlab/plugins/ssh",
-        "//libraries/junit5-launcher",
         "//libraries/sshd-osgi",
         "//platform/core-api:core",
         "//platform/core-impl",
@@ -48,16 +47,6 @@ jvm_library(
         "//platform/util",
         "@lib//:jetbrains-annotations",
         "@lib//:kotlin-stdlib",
-    ],
-)
-
-java_binary(
-    name = "sysinfo_test_runner",
-    main_class = "com.termlab.sysinfo.TestRunner",
-    runtime_deps = [
-        ":sysinfo_test_lib",
-        "//libraries/junit5-jupiter",
-        "//libraries/junit5-launcher",
     ],
 )
 

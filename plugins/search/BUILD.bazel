@@ -31,7 +31,6 @@ jvm_library(
         "//platform/util",
         "//platform/util/text-matching",
         "//platform/util:util-ui",
-        "//libraries/junit5-launcher",
         "//libraries/sshd-osgi",
         "@lib//:jetbrains-annotations",
         "@lib//:kotlin-stdlib",
@@ -60,16 +59,6 @@ jvm_library(
         "//platform/util:util-ui",
         "@lib//:jetbrains-annotations",
         "@lib//:kotlin-stdlib",
-    ],
-)
-
-java_binary(
-    name = "search_test_runner",
-    main_class = "com.termlab.search.TestRunner",
-    runtime_deps = [
-        ":search_test_lib",
-        "//libraries/junit5-jupiter",
-        "//libraries/junit5-launcher",
     ],
 )
 

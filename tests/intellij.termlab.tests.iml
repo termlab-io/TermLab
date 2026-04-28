@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<module type="JAVA_MODULE" version="4">
+  <component name="NewModuleRootManager" inherit-compiler-output="true">
+    <exclude-output />
+    <orderEntry type="inheritedJdk" />
+    <orderEntry type="sourceFolder" forTests="false" />
+    <orderEntry type="module" module-name="intellij.termlab.core" scope="TEST" />
+    <orderEntry type="module" module-name="intellij.termlab.editor" scope="TEST" />
+    <orderEntry type="module" module-name="intellij.termlab.proxmox" scope="TEST" />
+    <orderEntry type="module" module-name="intellij.termlab.runner" scope="TEST" />
+    <orderEntry type="module" module-name="intellij.termlab.search" scope="TEST" />
+    <orderEntry type="module" module-name="intellij.termlab.sftp" scope="TEST" />
+    <orderEntry type="module" module-name="intellij.termlab.share" scope="TEST" />
+    <orderEntry type="module" module-name="intellij.termlab.ssh" scope="TEST" />
+    <orderEntry type="module" module-name="intellij.termlab.sysinfo" scope="TEST" />
+    <orderEntry type="module" module-name="intellij.termlab.tunnels" scope="TEST" />
+    <orderEntry type="module" module-name="intellij.termlab.vault" scope="TEST" />
+    <orderEntry type="library" scope="TEST" name="JUnit5" level="project" />
+    <orderEntry type="library" scope="TEST" name="JUnit6" level="project" />
+    <orderEntry type="library" scope="TEST" name="JUnit6Launcher" level="project" />
+    <orderEntry type="library" scope="TEST" name="org.codehaus.groovy:groovy" level="project" />
+  </component>
+</module>

@@ -31,7 +31,6 @@ jvm_library(
         "//platform/platform-impl:ide-impl",
         "//platform/projectModel-api:projectModel",
         "//platform/util:util-ui",
-        "//libraries/junit5-launcher",
         "@lib//:jetbrains-annotations",
         "@lib//:kotlin-stdlib",
     ],
@@ -52,16 +51,6 @@ jvm_library(
         "//platform/util",
         "@lib//:jetbrains-annotations",
         "@lib//:kotlin-stdlib",
-    ],
-)
-
-java_binary(
-    name = "editor_test_runner",
-    main_class = "com.termlab.editor.TestRunner",
-    runtime_deps = [
-        ":editor_test_lib",
-        "//libraries/junit5-jupiter",
-        "//libraries/junit5-launcher",
     ],
 )
 

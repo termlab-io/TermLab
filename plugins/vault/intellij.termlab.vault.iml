@@ -40,6 +40,6 @@
         </SOURCES>
       </library>
     </orderEntry>
-    <orderEntry type="library" name="JUnit6Launcher" level="project" />
+    <orderEntry type="library" scope="TEST" name="JUnit6Launcher" level="project" />
   </component>
 </module>

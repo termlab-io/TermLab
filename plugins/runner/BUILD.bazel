@@ -31,7 +31,6 @@ jvm_library(
         "//platform/projectModel-api:projectModel",
         "//platform/util",
         "//platform/util:util-ui",
-        "//libraries/junit5-launcher",
         "@lib//:gson",
         "@lib//:jetbrains-annotations",
         "@lib//:kotlin-stdlib",
@@ -55,16 +54,6 @@ jvm_library(
         "@lib//:gson",
         "@lib//:jetbrains-annotations",
         "@lib//:kotlin-stdlib",
-    ],
-)
-
-java_binary(
-    name = "runner_test_runner",
-    main_class = "com.termlab.runner.TestRunner",
-    runtime_deps = [
-        ":runner_test_lib",
-        "//libraries/junit5-jupiter",
-        "//libraries/junit5-launcher",
     ],
 )
 
