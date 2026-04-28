@@ -144,7 +144,8 @@ jobs:
         env:
           APPLE_API_KEY_P8: ${{ secrets.APPLE_API_KEY_P8 }}
         run: ./scripts/ci/stage_apple_api_key.sh
-      - name: Build installer
+      - name: Build installer (unix)
+        if: runner.os != 'Windows'
         env:
           TERMLAB_TARGET_OS: ${{ matrix.target_os }}
           TERMLAB_TARGET_ARCH: ${{ matrix.target_arch }}
@@ -158,6 +159,18 @@ jobs:
           "$INTELLIJ_ROOT/platform/jps-bootstrap/jps-bootstrap.sh" \
             "$INTELLIJ_ROOT" intellij.termlab.build TermLabInstallersBuildTarget
         shell: bash
+      - name: Build installer (windows)
+        if: runner.os == 'Windows'
+        env:
+          # jps-bootstrap.sh OS detection only branches on Darwin vs everything-else
+          # and would download a Linux JBR on Git Bash. The .cmd variant detects
+          # Windows correctly and downloads the windows-x64/aarch64 JBR.
+          TERMLAB_TARGET_OS: ${{ matrix.target_os }}
+          TERMLAB_TARGET_ARCH: ${{ matrix.target_arch }}
+          TERMLAB_BUILD_MODE: prod
+          TERMLAB_REUSE_COMPILED_CLASSES: 'false'
+        run: '"%INTELLIJ_ROOT%\platform\jps-bootstrap\jps-bootstrap.cmd" "%INTELLIJ_ROOT%" intellij.termlab.build TermLabInstallersBuildTarget'
+        shell: cmd
       - name: Upload artifacts to draft release
         env:
           GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
