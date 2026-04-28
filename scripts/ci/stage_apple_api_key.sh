@@ -20,6 +20,10 @@ echo "$APPLE_API_KEY_P8" | base64 -d > "$P8_PATH"
 {
   echo "APPLE_PRIVATE_KEY<<TERMLAB_EOF"
   cat "$P8_PATH"
+  # GITHUB_ENV's heredoc parser requires the closing delimiter on its own
+  # line. .p8 files don't always end with a newline, so cat would emit
+  # ...END PRIVATE KEY-----TERMLAB_EOF on one line. Force the boundary.
+  echo
   echo "TERMLAB_EOF"
 } >> "$GITHUB_ENV"
 
