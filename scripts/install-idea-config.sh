@@ -127,11 +127,13 @@ if not m:
 print(m.group(1))
 PYEOF
 )"
+    config_name="${config_name%$'\r'}"  # strip CR (Windows Python emits CRLF)
     sanitized="$(python3 - "$config_name" <<'PYEOF'
 import re, sys
 print(re.sub(r'[^A-Za-z0-9]', '_', sys.argv[1]))
 PYEOF
 )"
+    sanitized="${sanitized%$'\r'}"
     install_run_config "$src" "$RUN_CONFIG_DIR/${sanitized}.xml"
   done
 }
@@ -145,7 +147,12 @@ patch_modules_xml() {
   local ANCHOR SYNC_RESULT
   local -a TERMLAB_MODULES
 
-  mapfile -t TERMLAB_MODULES < <(python3 - "$WORKBENCH_DIR" <<'PYEOF'
+  # Portable read-loop (mapfile is bash 4+, macOS /bin/bash is 3.2). Strip CR
+  # so Windows Python's CRLF stdout doesn't leave trailing \r in array entries.
+  TERMLAB_MODULES=()
+  while IFS= read -r module_path; do
+    TERMLAB_MODULES+=("${module_path%$'\r'}")
+  done < <(python3 - "$WORKBENCH_DIR" <<'PYEOF'
 import os
 import sys
 
@@ -209,6 +216,7 @@ else:
     print("updated")
 PYEOF
 )"
+  SYNC_RESULT="${SYNC_RESULT%$'\r'}"
 
   if [ "$SYNC_RESULT" = "unchanged" ]; then
     echo "==> TermLab modules already synchronized in $MODULES_XML"
@@ -370,6 +378,9 @@ apply_managed_patch() {
 # Dispatch each managed path to its patcher. Each patcher is idempotent,
 # so re-invocations are no-ops; no need to dedupe.
 while IFS= read -r p; do
+  # Strip CR — Python on Windows emits CRLF on stdout in text mode, leaving
+  # a trailing \r that breaks the case-pattern match in apply_managed_patch.
+  p="${p%$'\r'}"
   apply_managed_patch "$p"
 done < <(read_manifest_section "managed")
 

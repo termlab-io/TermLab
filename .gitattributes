@@ -1,0 +1,7 @@
+* text=auto
+
+# Shell scripts and manifests must stay LF — Windows GitHub Actions runners
+# execute these via Git Bash and CRLF breaks shebangs / `read -r` parsing.
+*.sh text eol=lf
+*.bash text eol=lf
+scripts/intellij-managed-paths.txt text eol=lf

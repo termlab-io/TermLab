@@ -22,7 +22,11 @@ if [ ! -d "$ARTIFACT_DIR" ]; then
   exit 1
 fi
 
-mapfile -t FILES < <(find "$ARTIFACT_DIR" -maxdepth 1 -type f \
+# Portable read-loop (mapfile is bash 4+, macOS /bin/bash is 3.2).
+FILES=()
+while IFS= read -r f; do
+  FILES+=("$f")
+done < <(find "$ARTIFACT_DIR" -maxdepth 1 -type f \
   \( -name '*.dmg' -o -name '*.sit' -o -name '*.tar.gz' \
      -o -name '*.exe' -o -name '*.win.zip' -o -name '*.zip' \) | sort)
 
