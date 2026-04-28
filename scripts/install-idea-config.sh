@@ -147,12 +147,15 @@ patch_modules_xml() {
   local ANCHOR SYNC_RESULT
   local -a TERMLAB_MODULES
 
-  # Portable read-loop (mapfile is bash 4+, macOS /bin/bash is 3.2). Strip CR
-  # so Windows Python's CRLF stdout doesn't leave trailing \r in array entries.
+  # Portable read-loop (mapfile is bash 4+, macOS /bin/bash is 3.2). bash 3.2
+  # also can't handle a heredoc inside process substitution (`< <(cmd <<EOF)`)
+  # — the fd 0 redirect for the heredoc collides with the substitution and
+  # bash reports `0: ambiguous redirect`. Pass the script via `-c` instead.
+  # Strip CR so Windows Python's CRLF stdout doesn't leak trailing \r.
   TERMLAB_MODULES=()
   while IFS= read -r module_path; do
     TERMLAB_MODULES+=("${module_path%$'\r'}")
-  done < <(python3 - "$WORKBENCH_DIR" <<'PYEOF'
+  done < <(python3 -c '
 import os
 import sys
 
@@ -169,8 +172,7 @@ for dirpath, dirnames, filenames in os.walk(root):
 
 for module in sorted(modules):
     print(module)
-PYEOF
-)
+' "$WORKBENCH_DIR")
 
   ANCHOR='intellij.compose.ide.plugin.shared.tests.iml'
   if ! grep -q "$ANCHOR" "$MODULES_XML"; then
