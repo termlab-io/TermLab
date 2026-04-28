@@ -2,9 +2,12 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
 import org.jetbrains.intellij.build.BuildOptions
 import org.jetbrains.intellij.build.BuildPaths.Companion.COMMUNITY_ROOT
+import org.jetbrains.intellij.build.CompilationContext
 import org.jetbrains.intellij.build.TestingOptions
 import org.jetbrains.intellij.build.TestingTasks
+import org.jetbrains.intellij.build.impl.asArchived
 import org.jetbrains.intellij.build.impl.createCompilationContext
+import java.nio.file.Files
 
 object TermLabRunTestsBuildTarget {
   private val TERMLAB_PLUGIN_MODULES = listOf(
@@ -50,11 +53,39 @@ object TermLabRunTestsBuildTarget {
         moduleNames = listOf("intellij.tools.testsBootstrap"),
         includingTestsInModules = TERMLAB_PLUGIN_MODULES,
       )
+      diagnoseClasspathPaths(context.asArchived)
       val options = TestingOptions().also {
         if (it.mainModule == null) it.mainModule = "intellij.termlab.tests"
         if (it.testGroups == null) it.testGroups = "ALL_EXCLUDE_DEFINED"
       }
       TestingTasks.create(context, options).runTests()
+    }
+  }
+
+  /**
+   * Mirrors the path-resolution work `TestingTasksImpl.runTestsProcess` does just
+   * before its `require(Files.exists)` check, so the offending path is surfaced in
+   * CI logs instead of just `Failed requirement`.
+   */
+  private suspend fun diagnoseClasspathPaths(context: CompilationContext) {
+    val out = context.outputProvider
+    val testsModule = out.findRequiredModule("intellij.termlab.tests")
+    val bootstrapModule = out.findRequiredModule("intellij.tools.testsBootstrap")
+
+    val testClasspath = context.getModuleRuntimeClasspath(testsModule, forTests = true).toList()
+    val bootstrapClasspath = context.getModuleRuntimeClasspath(bootstrapModule, forTests = false).toList()
+    val testRoots = TERMLAB_PLUGIN_MODULES.flatMap { name ->
+      out.getModuleOutputRoots(out.findRequiredModule(name), forTests = true)
+    }
+
+    listOf(
+      "intellij.termlab.tests testClasspath" to testClasspath,
+      "intellij.tools.testsBootstrap bootstrapClasspath" to bootstrapClasspath,
+      "termlab plugins testRoots (forTests=true)" to testRoots,
+    ).forEach { (label, paths) ->
+      val missing = paths.filterNot { Files.exists(it) }
+      System.err.println("[diagnoseClasspathPaths] $label: ${paths.size} entries, ${missing.size} missing")
+      missing.forEach { System.err.println("[diagnoseClasspathPaths]   MISSING: $it") }
     }
   }
 }
