@@ -27,13 +27,20 @@ object TermLabRunTestsBuildTarget {
     // on each candidate test-output root, which only works for ZIP/JAR files. Setting
     // USE_ARCHIVED_COMPILED_CLASSES routes the context through ArchivedCompilationContext,
     // which archives compiled-class directories to JARs and returns those JAR paths.
+    //
+    // ArchivedCompilationOutputStorage.getArchived() short-circuits and returns paths
+    // unchanged when they don't start with classesOutputDirectory; without classOutDir
+    // pointing at the JPS project output (out/), the archive layer is silently bypassed
+    // and TestingTasks's downstream Files.exists() check on non-existent paths trips.
+    val intellijRoot = COMMUNITY_ROOT.communityRoot
     System.setProperty(TestingOptions.USE_ARCHIVED_COMPILED_CLASSES, "true")
     runBlocking(Dispatchers.Default) {
       val context = createCompilationContext(
-        projectHome = COMMUNITY_ROOT.communityRoot,
-        defaultOutputRoot = COMMUNITY_ROOT.communityRoot.resolve("out/termlab-tests"),
+        projectHome = intellijRoot,
+        defaultOutputRoot = intellijRoot.resolve("out/termlab-tests"),
         options = BuildOptions().also {
           it.useTestCompilationOutput = true
+          it.classOutDir = intellijRoot.resolve("out").toString()
         },
       )
       // TestingTasks compiles only mainModule's tests by default. Our mainModule
