@@ -31,6 +31,9 @@ public final class EditorCloseConfirmationListener
         if (file.getUserData(ScratchMarker.SKIP_CLOSE_CONFIRMATION_KEY) == Boolean.TRUE) return;
         if (file.getUserData(FileEditorManagerKeys.CLOSING_TO_REOPEN) == Boolean.TRUE) return;
         if (file.getUserData(FileEditorManagerKeys.REOPEN_WINDOW) == Boolean.TRUE) return;
+        if (file.getUserData(ScratchMarker.CLOSE_CANCELLED_KEY) == Boolean.TRUE) {
+            throw new ProcessCanceledException();
+        }
         if (file.getUserData(ScratchMarker.PRE_CLOSE_HANDLED_KEY) == Boolean.TRUE) return;
 
         FileDocumentManager documentManager = FileDocumentManager.getInstance();
@@ -60,6 +63,7 @@ public final class EditorCloseConfirmationListener
             );
 
             if (choice == Messages.CANCEL) {
+                markCloseCancelled(file);
                 throw new ProcessCanceledException();
             }
 
@@ -106,10 +110,17 @@ public final class EditorCloseConfirmationListener
     private static void handlePostClose(@NotNull FileEditorManager source, @NotNull VirtualFile file) {
         boolean preCloseHandled = file.getUserData(ScratchMarker.PRE_CLOSE_HANDLED_KEY) == Boolean.TRUE;
         boolean wasModified = file.getUserData(ScratchMarker.PENDING_CLOSE_WAS_MODIFIED_KEY) == Boolean.TRUE;
+        boolean closeCancelled = file.getUserData(ScratchMarker.CLOSE_CANCELLED_KEY) == Boolean.TRUE;
         clearPendingCloseState(file);
 
         Project project = source.getProject();
         if (project.isDisposed()) return;
+        if (closeCancelled) {
+            if (!source.isFileOpen(file)) {
+                reopenAfterClose(source, file);
+            }
+            return;
+        }
         if (source.isFileOpen(file)) return;
         if (file.getUserData(FileEditorManagerKeys.CLOSING_TO_REOPEN) == Boolean.TRUE) return;
         if (file.getUserData(FileEditorManagerKeys.REOPEN_WINDOW) == Boolean.TRUE) return;
@@ -194,10 +205,18 @@ public final class EditorCloseConfirmationListener
         file.putUserData(ScratchMarker.PENDING_CLOSE_WAS_MODIFIED_KEY, Boolean.FALSE);
     }
 
+    private static void markCloseCancelled(@NotNull VirtualFile file) {
+        if (!ScratchMarker.isMarkedScratch(file)) return;
+        file.putUserData(ScratchMarker.CLOSE_CANCELLED_KEY, Boolean.TRUE);
+        file.putUserData(ScratchMarker.PENDING_CLOSE_HANDLING_KEY, Boolean.TRUE);
+        file.putUserData(ScratchMarker.PENDING_CLOSE_WAS_MODIFIED_KEY, Boolean.TRUE);
+    }
+
     private static void clearPendingCloseState(@NotNull VirtualFile file) {
         file.putUserData(ScratchMarker.PENDING_CLOSE_HANDLING_KEY, null);
         file.putUserData(ScratchMarker.PENDING_CLOSE_WAS_MODIFIED_KEY, null);
         file.putUserData(ScratchMarker.PRE_CLOSE_HANDLED_KEY, null);
+        file.putUserData(ScratchMarker.CLOSE_CANCELLED_KEY, null);
     }
 
     private static void deleteScratchAfterClose(@NotNull VirtualFile file) {

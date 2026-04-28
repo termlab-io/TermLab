@@ -9,6 +9,16 @@ import com.intellij.openapi.project.Project
 import com.intellij.openapi.startup.ProjectActivity
 import com.intellij.ide.util.PropertiesComponent
 import com.intellij.openapi.wm.ToolWindowManager
+import java.awt.BorderLayout
+import java.awt.Component
+import java.awt.Container
+import java.awt.Window
+import javax.swing.JButton
+import javax.swing.JCheckBox
+import javax.swing.JDialog
+import javax.swing.JPanel
+import javax.swing.SwingUtilities
+import javax.swing.Timer
 import java.util.concurrent.ThreadLocalRandom
 
 class TermLabTipsStartupActivity : ProjectActivity {
@@ -38,6 +48,7 @@ class TermLabTipsStartupActivity : ProjectActivity {
         kotlinx.coroutines.runBlocking {
           tipManager.showTipDialog(project, tip)
         }
+        installShowTipsOnStartupCheckBox()
       }
     }
   }
@@ -66,6 +77,88 @@ class TermLabTipsStartupActivity : ProjectActivity {
 
     private fun rememberStartupTip(tip: TipAndTrickBean) {
       PropertiesComponent.getInstance().setValue(LAST_STARTUP_TIP_ID, tip.id)
+    }
+
+    private fun installShowTipsOnStartupCheckBox() {
+      SwingUtilities.invokeLater {
+        val timer = Timer(100, null)
+        timer.addActionListener(object : java.awt.event.ActionListener {
+          private var attempts = 0
+
+          override fun actionPerformed(event: java.awt.event.ActionEvent) {
+            attempts++
+            if (installShowTipsOnStartupCheckBoxNow() || attempts >= 30) {
+              timer.stop()
+            }
+          }
+        })
+        timer.isRepeats = true
+        timer.start()
+      }
+    }
+
+    private fun installShowTipsOnStartupCheckBoxNow(): Boolean {
+      val dialog = Window.getWindows()
+        .filterIsInstance<JDialog>()
+        .firstOrNull { it.isShowing && it.title == "Tip of the Day" }
+        ?: return false
+
+      if (findComponent(dialog.rootPane) { it is JCheckBox && it.text == "Show tips on startup" } != null) {
+        return true
+      }
+
+      val closeButton = findComponent(dialog.rootPane) { it is JButton && it.text == "Close" } ?: return false
+      val buttonPanel = closeButton.parent ?: return false
+      val settings = GeneralSettings.getInstance()
+      val checkBox = JCheckBox("Show tips on startup", settings.isShowTipsOnStartup)
+      checkBox.addActionListener {
+        settings.isShowTipsOnStartup = checkBox.isSelected
+      }
+
+      val southPanel = findAncestor(buttonPanel) { panel ->
+        panel.layout is BorderLayout && SwingUtilities.isDescendingFrom(buttonPanel, panel)
+      } ?: buttonPanel
+
+      if (southPanel.layout is BorderLayout) {
+        val leftPanel = JPanel()
+        leftPanel.isOpaque = false
+        leftPanel.add(checkBox)
+        southPanel.add(leftPanel, BorderLayout.WEST)
+      }
+      else {
+        buttonPanel.add(checkBox, 0)
+      }
+
+      southPanel.revalidate()
+      southPanel.repaint()
+      dialog.pack()
+      return true
+    }
+
+    private fun findAncestor(component: Component, predicate: (Container) -> Boolean): Container? {
+      var parent = component.parent
+      while (parent != null) {
+        if (predicate(parent)) {
+          return parent
+        }
+        parent = parent.parent
+      }
+      return null
+    }
+
+    private fun findComponent(root: Component, predicate: (Component) -> Boolean): Component? {
+      if (predicate(root)) {
+        return root
+      }
+      if (root is Container) {
+        for (child in root.components) {
+          val match = findComponent(child, predicate)
+          if (match != null) {
+            return match
+          }
+        }
+      }
+      return null
     }
   }
 }

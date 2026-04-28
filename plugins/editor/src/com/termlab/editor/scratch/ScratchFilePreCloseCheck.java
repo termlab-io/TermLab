@@ -13,6 +13,8 @@ import com.intellij.openapi.vfs.VirtualFilePreCloseCheck;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+import javax.swing.Timer;
+
 /** Prompts for unsaved TermLab scratches before the editor tab is closed. */
 public final class ScratchFilePreCloseCheck implements VirtualFilePreCloseCheck {
 
@@ -55,6 +57,7 @@ public final class ScratchFilePreCloseCheck implements VirtualFilePreCloseCheck 
         );
 
         if (choice == Messages.CANCEL) {
+            markScratchCloseCancelled(file);
             return false;
         }
 
@@ -81,6 +84,22 @@ public final class ScratchFilePreCloseCheck implements VirtualFilePreCloseCheck 
         file.putUserData(ScratchMarker.PRE_CLOSE_HANDLED_KEY, Boolean.TRUE);
         file.putUserData(ScratchMarker.PENDING_CLOSE_HANDLING_KEY, Boolean.TRUE);
         file.putUserData(ScratchMarker.PENDING_CLOSE_WAS_MODIFIED_KEY, Boolean.FALSE);
+    }
+
+    private static void markScratchCloseCancelled(@NotNull VirtualFile file) {
+        if (!ScratchMarker.isMarkedScratch(file)) return;
+        file.putUserData(ScratchMarker.CLOSE_CANCELLED_KEY, Boolean.TRUE);
+        file.putUserData(ScratchMarker.PENDING_CLOSE_HANDLING_KEY, Boolean.TRUE);
+        file.putUserData(ScratchMarker.PENDING_CLOSE_WAS_MODIFIED_KEY, Boolean.TRUE);
+        Timer timer = new Timer(1000, __ -> {
+            if (file.getUserData(ScratchMarker.CLOSE_CANCELLED_KEY) == Boolean.TRUE) {
+                file.putUserData(ScratchMarker.CLOSE_CANCELLED_KEY, null);
+                file.putUserData(ScratchMarker.PENDING_CLOSE_HANDLING_KEY, null);
+                file.putUserData(ScratchMarker.PENDING_CLOSE_WAS_MODIFIED_KEY, null);
+            }
+        });
+        timer.setRepeats(false);
+        timer.start();
     }
 
     private static @Nullable Project findProjectFor(@NotNull VirtualFile file) {
